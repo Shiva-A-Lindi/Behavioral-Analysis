@@ -71,9 +71,9 @@ class Frame:
 class LED_class:
     ''' class holding masks of LEDs on the frame '''
     
-    def __init__(self):
+    def __init__(self,on_thresh):
         
-        self.On_thresh = 50 # the threshold above which the LED is presumed to be on
+        self.On_thresh = on_thresh # the threshold above which the LED is presumed to be on
         self.mask = dict([('Cue',None),('R_pad',None), ('L_pad',None), ('laser',None), ('reward', None)])
         self.intensity = np.zeros((len(self.mask)))
         self.switch = np.zeros((len(self.mask)))
@@ -91,7 +91,9 @@ def get_one_frame_from_video(videoPath):
     video=Video()
     video.capture = cv2.VideoCapture(videoPath)
     ret, video.currentFrame = video.capture.read()
-    this_frame = cv2.cvtColor(video.currentFrame[400:-1 , 0:-1], cv2.COLOR_BGR2GRAY)   
+#    this_frame = cv2.cvtColor(video.currentFrame[y0:y1 , x0:x1], cv2.COLOR_BGR2GRAY)   
+    this_frame = cv2.cvtColor(video.currentFrame, cv2.COLOR_BGR2GRAY)   
+
     video.capture.release()
     return this_frame
 
@@ -147,6 +149,52 @@ def get_circles(img):
     cv2.destroyAllWindows()
     return circles_cor
 
+def crop(img):
+    ''' get the center and one point on the edge for each circle you want to 
+    detect with mouse clicks on the frame shown in a pop up window '''
+    
+    global press, inputs, n_points
+    n_points = 2 # number of circles to be identified
+    press = False
+    inputs = []
+    def get_corners_by_click(event, x, y, flags, param):
+        # grab references to the global variables
+        global press, inputs
+        for n in range(n_points):
+        	if event == cv2.EVENT_LBUTTONDOWN and press == False:
+        		inputs.append([x, y])
+        		press = True
+        	# check to see if the left mouse button was released
+        	elif event == cv2.EVENT_LBUTTONUP:
+        		press = False
+        
+    print("specify the left and right corner for cropping")    
+    cv2.namedWindow("specify corners")
+    cv2.setMouseCallback("specify corners", get_corners_by_click)
+    # keep looping until the 'q' key is pressed
+    while True:
+    	# display the image and wait for a keypress
+        cv2.imshow("specify corners", img)
+        if cv2.waitKey(1)==27 or len(inputs)==2:
+            break
+    
+    crop_cor = np.zeros((n_points,2))
+    inputs = np.int16(np.array(inputs))
+    crop_cor = inputs[:2]
+
+    cimg = cv2.cvtColor(img[crop_cor[0,1]:crop_cor[1,1], crop_cor[0,0]:crop_cor[1,0] ],cv2.COLOR_GRAY2BGR)
+    print("corners:", crop_cor)
+
+    print("press esc when you're done to close the windows")
+    while True:
+    	# display the image and wait for a keypress
+        cv2.imshow("cropped frame", cimg)
+        if cv2.waitKey(1)==27:
+            break
+    cv2.destroyAllWindows()
+    x0,x1,y0,y1 = crop_cor[0,0],crop_cor[1,0],crop_cor[0,1],crop_cor[1,1]
+    return x0,x1,y0,y1
+
 def write_to_csv(data,colnames, videoPath):
     ''' get the numpy array with the column naames and save it as a csv '''
     csv_path = videoPath[:-4]+'_LED.csv'
@@ -167,7 +215,7 @@ def build_videoPath_list(path):
 #        print(i)
     return videofile_path
 
-def analyze_video(videoPath):
+def analyze_video(videoPath,x0,x1,y0,y1,on_thresh):
     video=Video()
     video.capture = cv2.VideoCapture(videoPath)
     video.width = int(video.capture.get(cv2.CAP_PROP_FRAME_WIDTH))  # float
@@ -175,18 +223,19 @@ def analyze_video(videoPath):
     #video.fps = video.capture.get(cv2.CAP_PROP_FPS)
     video.nbFrames=int(video.capture.get(7))
     
-    x0,x1 = [0 , video.width]
-    y0,y1 = [400 , video.height]
+#    x0,x1 = [0 , video.width]
+#    y0,y1 = [400 , video.height]
     
     frame = Frame()
     frame.set_properties(x0,x1,y0,y1)
     
-    LED = LED_class()
+    LED = LED_class(on_thresh)
     
     if video.nbFrames != 0: # if th evideo is readable
         LED.get_pix(circles_cor,frame) # set the masks for each LED in the LED class
         LED_on_off, columns = analyze_frame(video,frame,LED)
         write_to_csv(LED_on_off, columns, videoPath)
+        
 
 def analyze_frame(video,frame,LED):
     n = 0
@@ -215,9 +264,17 @@ def analyze_frame(video,frame,LED):
 
             ind, = np.where(LED.intensity > LED.On_thresh)
             LED.switch[ind] = 1 # if the intensity psses the thresh consider as swithched ON
+#            if LED.switch[2] == 1:
+#                print(n,LED.intensity[2])
+#                cv2.imshow('detected circles',img)
+##                cv2.waitKey(0)
+#                if cv2.waitKey(1)==27:
+#                    cv2.destroyAllWindows()
+
             LED_on_off[n-1,:] = LED.switch
 
         except (AttributeError,TypeError):
+            print("No more readable frmaes or Couldn't open video")
             LED_on_off = np.delete(LED_on_off,np.arange(n,LED_on_off.shape[0]),axis = 0) # return the array for the detected frames
             break
         if cv2.waitKey(1)==27 or n == video.nbFrames: video.capture.release()
@@ -226,30 +283,58 @@ def analyze_frame(video,frame,LED):
 
     return LED_on_off,LED.mask.keys()
 
+def check_intensity_threshold(image,x0,x1,y0,y1):
+    ''' show the derived average intensities of LEDs for one 
+        frame and get the on-theshold from the user as input'''
+    frame = Frame()
+    frame.set_properties(x0,x1,y0,y1)
+    LED = LED_class(on_thresh = 80)
+    LED.get_pix(circles_cor,frame) # set the masks for each LED in the LED class
+
+    img = image[y0:y1,x0:x1]
+    img = cv2.medianBlur(img,5)
+    cir_count = 0
+    for i in LED.mask.keys():
+        img_copy = img.copy()
+        img_copy[LED.mask[i] == 0] = 0 # mask the complement of the circle
+#                cv2.imshow("mask circles", img_copy)
+#                cv2.waitKey(0)
+        average_inten = np.sum(img_copy)/np.count_nonzero(img_copy)
+        LED.intensity[cir_count] = average_inten
+        cir_count = cir_count + 1
+
+    print("average pix inensities for LEDs are: \n",np.around(LED.intensity))
+    print("press esc then input the mean pix intensity for LED-on threshold: ")
+    cv2.imshow('frame',image)
+    cv2.waitKey(0)
+    
+    on_thresh = int(input()) # get the threshold as input
+    cv2.destroyAllWindows()
+    return on_thresh
+
 #%% 
 
-# Rat_2
+##Rat_2
     
-#path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_2"
-#videoPath='/home/shiva/Desktop/Sophie/Left/Rat2_ArchT3_20mW_20190523_141130_C001H002S0001.avi'
-#circles_cor = np.uint16(np.array([[34, 80, 14],[108, 90, 16],[184, 93, 18],[263, 93, 18],[343, 93, 18]]))
+path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_2"
 
-# Rat_12
-    
-path ="/media/shiva/LaCie/VideoRat_Sophie/videos_Rat12"
-videoPath='/media/shiva/LaCie/VideoRat_Sophie/videos_Rat12/14-06-19/Rat 12 head 1 6OHDA x2 14-06-19_20190614_080116_C001H001S0001.avi'
-
+## Rat_12
+   
+#path ="/media/shiva/LaCie/VideoRat_Sophie/videos_Rat12"
 
 
 videoPath_list = build_videoPath_list(path) #get list of video paths
-image = get_one_frame_from_video(videoPath) # get one frame to specify circle coordinates on
-circles_cor = get_circles(image) # specify circles on the frame
-
+image = get_one_frame_from_video(videoPath_list[0]) # get one frame to specify circle coordinates on
+x0,x1,y0,y1 = crop(image) # get coordinates for cropping
+cropped_image = image[y0:y1,x0:x1]
+circles_cor = get_circles(cropped_image) # specify circles on the frame
+on_thresh = check_intensity_threshold(image,x0,x1,y0,y1)
+print("on_thresh = ", on_thresh)
 c = 0
 for videoPath in videoPath_list:
     c += 1
     print("files left = ", len(videoPath_list)-c)
-    analyze_video(videoPath)
+    analyze_video(videoPath, x0,x1,y0,y1,on_thresh)
 
 
 
