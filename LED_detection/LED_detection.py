@@ -71,13 +71,13 @@ class Frame:
 class LED_class:
     ''' class holding masks of LEDs on the frame '''
     
-    def __init__(self,on_thresh):
+    def __init__(self):
         
-        self.On_thresh = on_thresh # the threshold above which the LED is presumed to be on
         self.mask = dict([('Cue',None),('R_pad',None), ('L_pad',None), ('laser',None), ('reward', None)])
         self.intensity = np.zeros((len(self.mask)))
+        self.On_thresh = np.zeros((len(self.mask))) # the threshold above which the LED is presumed to be on
+
         self.switch = np.zeros((len(self.mask)))
-        
     def get_pix(self,circles_cor,frame):
         
         count = 0
@@ -222,24 +222,41 @@ def analyze_video(videoPath,x0,x1,y0,y1,on_thresh):
     video.height = int(video.capture.get(cv2.CAP_PROP_FRAME_HEIGHT)) # float
     #video.fps = video.capture.get(cv2.CAP_PROP_FPS)
     video.nbFrames=int(video.capture.get(7))
-    
-#    x0,x1 = [0 , video.width]
-#    y0,y1 = [400 , video.height]
+
     
     frame = Frame()
     frame.set_properties(x0,x1,y0,y1)
     
-    LED = LED_class(on_thresh)
+    LED = LED_class()
+    LED.On_thresh = on_thresh
+    if video.nbFrames != 0: # if th evideo is readable
+        LED.get_pix(circles_cor,frame) # set the masks for each LED in the LED class
+        LED_on_off, columns,on_threshold = analyze_frame(video,frame,LED)
+        write_to_csv(LED_on_off, columns, videoPath)
+        
+def find_on_threshold(videoPath,x0,x1,y0,y1):
+    print("Wait while the thresholds are set...")
+    video=Video()
+    video.capture = cv2.VideoCapture(videoPath)
+    video.width = int(video.capture.get(cv2.CAP_PROP_FRAME_WIDTH))  # float
+    video.height = int(video.capture.get(cv2.CAP_PROP_FRAME_HEIGHT)) # float
+    #video.fps = video.capture.get(cv2.CAP_PROP_FPS)
+    video.nbFrames=int(video.capture.get(7))
+    
+    frame = Frame()
+    frame.set_properties(x0,x1,y0,y1)
+    
+    LED = LED_class()
     
     if video.nbFrames != 0: # if th evideo is readable
         LED.get_pix(circles_cor,frame) # set the masks for each LED in the LED class
-        LED_on_off, columns = analyze_frame(video,frame,LED)
-        write_to_csv(LED_on_off, columns, videoPath)
-        
+        LED_on_off, columns, on_threshold = analyze_frame(video,frame,LED)
+    return on_threshold
 
 def analyze_frame(video,frame,LED):
     n = 0
     LED_on_off = np.zeros((video.nbFrames,len(LED.mask)),dtype= int) # stores the state of each LED for each frame
+    LED_intensity = np.zeros((video.nbFrames,len(LED.mask)))
     start = timeit.default_timer()
     while(video.capture.isOpened()):
         n = n +1
@@ -262,17 +279,17 @@ def analyze_frame(video,frame,LED):
                 LED.intensity[cir_count] = average_inten
                 cir_count = cir_count + 1
 
-            ind, = np.where(LED.intensity > LED.On_thresh)
+            ind, = np.where((LED.intensity - LED.On_thresh) > 0)
             LED.switch[ind] = 1 # if the intensity psses the thresh consider as swithched ON
-#            if LED.switch[2] == 1:
-#                print(n,LED.intensity[2])
+#            if frame.no == np.random.randint(video.nbFrames):
+#                print(LED.intensity,LED.switch)
 #                cv2.imshow('detected circles',img)
 ##                cv2.waitKey(0)
 #                if cv2.waitKey(1)==27:
 #                    cv2.destroyAllWindows()
 
             LED_on_off[n-1,:] = LED.switch
-
+            LED_intensity[n-1,:] = LED.intensity
         except (AttributeError,TypeError):
             print("No more readable frmaes or Couldn't open video")
             LED_on_off = np.delete(LED_on_off,np.arange(n,LED_on_off.shape[0]),axis = 0) # return the array for the detected frames
@@ -280,8 +297,18 @@ def analyze_frame(video,frame,LED):
         if cv2.waitKey(1)==27 or n == video.nbFrames: video.capture.release()
     stop = timeit.default_timer()
     print('runtime = ', int(stop - start)," sec")
-
-    return LED_on_off,LED.mask.keys()
+    # return the onthreshold as the average of the max and min intensity
+    max_intensity = np.amax(LED_intensity, axis = 0)
+    min_intensity = np.amin(LED_intensity, axis = 0)    
+    LED.on_threshold = (max_intensity - min_intensity)/4 + min_intensity
+    ind_bad, = np.where(max_intensity - min_intensity < 20) # the LED never turned on which happens for Cue
+    #but we don't wanna mis that in the next videos so wer set an average threshold of others
+    if len(ind_bad) != 0:
+        ind_good_to_go, = np.where(max_intensity - min_intensity > 20)
+        LED.on_threshold[ind_bad] = np.average(LED.on_threshold[ind_good_to_go]) 
+    print("max inten = ", max_intensity)
+    print("min inten = ", min_intensity)
+    return LED_on_off,LED.mask.keys(),LED.on_threshold
 
 def check_intensity_threshold(image,x0,x1,y0,y1):
     ''' show the derived average intensities of LEDs for one 
@@ -313,30 +340,43 @@ def check_intensity_threshold(image,x0,x1,y0,y1):
     return on_thresh
 
 #%% 
+##Rat_1
+    
+#path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_1"
 
 ##Rat_2
     
 path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_2"
+    
+##Rat_3
+    
+#path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_3"
 
 ## Rat_12
    
 #path ="/media/shiva/LaCie/VideoRat_Sophie/videos_Rat12"
 
+##Rat_21
+    
+#path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_21"
 
 videoPath_list = build_videoPath_list(path) #get list of video paths
 image = get_one_frame_from_video(videoPath_list[0]) # get one frame to specify circle coordinates on
 x0,x1,y0,y1 = crop(image) # get coordinates for cropping
 cropped_image = image[y0:y1,x0:x1]
 circles_cor = get_circles(cropped_image) # specify circles on the frame
-on_thresh = check_intensity_threshold(image,x0,x1,y0,y1)
+#on_thresh = check_intensity_threshold(image,x0,x1,y0,y1) # to set the threshold manually
+on_thresh = find_on_threshold(videoPath_list[0],x0,x1,y0,y1)
 print("on_thresh = ", on_thresh)
 c = 0
+#print(videoPath_list[0])
+#videoPath = videoPath_list[0]
 for videoPath in videoPath_list:
     c += 1
-    print("files left = ", len(videoPath_list)-c)
+    print("files left = ", len(videoPath_list)-c+1)
     analyze_video(videoPath, x0,x1,y0,y1,on_thresh)
 
-
+cv2.destroyAllWindows()
 
 #%%         Find circles with OpenCV and show
 video=Video()
