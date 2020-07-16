@@ -270,8 +270,8 @@ def build_videoPath_list(path):
     for (dirpath, dirnames, filenames) in walk(path):
     
         for f in filenames:
-    #         if dirpath[-4:]=='Left':
-    #             fname.append(os.path.join(dirpath, f))
+             if dirpath[-4:]=='Left':
+                 fname.append(os.path.join(dirpath, f))
             fname.append(os.path.join(dirpath, f))
     videofile_path = [ fi for fi in fname if fi.endswith(".avi") ]
 #    for i in videofile_path:
@@ -323,6 +323,7 @@ def find_on_threshold(videoPath_list,x0,x1,y0,y1):
     return on_threshold
 
 def analyze_frame(video,frame,LED):
+    global LED_intensity
     n = 0
     LED_on_off = np.zeros((video.nbFrames,len(LED.mask)),dtype= int) # stores the state of each LED for each frame
     LED_intensity = np.zeros((video.nbFrames,len(LED.mask)))
@@ -354,7 +355,7 @@ def analyze_frame(video,frame,LED):
 
             ind, = np.where((LED.intensity - LED.On_thresh) > 0)
             LED.switch[ind] = 1 # if the intensity psses the thresh consider as swithched ON
-#            if frame.no == np.random.randint(video.nbFrames):
+#            if sum(LED.intensity) == 0:
 #                print(LED.intensity,LED.switch)
 #                cv2.imshow('detected circles',img)
 ##                cv2.waitKey(0)
@@ -363,13 +364,20 @@ def analyze_frame(video,frame,LED):
 
             LED_on_off[n-1,:] = LED.switch
             LED_intensity[n-1,:] = LED.intensity
-        except (AttributeError,TypeError):
-            video_corrupted = True
-            if video.nbFrames == 0: print("Couldn't open video")
-            else:  print("No more readable frames",'\n',"number of frames read = ",frame.no)
-            LED_on_off = np.delete(LED_on_off,np.arange(n,LED_on_off.shape[0]),axis = 0) # return the array for the detected frames
-            break
+        except TypeError: # TypeError ==> no more readable frames, AttributeError ==> couldn't open video at all
+            print("No more readable frames",'\n',"number of frames read = ",frame.no)
+            if n > 1500: # 1500 frames is enough for setting threshold
+                break
+            else:
+                if video.nbFrames == 0: print("Couldn't open video")
+                video_corrupted = True
+                break
+#            LED_on_off = np.delete(LED_on_off,np.arange(n,LED_on_off.shape[0]),axis = 0) # return the array for the detected frames
+            
         if cv2.waitKey(1)==27 or n == video.nbFrames: video.capture.release()
+    
+    LED_intensity = np.delete(LED_intensity,np.arange(n-1,LED_intensity.shape[0]),axis = 0)
+    LED_on_off = np.delete(LED_on_off,np.arange(n-1,LED_on_off.shape[0]),axis = 0)
     stop = timeit.default_timer()
     print('runtime = ', int(stop - start)," sec")
     # return the onthreshold as the average of the max and min intensity
@@ -415,28 +423,29 @@ def check_intensity_set_threshold(image,x0,x1,y0,y1):
     return on_thresh
 
 #%% 
-##Rat_1
-    
+##Rat_1   
 #path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_1"
 
-##Rat_2
-    
+##Rat_2  
 #path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_2"
     
 ##Rat_3
+#path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_3"
     
-path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_3"
-    
-##Rat_4
+##Rat_4 
 #path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_4"
 
-## Rat_12
-   
+##Rat_12
 #path ="/media/shiva/LaCie/VideoRat_Sophie/videos_Rat12"
 
-##Rat_21
-    
+##Rat_21 
 #path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_21"
+    
+##Rat_102  
+#path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_102"
+    
+##Rat_36 
+path ="/media/shiva/LaCie/VideoRat_Sophie/videos_Rat36"
 
 videoPath_list = build_videoPath_list(path) #get list of video paths
 image = get_one_frame_from_video(videoPath_list[0]) # get one frame to specify circle coordinates on
