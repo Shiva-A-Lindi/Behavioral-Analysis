@@ -6,25 +6,14 @@ This is a temporary script file.
 """
 
 import cv2
-#from PyQt5 import QtWidgets,QtCore,QtGui
 import csv
 import numpy as np
 import pandas as pd
 from os import walk
 import os
-#--------------------------------------------------------------------------------------------------------------------PLAYER
 import timeit
 from threading import Thread
 
-# import the Queue class from Python 3
-import sys
-if sys.version_info >= (3, 0):
-	from queue import Queue
- 
-# otherwise, import the Queue class for Python 2.7
-else:
-	from Queue import Queue
-    
 
 class Video:
     """class for videos
@@ -270,8 +259,8 @@ def build_videoPath_list(path):
     for (dirpath, dirnames, filenames) in walk(path):
     
         for f in filenames:
-             if dirpath[-4:]=='Left':
-                 fname.append(os.path.join(dirpath, f))
+#            if dirpath[-4:]=='Left':
+#                fname.append(os.path.join(dirpath, f))
             fname.append(os.path.join(dirpath, f))
     videofile_path = [ fi for fi in fname if fi.endswith(".avi") ]
 #    for i in videofile_path:
@@ -447,6 +436,7 @@ def check_intensity_set_threshold(image,x0,x1,y0,y1):
 ##Rat_36 
 path ="/media/shiva/LaCie/VideoRat_Sophie/videos_Rat36"
 
+
 videoPath_list = build_videoPath_list(path) #get list of video paths
 image = get_one_frame_from_video(videoPath_list[0]) # get one frame to specify circle coordinates on
 x0,x1,y0,y1 = crop(image) # get coordinates for cropping
@@ -466,41 +456,62 @@ for videoPath in videoPath_list:
 
 cv2.destroyAllWindows()
 
+
+if __name__ == '__main__':
+    videoPath_list = build_videoPath_list(path) #get list of video paths
+    image = get_one_frame_from_video(videoPath_list[0]) # get one frame to specify circle coordinates on
+    x0,x1,y0,y1 = crop(image) # get coordinates for cropping
+    pad_ends,lever = get_pad_and_lever_from_user(image)
+    cropped_image = image[y0:y1,x0:x1]
+    circles_cor = get_circles(cropped_image) # specify circles on the frame
+    #on_thresh = check_intensity_threshold(image,x0,x1,y0,y1) # to set the threshold manually
+    on_thresh = find_on_threshold(videoPath_list,x0,x1,y0,y1)
+    
+    c = 0
+    #print(videoPath_list[0])
+    #videoPath = videoPath_list[0]
+    for videoPath in videoPath_list:
+        c += 1
+        print("files left = ", len(videoPath_list)-c+1)
+        analyze_video(videoPath, x0,x1,y0,y1,on_thresh,pad_ends,lever)
+    
+    cv2.destroyAllWindows()
+
 #%%         Find circles with OpenCV and show
-video=Video()
-videoPath='/home/shiva/Desktop/Sophie/Left/Rat2_ArchT3_20mW_20190523_141130_C001H002S0001.avi'
-videoPath='/media/shiva/LaCie/VideoRat_Sophie/videos_Rat12/14-06-19/Rat 12 head 1 6OHDA x2 14-06-19_20190614_080116_C001H001S0001.avi'
-
-video.capture = cv2.VideoCapture(videoPath)
-video.width = video.capture.get(cv2.CAP_PROP_FRAME_WIDTH)   # float
-video.height = video.capture.get(cv2.CAP_PROP_FRAME_HEIGHT) # float
-video.fps = video.capture.get(cv2.CAP_PROP_FPS)
-video.nbFrames=int(video.capture.get(7)) #nombre de frames
-print("nb frames : ",video.nbFrames)
-
-while(video.capture.isOpened()):
-
-    ret, frame = video.capture.read()
-    
-    gray = cv2.cvtColor(frame[400:-1, 0:-1], cv2.COLOR_BGR2GRAY)
-    img = gray
-    img = cv2.medianBlur(img,5)
-    circle = cv2.HoughCircles(img,cv2.HOUGH_GRADIENT,1,20,
-                                param1=50,param2=30,minRadius=5,maxRadius=30)
-    
-    if circle is None:
-        continue
-    circles = np.uint16(np.around(circle))
-    for i in circles[0,:]:
-#         draw the outer circle
-        cv2.circle(img,(i[0],i[1]),i[2],(0,255,0),2)
-#         draw the center of the circle
-        cv2.circle(img,(i[0],i[1]),2,(0,0,255),3)
-
-    cv2.imshow('frame',img)
-    
-    if cv2.waitKey(1)==27 :
-        break
-
-video.capture.release()
-cv2.destroyAllWindows()
+#video=Video()
+#videoPath='/home/shiva/Desktop/Sophie/Left/Rat2_ArchT3_20mW_20190523_141130_C001H002S0001.avi'
+#videoPath='/media/shiva/LaCie/VideoRat_Sophie/videos_Rat12/14-06-19/Rat 12 head 1 6OHDA x2 14-06-19_20190614_080116_C001H001S0001.avi'
+#
+#video.capture = cv2.VideoCapture(videoPath)
+#video.width = video.capture.get(cv2.CAP_PROP_FRAME_WIDTH)   # float
+#video.height = video.capture.get(cv2.CAP_PROP_FRAME_HEIGHT) # float
+#video.fps = video.capture.get(cv2.CAP_PROP_FPS)
+#video.nbFrames=int(video.capture.get(7)) #nombre de frames
+#print("nb frames : ",video.nbFrames)
+#
+#while(video.capture.isOpened()):
+#
+#    ret, frame = video.capture.read()
+#    
+#    gray = cv2.cvtColor(frame[400:-1, 0:-1], cv2.COLOR_BGR2GRAY)
+#    img = gray
+#    img = cv2.medianBlur(img,5)
+#    circle = cv2.HoughCircles(img,cv2.HOUGH_GRADIENT,1,20,
+#                                param1=50,param2=30,minRadius=5,maxRadius=30)
+#    
+#    if circle is None:
+#        continue
+#    circles = np.uint16(np.around(circle))
+#    for i in circles[0,:]:
+##         draw the outer circle
+#        cv2.circle(img,(i[0],i[1]),i[2],(0,255,0),2)
+##         draw the center of the circle
+#        cv2.circle(img,(i[0],i[1]),2,(0,0,255),3)
+#
+#    cv2.imshow('frame',img)
+#    
+#    if cv2.waitKey(1)==27 :
+#        break
+#
+#video.capture.release()
+#cv2.destroyAllWindows()
