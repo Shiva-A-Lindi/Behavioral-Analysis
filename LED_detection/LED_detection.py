@@ -106,7 +106,7 @@ def get_circles(img):
         	elif event == cv2.EVENT_LBUTTONUP:
         		press = False
         
-    print("Specify the center and one point on the edge for each LED")    
+    print("Specify the center and one point on the edge for each LED \n")    
     cv2.namedWindow("Specify circles")
     cv2.setMouseCallback("Specify circles", get_circles_by_click)
     # keep looping until the 'q' key is pressed
@@ -127,11 +127,11 @@ def get_circles(img):
         circles_cor[i] = [center[0],center[1], r]
     circles_cor = np.uint16(np.around(circles_cor))
     cimg = cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
-    print("Circle centers and radius ([X, Y, R]):", circles_cor)
+    print("Circle centers and radius ([X, Y, R]): \n", circles_cor)
     for i in circles_cor:
     #         draw the outer circle
         cv2.circle(cimg,(i[0],i[1]),i[2],(0,255,0),2)
-    print("Press esc when you're done to close the windows")
+    print("Press esc when you're done to close the windows \n")
     while True:
     	# display the image and wait for a keypress
         cv2.imshow("CSpecified circles", cimg)
@@ -161,7 +161,7 @@ def crop(img):
             elif event == cv2.EVENT_LBUTTONUP:
                 press = False
 
-    print("Now specify the upper left and lower right corner for cropping")    
+    print("Now specify the upper left and lower right corner for cropping \n")    
     cv2.namedWindow("Specify corners to crop")
     cv2.setMouseCallback("Specify corners to crop", get_corners_by_click)
 
@@ -177,9 +177,9 @@ def crop(img):
     crop_cor = inputs[:2]
 
     cimg = cv2.cvtColor(img[crop_cor[0,1]:crop_cor[1,1], crop_cor[0,0]:crop_cor[1,0] ],cv2.COLOR_GRAY2BGR)
-    print("Corners:", crop_cor)
+    print("Corners:\n", crop_cor)
 
-    print("Press esc when you're done to close the windows")
+    print("Press esc when you're done to close the windows \n ")
     while True:
     	# display the image and wait for a keypress
         cimg_ful = cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
@@ -218,7 +218,7 @@ def get_pad_and_lever_from_user(img):
 
                   
         
-    print("Specify the left and right end of the pad and the lever location, resepectively")    
+    print("Specify the left and right end of the pad and the lever location, resepectively \n ")    
     cv2.namedWindow("Specify pad and lever positions")
     cv2.setMouseCallback("Specify pad and lever positions", get_corners_by_click)
     # keep looping until the 'q' key is pressed
@@ -234,7 +234,7 @@ def get_pad_and_lever_from_user(img):
 
     print(pad_ends,lever)
 
-    print("press esc when you're done to close the windows")
+    print("press esc when you're done to close the windows \n ")
     while True:
     	# display the image and wait for a keypress
 #        cv2.imshow("cropped frame", cimg)
@@ -295,7 +295,7 @@ def analyze_video(videoPath,x0,x1,y0,y1,on_thresh,pad_ends,lever):
         write_to_csv(LED_on_off, columns, videoPath,pad_ends,lever)
         
 def find_on_threshold(videoPath_list,x0,x1,y0,y1,on_range):
-    print("Wait while the LED on-thresholds are set...")
+    print("Wait while the LED on-thresholds are set... \n ")
     video_corrupted = True
     count = 0
     while (video_corrupted == True):
@@ -387,8 +387,8 @@ def analyze_frame(video,frame,LED):
     if len(ind_bad) != 0:
         ind_good_to_go, = np.where(max_intensity - min_intensity > 20)
         LED.on_thresh[ind_bad] = np.average(LED.on_thresh[ind_good_to_go]) 
-    print("max intensities = ", max_intensity)
-    print("min intensities = ", min_intensity)
+    print("max intensities = ", int(max_intensity))
+    print("min intensities = ", int(min_intensity))
     return LED_on_off,LED.mask.keys(), LED.on_thresh, video_corrupted
 
 def check_intensity_set_threshold(image,x0,x1,y0,y1):
@@ -445,58 +445,14 @@ def check_intensity_set_threshold(image,x0,x1,y0,y1):
     
 ##Rat_36 
 #path ="/media/shiva/LaCie/VideoRat_Sophie/videos_Rat36"
-#n_LED = 5
-#default_on_range = 25
-#path = input("Enter the full path under which the video file hierarchy resides: ") 
-#
-#while(True):
-#    try:
-#        on_range_str = []
-#        on_range_str = input("Above what percentage of max intensity should be considered switched on? (Either press enter to set the default (25%) or input the percentage value for each LED seperated by spaces.)").split(' ')
-#        if on_range_str[0] == '' or on_range_str[0] == 'exit':
-#            print("\n default value is set. LEDs with >25% intensity are considered switched on.")
-#            on_range = np.full((n_LED), default_on_range)
-#            break
-#        else:
-#            on_range = np.array([int(x.strip()) for x in on_range_str])
-#            if len(on_range) != n_LED:
-#                print("hey")
-#                raise NameError
-#            else:
-#                break
-#    except NameError:
-#        print(("\n \n The number of inputs must be equal to the number of LEDs (n={})!. Try again!".format(n_LED)))
-#    except ValueError:
-#        print("\n \n Invalid input. Try again. Make sure there are no extra spaces in your entry...")
-#        
-#
-##"/Users/apple/Desktop/LED_detection"
-#videoPath_list = build_videoPath_list(path) #get list of video paths
-#image = get_one_frame_from_video(videoPath_list[0]) # get one frame to specify circle coordinates on
-#x0,x1,y0,y1 = crop(image) # get coordinates for cropping
-#pad_ends,lever = get_pad_and_lever_from_user(image)
-#cropped_image = image[y0:y1,x0:x1]
-#circles_cor = get_circles(cropped_image) # specify circles on the frame
-##on_thresh = check_intensity_threshold(image,x0,x1,y0,y1) # to set the threshold manually
-#on_thresh = find_on_threshold(videoPath_list,x0,x1,y0,y1,on_range)
-#
-#c = 0
-##print(videoPath_list[0])
-##videoPath = videoPath_list[0]
-#for videoPath in videoPath_list:
-#    c += 1
-#    print("files left = ", len(videoPath_list)-c+1)
-#    analyze_video(videoPath, x0,x1,y0,y1,on_thresh,pad_ends,lever)
-#
-#cv2.destroyAllWindows()
-#cv2.waitKey(1)
+
 
 if __name__ == '__main__':
     
     global n_LED
     n_LED = 5 #default number of LED lights
     default_on_range = 25 #by default if each LED is lit by 25% of max intensity, it's considered switched on.
-    path = input("Enter the full path under which the video file hierarchy resides: \n (There must not be any videos other than the ones you want analyzed in this directory tree.)")     
+    path = input("Enter the full path under which the video file hierarchy resides: \n (There must not be any videos other than the ones you want analyzed in this directory tree.) \n")     
     videoPath_list = build_videoPath_list(path) #get list of video paths
     image = get_one_frame_from_video(videoPath_list[0]) # get one frame to specify circle coordinates on
     pad_ends,lever = get_pad_and_lever_from_user(image)
@@ -507,28 +463,27 @@ if __name__ == '__main__':
     while(True):
         try:
             on_range_str = []
-            on_range_str = input("Above what percentage of max intensity should be considered switched on? (Either press enter to set the default (25%) or input the percentage value for each LED seperated by spaces.)").split(' ')
+            on_range_str = input("Above what percentage of max intensity should be considered switched on? (Either press enter to set the default (25%) or input the percentage value for each LED seperated by spaces.) \n").split(' ')
             if on_range_str[0] == '' or on_range_str[0] == 'exit':
-                print("\n default value is set. LEDs with >25% intensity are considered switched on.")
+                print("\n default value is set. LEDs with >25% intensity are considered switched on. \n")
                 on_range = np.full((n_LED), default_on_range)
                 break
             else:
                 on_range = np.array([int(x.strip()) for x in on_range_str])
                 if len(on_range) != n_LED:
-                    print("hey")
                     raise NameError
                 else:
                     break
         except NameError:
-            print(("\n \n The number of inputs must be equal to the number of LEDs (n={})!. Try again!".format(n_LED)))
+            print(("\n \n The number of inputs must be equal to the number of LEDs (n={})!. Try again! \n ".format(n_LED)))
         except ValueError:
-            print("\n \n Invalid input. Try again. Make sure there are no extra spaces in your entry...")
+            print("\n \n Invalid input. Try again. Make sure there are no extra spaces in your entry... \n ")
         
     on_thresh = find_on_threshold(videoPath_list,x0,x1,y0,y1, on_range)
     
-    print("\n The LED thresholds are as following: {}".format(on_thresh))
+    print("\n The LED thresholds are as following: {} \n".format(int(on_thresh)))
     
-    if_analyse_all = input("Do you want to proceed with analysis of all video files?(y/n)")
+    if_analyse_all = input("Do you want to proceed with analysis of all video files?(y/n) \n")
     
     if if_analyse_all == 'y':
             
