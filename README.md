@@ -5,6 +5,6 @@ This repository is dedicated to the data analysis of behavioral experiments. The
 
 The data for this project is provided through different pipelines. Temporal position of body parts are tracked using [DeepLabCut](https://github.com/DeepLabCut/DeepLabCut), a package for markerless pose estimation of user-defined features with deep learning for all animals. Whereas the information provided by the experiment chamber itself is processed with this interactive [code](https://github.com/Shiva-A-Lindi/Behavioral-Analysis/LED_detection) developed using CV2 Python package. The step-by-step guide is provided [here]().
 
-![landmarks extracted with DeepLabCut](https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Locomotion_DLC.gif?raw=true | width=100)
+![landmarks extracted with DeepLabCut](https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Locomotion_DLC.gif?raw=true)
 
-![landmarks extracted with DeepLabCut plots](https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Locomotion_plot.gif?raw=true | width=100)
+![landmarks extracted with DeepLabCut plots](https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Locomotion_plot.gif?raw=true)
