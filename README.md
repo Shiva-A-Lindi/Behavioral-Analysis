@@ -15,16 +15,16 @@ The data for this project is provided through different pipelines. Temporal posi
 
 
 <p align="center">
-  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Forpaw.png width="40%" height="40%">
-  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Lever_reaching_position.png width="25%" height="25%">
+  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Forpaw.png width="60%" height="60%">
+  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Lever_reaching_position.png width="30%" height="30%">
 
   <p align="center">This is a centered caption for the image<p align="center">
 </p>
 
 
 <p align="center">
-  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Locomotion_position.png width="30%" height="30%">
-  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Lever_reaching_velocity.png width="30%" height="30%">
+  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Locomotion_position.png width="40%" height="40%">
+  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Lever_reaching_velocity.png width="50%" height="50%">
 
   <p align="center">This is a centered caption for the image<p align="center">
 </p>
