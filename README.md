@@ -25,6 +25,7 @@ Even when optimizing the trained network it so happens that there are mistakes i
 
 
 <p align="left">
-  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/mis_tracking_locomotion.png width="50%" height="50%">
+  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/mis_tracking_locomotion.png width="30%" height="30%">
+  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/mis_tracking_lever_reaching.png width="30%" height="30%">
   <p align="center">This is a centered caption for the image<p align="center">
 </p>
