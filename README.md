@@ -14,8 +14,10 @@ The data for this project is provided through different pipelines. Temporal posi
 </p>
 
 
-<p align="left">
-  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Forpaw.png width="50%" height="50%">
+<p align="center">
+  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Forpaw.png width="40%" height="40%">
+  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/lever_reaching_opto_trace_and_velovity.png width="30%" height="30%">
+
   <p align="center">This is a centered caption for the image<p align="center">
 </p>
 
@@ -24,7 +26,7 @@ The data for this project is provided through different pipelines. Temporal posi
 Even when optimizing the trained network it so happens that there are mistakes in the trackings of body parts. It would not be as important in an experiment where you need the information about the average position of the animal (e.g. here during the locomotion task), but it would be a cause for gross error if you want to calculate the tortuosity and traveled distance of the animal's hand during a lever reaching task. Therefore, I implemented algorithms to pick up these jumps and correct them.
 
 
-<p align="left">
+<p align="center">
   <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/mis_tracking_locomotion.png width="30%" height="30%">
   <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/mis_tracking_lever_reaching.png width="30%" height="30%">
   <p align="center">This is a centered caption for the image<p align="center">
