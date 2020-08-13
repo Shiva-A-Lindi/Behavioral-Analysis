@@ -13,6 +13,7 @@ LED detection
 
 The LED panel in the experiment chamber captures different events during the experiment such as auditory cue onset, pad contact, reward delivery, etc.
 
+
 For User:
 
 The LED_detection.py executable file searches the path that you specify for video files. It will take some information about your video frames and it will produce a **.csv** file in the same directory as your video specifying the state of the LED as a binary (0,1) in each frame of your video.
