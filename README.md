@@ -46,3 +46,10 @@ The data from all sessions with multiple trials each are then organized and stor
 
 In the lever-reaching task the experiment chamber is equipped with an LED panel with LED lights conveying information about the experiment e.g. whether or not the paw is on the pad, a cue is being presented or a reward is being delivered. [Here](https://github.com/Shiva-A-Lindi/Behavioral-Analysis/LED_detection) you can find an Python script that targets the extraction of these information from the videos.
 
+### Documentation:
+
+You can find the necessary information about the developed codes [here]().
+
+### References:
+
+* Mathis A, Mamidanna P, Cury KM, Abe T, Murthy VN, Mathis MW, Bethge M (2018) DeepLabCut: mark- erless pose estimation of user-defined body parts with deep learning. Nature Neuroscience 21:1281–1289.
