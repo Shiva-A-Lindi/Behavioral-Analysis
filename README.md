@@ -24,7 +24,7 @@ Even when optimizing the trained network it so happens that there are mistakes i
 <p align="center">
   <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/mis_tracking_locomotion.png width="40%" height="40%">
   <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/mis_tracking_lever_reaching.png width="40%" height="40%">
-  <p align="left">Mistrackings with DLC pose estimation. <strong>Left</strong>: Individual traces of left and right camera. Below:corrected, averagedwith a moving average. <strong>Right</strong>: Traces of multiple trials correction shown bellow.<p align="center">
+  <p align="left">Mistrackings with DLC pose estimation. <strong>Left</strong>: Individual traces of left and right side cameras. Below: corrected, averaged with a moving window. <strong>Right</strong>: Traces of multiple trials correction shown bellow.<p align="center">
 </p>
 
 ### Building metadata and measuring across trials:
