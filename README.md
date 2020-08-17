@@ -10,7 +10,10 @@ The data for this project is provided through different pipelines. Temporal posi
 
 
 <p align="left">
-  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Locomotion_DLC_and_plot.gif width="50%" height="50%">
+  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Locomotion_DLC_and_plot.gif width="50%" height="50%" hspace="50">
+  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Rat_lever_demo.gif width="22%" height="22%" hspace="40">
+  <p align="left">Resulting body-part tracking with DLC. <strong>Left</strong>: Locomotion task. Plot shows the average of nose extremity and tail base. <strong>Right</strong>: Lever reaching task. Plot shows the traces of wrist base (light blue dot) <p align="center">
+
 </p>
 
 ### Mistracking handling:
@@ -21,7 +24,7 @@ Even when optimizing the trained network it so happens that there are mistakes i
 <p align="center">
   <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/mis_tracking_locomotion.png width="40%" height="40%">
   <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/mis_tracking_lever_reaching.png width="40%" height="40%">
-  <p align="center">This is a centered caption for the image<p align="center">
+  <p align="left">Mistrackings with DLC pose estimation. <strong>Left</strong>: Individual traces of left and right camera. Below:corrected, averagedwith a moving average. <strong>Right</strong>: Traces of multiple trials correction shown bellow.<p align="center">
 </p>
 
 ### Building metadata and measuring across trials:
@@ -36,7 +39,7 @@ The data from all sessions with multiple trials each are then organized and stor
 <p align="center">
   <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Locomotion_position.png width="40%" height="40%">
   <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Lever_reaching_velocity.png width="50%" height="50%">
-  <p align="center">This is a centered caption for the image<p align="center">
+  <p align="center">Examples of behavioral data analysis results.: <p align="center">
 </p>
 
 
