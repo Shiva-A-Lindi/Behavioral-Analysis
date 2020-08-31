@@ -742,8 +742,8 @@ def epochs_single_file(file_name_pos,file_name_spont,file_name_laser):
 
 
 def extract_pre_laser_x_epochs_over_trials(files_list,files_list_laser,
-                                           direct,folder,study_param_dict,smallest_accep_inter,largest_accep_inter,
-                                           back_front_boundary,v_threshold,pre_stim_inter):
+                                           direct,folder,scale_pix_to_cm,window_pos,misdetection_dict,
+                                           smallest_accep_inter,largest_accep_inter,pre_stim_inter):
     '''Return all the x positions in epochs preceding to a ON-laser of all trials for one mouse.'''
 
     i = 0
@@ -754,6 +754,7 @@ def extract_pre_laser_x_epochs_over_trials(files_list,files_list_laser,
         print('session {} out of {}'.format(i+1,len(files_list)))
         file_path_DLC = os.path.join(direct,folder,'DLC',files_list[i])
         df = read_DLC(file_path_DLC,scale_pix_to_cm)
+        study_param_dict = {'cor':'x', 'body_part' : ['Tail','Nose'], 'plot_param' : 'position'}
         x_average = average_position_r_l(df,window_pos,misdetection_dict, **study_param_dict) # x positions
         file_path_Laser = os.path.join(direct,folder,'Laser',files_list_laser[i])
         laser_t = read_laser(file_path_Laser)
@@ -1075,16 +1076,16 @@ def MWW_test(result,result_Ctr,mouse_type):
 #         result = pd.concat(frames,ignore_index=True)
 #     return result
 
-def read_npz_return_data_frame(path,pre_interval,interval,post_interval,pre_stim_inter):
+def read_npz_return_data_frame(file_path_list,pre_interval,interval,post_interval,pre_stim_inter):
     '''Read the saved .npz file and produce a data frame with the following columns.'''
     
-    Summary_files_list = list_all_files(path,".npz")
+    
     col_names =  ['mean_velocity', 'min_velocity', 'mouse_type', 'optogenetic expression', 
                 'pulse_type','intensity_mW','epoch','pre_velocity_pos_neg','pre_x','pre_x_front_back','pre_accel','pre_accel_pos_neg']
     result = pd.DataFrame(columns = col_names)
-    for file in Summary_files_list:
+    for file in file_path_list:
         print(file)
-        dat = np.load(os.path.join(path,file))
+        dat = np.load(file)
         properties=file.split("_")
         epochs = dat['epochs_all_mice']
         n_epochs = epochs.shape[0]
@@ -1302,6 +1303,106 @@ def plot_phase_space_V(result,path,mouse_type,folder,fps,back_front_boundary,v_t
 #     ax.set_facecolor((0.8, 1.0, 1.0))
     plt.savefig(os.path.join(path, mouse_type+'_V_phase_space_'+folder+'_pre_stim_t='+str(int(pre_stim_inter*1000/fps))+
                              '_inten='+inten+save_as_format),bbox_inches='tight',orientation='landscape',dpi=350)
+
+def min_velocity_diff_inten_box_plot(file_path_list,path_to_save,intervals_dict,pre_x_v_dict,ylim=[-40,15],save_as_format = '.pdf'):
+    n_subplots = len(file_path_list)
+
+
+    fig, axes = plt.subplots(nrows=1, ncols=n_subplots, figsize=(4*n_subplots, 8))
+    for count in range(1,n_subplots+1):
+        path =file_path_list[count-1]
+        print(Path(path).name)
+        result_val = read_npz_return_data_frame([path],**intervals_dict)
+        result = categorize_pre_x_and_v(result_val,**pre_x_v_dict)
+        result = result[result['epoch']=='ON']
+        mouse_type = Path(path).name.split("_")[0]
+        inten = Path(path).name.split("_")[2:4]
+
+        s = ' '
+        inten = s.join(inten)
+        ax = axes[count-1] 
+        ax = plt.subplot(100+n_subplots*10+count)
+        set_ticks(ax)
+        
+        sns.stripplot(x="pre_velocity_pos_neg", y="min_velocity", order=["pos", "neg"],dodge=True, data=result,jitter=True, 
+                   marker='o',edgecolor = 'k',linewidth = 1, size = 3,
+                   alpha=0.5)
+        g = sns.boxplot(x="pre_velocity_pos_neg", y="min_velocity", order=["pos", "neg"],dodge=False, width = 0.4 ,
+            data=result, fliersize = 0)
+
+        add_stat_annotation(g, data=result,x="pre_velocity_pos_neg", y="min_velocity", order=["pos", "neg"], box_pairs=[("pos", "neg")],
+                    test='Mann-Whitney', text_format='star', loc='outside', verbose=2,fontsize = 20)
+        plt.plot([0.3,0.7],[np.average(result[result['pre_velocity_pos_neg']=='pos']['min_velocity']),
+                                          np.average(result[result['pre_velocity_pos_neg']=='neg']['min_velocity'])],
+                                           '-',lw = 3, c= 'r',alpha = 0.5,markersize = 12)
+        for patch in g.artists:
+            r, g, b, a = patch.get_facecolor()
+            patch.set_facecolor((r, g, b, .3))
+        plt.ylim(ylim[0],ylim[1])
+        # get legend information from the plot object
+        # handles, labels = ax.get_legend_handles_labels()
+        # specify just one legend
+        # plt.legend(handles[0:2], labels[0:2], fontsize = 20)
+        plt.ylabel('').set_fontproperties(font_label)
+        plt.xlabel(r'$min(V_{laser-On})$').set_fontproperties(font_label)
+        plt.title(inten,fontsize = 18,pad=75)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+    fig.suptitle(mouse_type,y=1.15, fontproperties=font)
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axis
+    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
+    plt.ylabel('Velocity (cm/s)',fontsize = 25,labelpad=45).set_fontproperties(font_label)
+    plt.savefig(os.path.join(path.replace(Path(path).name,''),'Min_V_diff_inten_'+mouse_type+save_as_format),bbox_inches='tight',orientation='landscape',dpi=200)
+
+def min_velocity_mouse_type_box_plot(file_path_list,path_to_save,intervals_dict,pre_x_v_dict,ylim=[-40,15],save_as_format = '.pdf'):
+    n_subplots = len(file_path_list)
+
+
+    fig, axes = plt.subplots(nrows=1, ncols=n_subplots, figsize=(4*n_subplots, 8))
+    for count in range(1,n_subplots+1):
+        path =file_path_list[count-1]
+        print(path)
+
+        result_val = read_npz_return_data_frame([path],**intervals_dict)
+        result = categorize_pre_x_and_v(result_val,**pre_x_v_dict)
+        result = result[result['epoch']=='ON']
+        mouse_type = Path(path).name.split("_")[0]
+        ax = axes[count-1] 
+        ax = plt.subplot(100+n_subplots*10+count)
+        set_ticks(ax)
+        
+        sns.stripplot(x="pre_velocity_pos_neg", y="min_velocity", order=["pos", "neg"],dodge=True, data=result,jitter=True, 
+                   marker='o',edgecolor = 'k',linewidth = 1, size = 3,
+                   alpha=0.5)
+        g = sns.boxplot(x="pre_velocity_pos_neg", y="min_velocity", order=["pos", "neg"],dodge=False, width = 0.4 ,
+            data=result, fliersize = 0)
+
+        add_stat_annotation(g, data=result,x="pre_velocity_pos_neg", y="min_velocity", order=["pos", "neg"], box_pairs=[("pos", "neg")],
+                    test='Mann-Whitney', text_format='star', loc='outside', verbose=2,fontsize = 20)
+        plt.plot([0.3,0.7],[np.average(result[result['pre_velocity_pos_neg']=='pos']['min_velocity']),
+                                          np.average(result[result['pre_velocity_pos_neg']=='neg']['min_velocity'])],
+                                           '-',lw = 3, c= 'r',alpha = 0.5,markersize = 12)
+        for patch in g.artists:
+            r, g, b, a = patch.get_facecolor()
+            patch.set_facecolor((r, g, b, .3))
+        plt.ylim(ylim[0],ylim[1])
+        # get legend information from the plot object
+        # handles, labels = ax.get_legend_handles_labels()
+        # specify just one legend
+        # plt.legend(handles[0:2], labels[0:2], fontsize = 20)
+        plt.ylabel('').set_fontproperties(font_label)
+        plt.xlabel(r'$min(V_{laser-On})$').set_fontproperties(font_label)
+        plt.title(mouse_type,fontsize = 18,pad=75)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+    fig.suptitle(folder,y=1.15, fontproperties=font)
+    fig.add_subplot(111, frameon=False)
+    # hide tick and tick label of the big axis
+    plt.tick_params(labelcolor='none', top=False, bottom=False, left=False, right=False)
+    plt.ylabel('Velocity (cm/s)',fontsize = 25,labelpad=45).set_fontproperties(font_label)
+    plt.savefig(os.path.join(path,'Min_V_diff_mouse_type_'+folder+save_as_format),bbox_inches='tight',orientation='landscape',dpi=200)
+
 
 def extract_epochs(bins,x,smallest_accep_inter,largest_accep_inter,pre_interval,interval,post_interval):
     '''Extract the (pre | Laser ON | post) epochs.
