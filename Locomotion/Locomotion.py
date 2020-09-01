@@ -54,23 +54,30 @@ def lighten_color(color, amount=0.5):
     return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
 
 def set_ticks(ax):
+
     ax.get_xaxis().set_tick_params(direction='out',labelsize = 30,length=10)
     ax.xaxis.set_ticks_position('bottom')
     ax.get_yaxis().set_tick_params(direction='out',labelsize = 30,length=10)
     ax.yaxis.set_ticks_position('left')
 
 def read_DLC(file_name,scale_pix_to_cm):
+
     '''Read DeepLabCut Data.'''
+
     df = pd.read_excel(file_name, header=[1,2])*scale_pix_to_cm # scale to cm
     return df
 
 def read_laser(laser_file_name):
+
     '''Read laser onset offset times for Square pulse stimulation'''
+
     laser_t = pd.read_excel(laser_file_name, skiprows = 4 )
     return laser_t
 
 def read_laser_beta_stim(laser_file_name):
+
     '''Read laser onset offset times for Beta pulse stimulation'''
+
     laser_t = pd.read_excel(laser_file_name, skiprows = 4 )
     onset = np.array(laser_t['ON'].values)
     starts = np.where(shift(onset, -1, cval= 0)-onset > min_t_between_stim) # find the starts of sessions if 
@@ -85,14 +92,18 @@ def read_laser_beta_stim(laser_file_name):
     return df
 
 def list_all_files(path,extension):
+
     '''List all the files with this extention in this directory'''
+
     files = [x for x in os.listdir(path) if not x.startswith('.')]
     files.sort()
     return list(filter(lambda x: extension in x, files))
 
 def convert_csv_to_xlsx(path):
+
     '''Check if a .xlsx version of all the .csv files exists, if not convert to this format
         and remove the .csv to save space'''
+
     files = [x for x in os.listdir(path) if not x.startswith('.')]
     files.sort()
     csv_files = list(filter(lambda x: ".csv" in x, files))
@@ -115,10 +126,20 @@ def convert_csv_to_xlsx(path):
 def save_npz(pre_direct,mouse_type,opto_par,folder,pulse_inten,fps, window,n_timebin,file_name_ext,
              epochs_all_mice, epochs_mean_each_mouse, epochs_spont_all_mice,pre_info,
              cor,body_part,plot_param):
+
     '''Save the trial epochs in one .npz file with the following elements:
         1: all of laser sessions one mouse type
         2: average for each mouse in mouse type
-        3: eauivalent number of laser sessions derived from spontaneous'''
+        3: eauivalent number of laser sessions derived from spontaneous
+		4: average position during the pre_stim_ interval for each trial
+		5: average velocity during the pre_stim_ interval for each trial
+		6: average acceleration during the pre_stim_ interval for each trial
+
+		Together with cor = ['x'] or ['y'] as the coressponing coorinate,
+		body_part as a list of the body parts averaged, and 
+		plot_param = ['position'] or ['velocity'], or ['acceleration']
+
+    '''
     s = '_'
     s = s.join(body_part)
 
@@ -135,11 +156,12 @@ def save_npz(pre_direct,mouse_type,opto_par,folder,pulse_inten,fps, window,n_tim
             cor=[cor],
             body_part=body_part,
             plot_param=[plot_param])
-#     dat = np.load(pre_direct+'data_npz/'+file_name+'.npz')
-#     dat.files
+
     
 def moving_average_array(X, n):
+
     '''Return the moving average over X with window n without changing dimesions of X'''
+
     z2= np.cumsum(np.pad(X, (n,0), 'constant', constant_values=0))
     z1 = np.cumsum(np.pad(X, (0,n), 'constant', constant_values=X[-1]))
     return (z1-z2)[(n-1):-1]/n
@@ -163,7 +185,8 @@ def align_right_left(right,left):
 
 
 def derivative(x,delta_t,fps):
-    '''Take the derivative with delta_t.'''
+
+    '''Take the derivative over delta_t.'''
     
     derivative_out = (x - shift(x, delta_t, cval= x[0]))/ (delta_t/fps)
     ## got crazy zith keyerror -1 
@@ -172,6 +195,7 @@ def derivative(x,delta_t,fps):
     return shift(derivative_out,-int(delta_t/2),cval= derivative_out[len(derivative_out)-1])
 
 def derivative_mov_ave(x,delta_t,window_veloc,fps):
+
     '''Take the derivative with delta_t and do a moving average.'''
     
     derivative_out = (x - shift(x, delta_t, cval= x[0]))/ (delta_t/fps)
@@ -180,20 +204,57 @@ def derivative_mov_ave(x,delta_t,window_veloc,fps):
 #     return dx_dt # if you don't want to do a moving average 
 
 
-# def detect_remove_jitter(velocity, max_accel = 95):
-#     ''' detect when the DLC labeled wrongly by filtering with acceleration criteria
-    
-#     to do: set the inconsistent one to the average of before and after'''
-#     shifted = shift(velocity, 1, cval= velocity[0])
-#     accel = (velocity - shifted)/(1/fps)
-#     print(np.sort(accel)[-2])
-#     print("max accel = ", max(accel), np.argmax(accel)/fps)
-#     ind = np.where(np.absolute(accel) > max_accel)
-#     print("# jitters in speed = ",len(ind[0]))
-#     return velocity
-
 def input_plot(df, laser_t,mouse_type,mouse_no,trial_no,opto_par,pre_direct,exp_dict,t_window_dict, misdetection_dict,save_as_format = '.pdf'):
-    '''Get the specifics of the plot as input and call the corresponding plot function.'''
+
+    '''Get the specifics of the plot as input and call the corresponding plot function to plot the session.
+
+    Parameters
+    ----------
+
+    df : dataframe
+    	Dataframe derived from DLC for one session of one animal
+
+    laser_t : dataframe
+    	Daraframe with columns ON and OFF. Time stamps of laser onset and offset.
+
+    mouse_type : str
+    	Type of the animal that makes it different in the experiment e.g. for transgenic mice 'FoxP@' or 'Vglut2'.
+
+    mouse_no : int
+    	Number dedicated to each animal
+
+    trial_no : int
+    	trial number
+
+    opto_par : str
+		Optogentic parameter distinguishing injections. e.g. 'Control' or 'ChR2'.
+
+	pre_direct : str
+		Path to project directory
+
+	exp_dict : dictionary
+		Experiment dictionary :
+		exp_dict = {'cor_list' : np.array(['x', 'y']),
+            		'body_part_list' : np.array(['Tail', 'Nose', 'FL', 'HL']),
+            		'plot_param_list' : ['position' , 'velocity', 'acceleration']}
+
+    t_window_dict: dictionary
+    	Dictionary containing information about time contants of the project:
+    	t_window_dict = {'fps' : int, 'n_timebin' : int, 'window_pos' : int , 'window_veloc' : int}
+	
+	misdetection_dict : dictionary 
+		Dictionary of constants used in the misdetection correction algorithm:
+		misdetection_dict = { 'acc_deviance' : int, # cm = acceptable deviance between right and left detections
+                      'internal_ctr_dev' : int,
+                      'percent_thresh_align' : int,
+                      't_s' : int, # number of time steps before and after to look at
+                      'n_iter_jitter' : int, # how many times go over data to find jitters and clear them out
+                      'jitter_threshold' : int # max_speed/fps}
+
+    save_as_format : str (optional)
+    	The extension of the saved figure 
+                    
+    '''
     study_param_dict = get_input_cor_body_part(**exp_dict)
  
     print(" 1. Right & Left \n 2. Average of both")
@@ -208,7 +269,29 @@ def input_plot(df, laser_t,mouse_type,mouse_no,trial_no,opto_par,pre_direct,exp_
                               **study_param_dict,**t_window_dict,save_as_format='.pdf')
         
 def get_input_cor_body_part(cor_list,body_part_list,plot_param_list):
-    '''Ask for the body part and coordinate from user.'''
+
+    '''Ask for the body part and coordinate from user.
+
+	Parameters
+	----------
+
+	cor_list : list(str)
+		list of available coordinates e.g. 'x', 'y'
+
+	body_part_list : list(str)
+		list of DLC labeled body parts 
+
+	plot_param_list : list(str)
+		List of available parameters for analysis e.g position or velocity.
+
+	Returns
+	-------
+	
+	study_param_dict : dictionary
+		selected items from the options in the inputs
+
+	
+    '''
     
     print("Select for which parts you want to see the pre/On/post: \n")
     print(" 1. Tail \n 2. Nose \n 3. Fore Limb \n 4. Hind Limb")
@@ -262,23 +345,34 @@ def produce_random_bins_for_spont(max_time,n_sample,pre_interval,interval,post_i
     return bins
 
 def compare_r_l_correct_misdetect (right_p, left_p, acc_deviance,t_s, 
-                                   internal_ctr_dev=0,percent_thresh_align=0,n_iter_jitter=0,jitter_threshold=0):
+                                   internal_ctr_dev=0.5,percent_thresh_align=0.8,n_iter_jitter=1,jitter_threshold=0.5):
     '''Compare the right and left sides and correct if the difference between 
         the two is more than an acceptable amount. 
         
     
     Parameters
     ----------
+
     right_p : 1-D array
-        position in time detected from the right camera
+        Position in time detected from the right camera
+
     left_p : 1-D array
-        position in time detected from the left camera
+        Position in time detected from the left camera
+
     acc_deviance : float (passed within misdetect dictionary)
-        acceptable deviance of the right and left side detections
+        Acceptable deviance of the right and left side detections
+
     t_s : int
-        the number of procedeeing and post time bins to average from and correct the misdetection with
-    
-    There are other parameters passed as a **kwarg that are not used in this function
+        The number of procedeeing and post time bins to average from and correct the misdetection with
+
+    internal_ctr_dev : int 
+    	The threshold (cm) by which it is allowed for left and right detections to differ. 
+
+    percent_thresh_align : int
+    	The percentage above which it's decided that there is a systematic shift between the right and left side detections.
+
+
+    There are other parameters passed as a **kwarg packed in a dictionary that are not used in this function
     
     Returns 
     -------
@@ -287,6 +381,7 @@ def compare_r_l_correct_misdetect (right_p, left_p, acc_deviance,t_s,
         corrected position in time detected from the right camera
     left : 1-D array
         corrected position in time detected from the left camera
+
     '''
     right_x = np.copy(right_p); left_x = np.copy(left_p) ### if not it changes the df that was passed to the function along with the right_x and left_x
 #     r_x = np.copy(right_x)
@@ -350,9 +445,9 @@ def correct_labeling_jitter(x,jitter_threshold,n_iter_jitter,t_s,acc_deviance=0,
     jitter_threshold : float
         The allowed maximum movement in one timebin with the max allowed velocity.
     
-    n_iter_jitter : int
-        This process can be done several times (n_iter) to make sure if jitters appear with averaging they are resolved.
-    
+    n_iter_jitter : int 
+    	Number of times to repeat the correction algorithm.
+     
     t_s : int
         The number of timebins to average from when correcting the jitter point.
         
@@ -387,18 +482,21 @@ def average_position_r_l(df,window,misdetection_dict,cor,body_part,plot_param):
     df : dataframe
         Dataframe derived from DLC for one session of one animal
         
-    which_plot : int
-        Which coordinate to work with. 0-->x or 1-->y
-    
-    where_plot : list (int)
-        Which body parts to average over. list of int that will be translated to list of strings with a dict.
-    
     window : int
         Moving average window for smoothing the position time series
         
     misdetection_dict : dictionary
         Dictionary containing constants for misdetection corrections
+
+    cor : str
+        Which coordinate to work with. e.g. 'x' or 'y'
         
+    body_part : list (str)
+        Which body parts to average over. 
+
+    plot_param : str
+    	Parameter for analysis e.g. position or velocity.
+
     Returns
     -------
     corrected_averaged : 1-D array 
@@ -432,19 +530,22 @@ def position_r_l(df,window,misdetection_dict,cor,body_part,plot_param):
     
     df : dataframe
         Dataframe derived from DLC for one session of one animal
-        
-    which_plot : int
-        Which coordinate to work with. 0-->x or 1-->y
-    
-    where_plot : list (int)
-        Which body parts to average over. list of int that will be translated to list of strings with a dict.
-        
+          
     window : int
         Moving average window for smoothing the position time series
         
     misdetection_dict : dictionary 
         Dictionary containing constants for misdetection corrections
         
+    cor : str
+        Which coordinate to work with. e.g. 'x' or 'y'
+        
+    body_part : list (str)
+        Which body parts to average over. 
+
+    plot_param : str
+    	Parameter for analysis e.g. position or velocity.
+
     Returns
     -------
     right_corrected : 1-D array 
@@ -471,14 +572,39 @@ def position_r_l(df,window,misdetection_dict,cor,body_part,plot_param):
     return   right_corrected, left_corrected
    
 
-
-
-
-
-    
-
 def min_and_mean_on_off(epochs,measure,pre_interval,interval,post_interval,pre_stim_inter):
-    '''Report the min or mean (specified by measure) velocity in the off-on periods'''
+    '''Report the min or mean (specified by measure) velocity in the off-on periods.
+
+	Parameters
+	----------
+
+	epochs : 2D array (float)
+		Trial variables in rows. n_col = pre_interval + interval + post_interval 
+
+	measure : str 
+		'mean' or 'min'
+
+	pre_interval : int 
+		Number of time bins to be taken into account before laser onset 
+
+	interval : int 
+		Laser duration in timebins.
+
+	post_interval : int
+		Number of time bins to be taken into account after laser onset 
+
+	pre_stim_inter : int
+		Unpacked in dictionary. Not used here.
+
+	Returns
+	-------
+
+	average_of_off_on_off : 2D array
+		array of 3 columns. first column is the aversge of pre-intevsl,
+		second the 'measure' during laser interval
+		third again the average of post
+
+    '''
     
     if measure =='Mean':
         try:
@@ -499,8 +625,8 @@ def min_and_mean_on_off(epochs,measure,pre_interval,interval,post_interval,pre_s
             pre = np.zeros((epochs.shape[0],1))
             ON = np.zeros((epochs.shape[0],1))
             post = np.zeros((epochs.shape[0],1))
-    average_of_on_off_on = np.concatenate((pre, ON, post), axis = 1)
-    return average_of_on_off_on
+    average_of_off_on_off = np.concatenate((pre, ON, post), axis = 1)
+    return average_of_off_on_off
 
 def plot_what_which_where_r_l(df,laser_t,mouse_type,mouse_no,trial_no,opto_par, pre_direct,misdetection_dict, 
                         cor,body_part,plot_param,
@@ -548,10 +674,6 @@ def plot_what_which_where_r_l(df,laser_t,mouse_type,mouse_no,trial_no,opto_par, 
         plt.plot(time_series, r, 'navy',  label = label_1, linewidth = 0.8)
         plt.plot(time_series, l, 'orange', label = label_2, linewidth = 0.8)
 
-        #plt.plot(time_series, df[('r'+body_part[0],cor)], 'navy',  marker = 'o', label = label_1,markersize=1)
-        #plt.plot(time_series, df[('l'+body_part[0],cor)], 'orangered', label = label_2, marker = 'o', linewidth = 0.8, markersize=1)
-        #plt.xlim(min_x,max_x)
-        #plt.ylim(min_y,max_y)
 
         plt.ylabel(cor+ " (cm)" ,fontproperties=font_label)
         min_end = min(min(df[('r'+body_part[0],cor)]),min(df[('l'+body_part[0],cor)]))
@@ -562,11 +684,8 @@ def plot_what_which_where_r_l(df,laser_t,mouse_type,mouse_no,trial_no,opto_par, 
     plt.xlabel("Time(s)" ,fontproperties=font_label)
     plt.title(mouse_type+' '+ opto_par+' #'+str(mouse_no),fontproperties=font)
     plt.legend(fontsize = 20)
-#     plt.ylim(min_end,max_end)
     for i in range(len(laser_t['ON'].values)):
         plt.axvspan(laser_t['ON'].values[i]/fps, laser_t['OFF'].values[i]/fps, alpha=0.4, color='lightskyblue')
-#     plt.vlines(laser_t['ON']/fps,min_end,max_end, color = 'orange', linewidth = 0.4) # plot stimulus onsets
-#     plt.vlines(laser_t['OFF']/fps,min_end,max_end, color = 'orange', linewidth = 0.4) # plot stimulus offsets
 
     plt.savefig(os.path.join(pre_direct,"One_session",'Mouse_trial'+str(trial_no)+'_mouse_' +str(mouse_no)+'_'+
                 body_part[0] + '_' + plot_param + '_' +cor+ save_as_format),bbox_inches='tight',orientation='landscape',dpi=300)
@@ -630,14 +749,89 @@ def plot_what_which_where(df,laser_t,mouse_type,mouse_no,trial_no,opto_par, pre_
                 plot_param+ '_averaged_'+s+save_as_format),bbox_inches='tight',orientation='landscape',dpi=300)
 
 
- ###################  looking at the pre/on/post stimulus behavior #########################
 def plot_pre_on_post(ax,pre_direct,mouse_type,opto_par,folder,epochs,epochs_spont,treadmil_velocity,ylim,
                         fps,n_timebin, window_pos,window_veloc, 
                         cor,body_part,plot_param,
                      pre_interval,interval,post_interval,pre_stim_inter,
                     average = 'Averg_trials_all_mice',c_laser = 'deepskyblue',c_spont = 'k',save_as_format = '.pdf'):
-    '''Plot (pre Laser/ON-Laser/post Laser) velocity/position/acceleration comparison between 
-    laser trials and spontaneous'''
+    '''Plot (pre Laser | Laser | post Laser) velocity/position/acceleration comparison between 
+    laser and spontaneous trials
+
+	Parameters 
+	----------
+	ax : ax
+
+	pre_direct : str
+		Path to project directory
+
+    mouse_type : str
+    	Type of the animal that makes it different in the experiment e.g. for transgenic mice 'FoxP@' or 'Vglut2'.
+
+    opto_par : str
+		Optogentic parameter distinguishing injections. e.g. 'Control' or 'ChR2'.
+	
+	folder : str 
+		folder containing this specific protocol's sessions e.g. 'Square_1_mW'
+
+	epochs : 2D array (float)
+		Trials containtning laser stimulation aligned in rows. n_col = pre_interval + interval + post_interval
+
+	epochs_spont : 2D array (float)
+		Spontaneous trials without laser stimulation aligned in rows. n_col = pre_interval + interval + post_interval
+
+	treadmil_velocity : float
+		Treadmill velocity in cm/s
+
+	ylim : list (float)
+		Y axis limits for the figure given as a list : [ymin, ymax]
+
+    fps : int
+    	frame per second of the video
+
+    n_timebin : int
+    	number of timebins for taking derivatives
+
+    window_pos : int
+    	Moving average window for position
+
+    window_veloc : int
+    	Moving average window for velocity
+
+    cor : str
+        Which coordinate to work with. e.g. 'x' or 'y'
+        
+    body_part : list (str)
+        Which body parts to average over. 
+
+    plot_param : str
+    	Parameter for analysis e.g. position or velocity.
+
+	pre_interval : int 
+		Number of time bins to be taken into account before laser onset 
+
+	interval : int 
+		Laser duration in timebins.
+
+	post_interval : int
+		Number of time bins to be taken into account after laser onset 
+
+	pre_stim_inter : int
+		Pre interval for averaging the positions/velocity and accelaration and report as pre_info
+
+    average : str (optional)
+    	Parameter specifying the output figure. Here default set to 'Averg_trials_all_mice'.
+
+    c_laser : str (optional)
+    	color for plotting trials with laser stimulation. Default value is set to 'deepskyblue'.
+
+    c_spont : str (optional)
+    	color for plotting trials with laser stimulation. Default value is set to 'k' which is black.
+
+    save_as_format : str (optional)
+    	Format to save the figure with. Default set to  '.pdf'
+
+    '''
+
     
 #     epochs_mean = np.average(epochs, axis = 0) # average over different stimuli
 #     epochs_mean_spont = np.average(epochs_spont, axis = 0) # average over different stimuli
@@ -703,8 +897,6 @@ def plot_pre_on_post(ax,pre_direct,mouse_type,opto_par,folder,epochs,epochs_spon
                     '_window_veloc_'+str(int(window_veloc*1000/fps))+'_pre_post_stim'+save_as_format),bbox_inches='tight',orientation='landscape',dpi=300)
     elif average == 'Averg_trials': # one one mouse
         plt.title("("+mouse_type+") #"+str(mouse_no) +" "+opto_par+"\n"+folder).set_fontproperties(font)
-#         plt.title(" #"+str(mouse_no) +" "+mouse_type , fontproperties=font)
-#         plt.savefig(pre_direct+'Compare'+'/'+average+'_Mouse'+str(mouse_no)+'_'+folder+"_"+opto_par+'_'+mouse_type+'_'+ cor+ '_Velociy_' +str(n_timebin)+ 'spont_sampl='+str(no_sample)+'_pre_post_stim.png',bbox_inches='tight',orientation='landscape',dpi=400)
     else:
         ax.get_xaxis().set_tick_params(direction='out',labelsize = 20 ,length=6)
         ax.xaxis.set_ticks_position('bottom')
@@ -742,9 +934,51 @@ def epochs_single_file(file_name_pos,file_name_spont,file_name_laser):
 
 
 def extract_pre_laser_x_epochs_over_trials(files_list,files_list_laser,
-                                           direct,folder,scale_pix_to_cm,window_pos,misdetection_dict,
+                                           pre_direct,folder,scale_pix_to_cm,window_pos,misdetection_dict,
                                            smallest_accep_inter,largest_accep_inter,pre_stim_inter):
-    '''Return all the x positions in epochs preceding to a ON-laser of all trials for one mouse.'''
+    '''Return all the x positions in epochs preceding to a ON-laser of all trials for one mouse.
+
+    Parameters
+    ----------
+
+	files_list : list (str)
+		List of the file names of the sessions
+
+	files_list_laser : 
+		List of file names for laser detections
+
+    pre_direct : str
+    	Path to the root directory of the project
+
+    folder : str
+    	Folder containing this specific protocol.
+
+    scale_pix_to_cm : float
+    	Scaling coeficient for pixels to cm.
+
+    window_pos : int
+    	Moving average window for position
+
+    misdetection_dict : dictionary
+        Dictionary containing constants for misdetection corrections
+
+    smallest_accep_inter : int
+    	Smallest acceptable duration of an interval in frames
+
+    largest_accep_inter : int
+    	Largest acceptable duration of an interval in frames
+
+    pre_stim_inter : int 
+		Pre interval for averaging the positions/velocity and accelaration and report as pre_info
+
+	Returns
+	-------
+
+	epochs : 2D array (float)
+		X positions prior to laser stimulation aligned in rows. n_col = pre_stim_inter
+
+    '''
+
 
     i = 0
     epochs = np.empty((0,pre_stim_inter))
@@ -752,7 +986,7 @@ def extract_pre_laser_x_epochs_over_trials(files_list,files_list_laser,
     for i in range(0,len(files_list)):
         
         print('session {} out of {}'.format(i+1,len(files_list)))
-        file_path_DLC = os.path.join(direct,folder,'DLC',files_list[i])
+        file_path_DLC = os.path.join(pre_direct,folder,'DLC',files_list[i])
         df = read_DLC(file_path_DLC,scale_pix_to_cm)
         study_param_dict = {'cor':'x', 'body_part' : ['Tail','Nose'], 'plot_param' : 'position'}
         x_average = average_position_r_l(df,window_pos,misdetection_dict, **study_param_dict) # x positions
@@ -842,7 +1076,9 @@ def violin_plot_summary(data_init,names,measure):
 
 
 def plot_two_protocols_with_mouse_distinction(mouse_type, mouse_list,folder1,folder2,opto_par):
+
     '''Extract data over all mice of one group in two folders intensity and plot with subplots of individual animals'''
+
     epochs_spont_all_mice = np.empty((0,pre_interval+interval+post_interval+1))
     epochs_all_mice = np.empty((0,pre_interval+interval+post_interval+1))
 #     epochs_mean_each_mouse = np.empty((0,3)) # array storing the average of each period (OFF-ON-OFF) for all the mice
@@ -934,6 +1170,7 @@ def plot_two_protocols_with_mouse_distinction(mouse_type, mouse_list,folder1,fol
 
     
 def MWW_test(result,result_Ctr,mouse_type):
+
     '''Return two-sided Mann-Whitney test for ON-laser period velocity between Ctr and ChR2.
     
     Parameters
@@ -961,123 +1198,38 @@ def MWW_test(result,result_Ctr,mouse_type):
     return statt
 
 
-# def average_pre_x_v_and_save(mouse_type, folder, opto_par,pre_interval,interval,post_interval,pre_stim_inter,back_front_boundary,v_threshold,pre_stim_inter):
-#     '''Save data of epochs together with x and v prior to the laser epoch and individal mice to a npz file
-#     by running over all mice of one group and one intensity . 
-    
-#     Parameters
-#     ----------
-    
-#     mouse_type : str
-#         mouse type such as 'FoxP2' or ..
-    
-#     mouse_list : list (int)
-#         list of mouse identification numbers
-        
-#     folder : str
-#         the folder with the corresponding experiment protocol e.g. "Square_1_mW".
-    
-#     opto_par: str
-#         "ChR2" --> for ChR2 injected animals
-#         "Control" --> for Control group
-    
-#     '''
-
-#     where_plot,which_plot, what_plot = get_input_cor_body_part() # decide to average over what and coordinates
-#     cor = cor_list[which_plot] # gets either x or y by user
-
-#     if pre_interval > pre_stim_inter:
-#         pre_era = pre_interval
-#     else:
-#         pre_era = pre_stim_inter
-        
-#     epochs_all_mice = np.empty((0,pre_interval+interval+post_interval+1))
-#     x_all_mice = np.empty((0,1))
-#     mean_pre_vel_all_mice = np.empty((0,1))
-
-#     if opto_par == "Control":
-#         loop_list = mouse_no_dict[mouse_type][1]
-#     else:
-#         loop_list = mouse_no_dict[mouse_type][0]
-        
-#     count = 0
-#     for n in loop_list: # Run over all the mice
-#         count +=1
-#         start = timeit.default_timer()
-#         mouse_no = n
-#         print("# mouse = ",mouse_no)
-#         direct = os.path.join(pre_direct, mouse_type, opto_par, 'Mouse_' + str(mouse_no)) # directory to the folder for each mouse
-#         files_list_DLC = list_all_files(os.path.join(direct,folder,'DLC',".xlsx"))
-#         files_list_Laser = list_all_files(os.path.join(direct,folder,'Laser',".xlsx"))
-#         if len(files_list_DLC)==0 :
-#             print("No files for mouse # ",n)
-#             continue
-#         elif len(files_list_Laser)==0 :
-#             print("No Laser detection for mouse # ",n)
-#             continue
-#         else:
-#             epochs = extract_epochs_over_trials(files_list_DLC,files_list_Laser,direct,folder,'n',accep_interval_range,
-#                                                 spont_trial_dict,intervals_dict,**t_window_dict,**exp_dict) 
-#             if pre_era > pre_interval:
-#                 epochs_all_mice = np.append(epochs_all_mice, epochs[:,pre_stim_inter-pre_interval:], axis = 0)# construct an array of all the trial epochs of all mice
-#                 pre_vel = np.average(epochs[:,:pre_stim_inter],axis = 1)
-#             else:
-#                 epochs_all_mice = np.append(epochs_all_mice, epochs, axis = 0)# construct an array of all the trial epochs of all mice
-#                 pre_vel = np.average(epochs[:,pre_interval - pre_stim_inter:pre_era],axis = 1)
-#             what_plot = 0 # for x
-#             pre_x_position_epochs = extract_pre_laser_x_epochs_over_trials(files_list_DLC,files_list_Laser,direct,folder,
-#                                                                            *accep_interval_range, **pre_x_v_dict)
-#             pre_x_position = np.average(pre_x_position_epochs[:,:pre_stim_inter],axis = 1)
-#             x_all_mice = np.append(x_all_mice,pre_x_position)
-#             mean_pre_vel_all_mice = np.append(mean_pre_vel_all_mice,pre_vel)
-
-#             stop = timeit.default_timer()
-#             print('run time = ',stop-start)
-
-#     save_npz(mouse_type,opto_par,"Distinction",folder, window,n_timebin,"_pre_x_pre_v_pre_stim_inter="+str(pre_stim_inter),epochs_all_mice, x_all_mice, mean_pre_vel_all_mice,where_plot,which_plot,what_plot,where_plot,**exp_dict)
-
-
-# def read_npz_return_data_frame(path,pre_interval,post_interval,interval):
-#     ''' reads the saved npz and produces a data frame with the following columns'''
-    
-#     Summary_files_list = list_all_files(path,".npz")
-#     col_names =  ['mean_velocity', 'mouse_type', 'optogenetic expression', 'pulse_type','intensity_mW','epoch','velocity']
-#     result = pd.DataFrame(columns = col_names)
-#     for file in Summary_files_list:
-#         print(file)
-#         dat = np.load(path+file)
-#         properties=file.split("_")
-#         epochs = dat[dat.files[0]]
-#         n_epochs = epochs.shape[0]
-#         ### set the variables of epoch/optogen/pulse type/mouse type/velocity and x of pre stim
-#         pre = epochs[:,:pre_interval] ; post = epochs[:,pre_interval+1:pre_interval+interval+1]
-#         mouse_type_ = [properties[0]] * n_epochs*2
-#         opto_par_ = [properties[1]] * n_epochs*2
-#         pulse_ = [properties[2]] * n_epochs*2
-#         inten_ = [properties[3]] * n_epochs*2
-#         Velocity = dat[dat.files[2]]
-#         x = dat[dat.files[1]]
-#         x_ = np.concatenate((x,x),axis=0) 
-#         Velocity_ = np.concatenate((Velocity,Velocity),axis=0) 
-#         try:
-#             off_vel = np.average(pre,axis = 1)
-#             on_vel = np.average(post,axis = 1)
-#             all_ = np.concatenate((off_vel,on_vel),axis = 0)
-#         except ZeroDivisionError:
-#             all_ = np.empty((0))
-#         epoch_off = ['OFF'] * n_epochs
-#         epoch_on = ['ON'] * n_epochs
-#         epoch_ = epoch_off+epoch_on
-#         # append the data of each mouse to a unit dataframe
-#         df = pd.DataFrame(({'mean_velocity':all_, 
-#                             'mouse_type':mouse_type_, 'optogenetic expression':opto_par_, 'pulse_type':pulse_,
-#                             'intensity_mW':inten_,'epoch':epoch_,'velocity':Velocity_,'x':x_}))
-#         frames = [result, df]
-#         result = pd.concat(frames,ignore_index=True)
-#     return result
 
 def read_npz_return_data_frame(file_path_list,pre_interval,interval,post_interval,pre_stim_inter):
-    '''Read the saved .npz file and produce a data frame with the following columns.'''
+
+    '''Read the saved .npz file and produce a data frame with the following columns.
+
+    Parameters
+    ----------
+
+	file_path_list : list (str)
+		List of full paths to .npz files to be read
+
+	pre_interval : int 
+		Number of time bins to be taken into account before laser onset 
+
+	interval : int 
+		Laser duration in timebins.
+
+	post_interval : int
+		Number of time bins to be taken into account after laser onset 
+
+	pre_stim_inter : int
+		Pre interval for averaging the positions/velocity and accelaration and report as pre_info
+
+	Returns
+	-------
+
+	result : dataframe
+		dataframe with following columns: ['mean_velocity', 'min_velocity', 'mouse_type', 'optogenetic expression', 
+                'pulse_type','intensity_mW','epoch','pre_velocity_pos_neg','pre_x','pre_x_front_back','pre_accel','pre_accel_pos_neg']
+
+
+    '''
     
     
     col_names =  ['mean_velocity', 'min_velocity', 'mouse_type', 'optogenetic expression', 
@@ -1121,7 +1273,32 @@ def read_npz_return_data_frame(file_path_list,pre_interval,interval,post_interva
     return result
 
 def categorize_pre_x_and_v(result,back_front_boundary,v_threshold,pre_stim_inter):
-    '''Set threshold to velocity and x position averaged over pre_stim_inter.'''
+
+    '''Set threshold to velocity and x position averaged over pre_stim_inter.
+
+    Parameters
+    ----------
+
+	result : dataframe
+		dataframe containing information of all animals 
+
+	back_front_boundary : float
+		Threshold to set the position of the animal before the laser onset as either 'back' or 'front'
+
+	v_threshold : float
+		Threshold to set the velocity of the animal before the laser onset as either 'pos' or 'neg'
+
+	pre_stim_inter : int
+		Pre interval for averaging the positions/velocity and accelaration and report as pre_info
+
+	Returns
+	-------
+
+	result : dataframe
+		the dataframe as the input but with the difference that pre_X_front_back and 
+		pre_velocity_pos_neg set to binary (str) values accorfing to values.
+
+    '''
     
     ind_0 = result['pre_velocity_pos_neg'] < v_threshold
     ind_1 = result['pre_velocity_pos_neg'] > v_threshold
@@ -1138,7 +1315,35 @@ def categorize_pre_x_and_v(result,back_front_boundary,v_threshold,pre_stim_inter
     return result
 
 def Plot_ON_OFF_X_V_mean(result,path,mouse_type,folder,fps,back_front_boundary,v_threshold,pre_stim_inter,ylim=[-20,15],save_as_format='.pdf'):
-    '''Plot the mean laser-ON laser-OFF vellociry with distinction of velocity and x prior to laser stim.'''
+    '''Plot the mean laser-ON laser-OFF vellociry with distinction of velocity and x prior to laser stim.
+
+    Parameters
+    ----------
+
+	result : dataframe
+		dataframe containing information of all animals 
+
+	path : str
+		Path to save the figure
+
+	folder : str
+		Folder containing the experiment sessions
+
+	back_front_boundary : float
+		Threshold to set the position of the animal before the laser onset as either 'back' or 'front'
+
+	v_threshold : float
+		Threshold to set the velocity of the animal before the laser onset as either 'pos' or 'neg'
+
+	pre_stim_inter : int
+		Pre interval for averaging the positions/velocity and accelaration and report as pre_info
+
+	ylim : list (float) (optional)
+		Y axis limits for the figure, default set to [-20,15]
+
+	save_as_format : str (optional)
+		Format to save the figure default is '.pdf'
+    '''
     
     result_pos = result[result['pre_velocity_pos_neg'] == 'pos']
     result_neg = result[result['pre_velocity_pos_neg'] == 'neg']
@@ -1188,7 +1393,36 @@ def Plot_ON_OFF_X_V_mean(result,path,mouse_type,folder,fps,back_front_boundary,v
                              '_inten='+inten+save_as_format),bbox_inches='tight',orientation='landscape',dpi=350)
     
 def Plot_ON_OFF_V_mean(result,path,mouse_type,folder,fps,back_front_boundary,v_threshold,pre_stim_inter,ylim=[-20,15],save_as_format='.pdf'):
-    '''Plot the mean laser-ON laser-OFF vellociry witfps,h distinction of velocity prior to laser stim'''
+
+    '''Plot the mean laser-ON laser-OFF vellociry with distinction of velocity prior to laser stim.
+	
+	Parameters
+    ----------
+
+	result : dataframe
+		dataframe containing information of all animals 
+
+	path : str
+		Path to save the figure
+
+	folder : str
+		Folder containing the experiment sessions
+
+	back_front_boundary : float
+		Threshold to set the position of the animal before the laser onset as either 'back' or 'front'
+
+	v_threshold : float
+		Threshold to set the velocity of the animal before the laser onset as either 'pos' or 'neg'
+
+	pre_stim_inter : int
+		Pre interval for averaging the positions/velocity and accelaration and report as pre_info
+
+	ylim : list (float) (optional)
+		Y axis limits for the figure, default set to [-20,15]
+
+	save_as_format : str (optional)
+		Format to save the figure default is '.pdf'
+    '''
     
     result_pos = result[result['pre_velocity_pos_neg'] == 'pos']
     result_neg = result[result['pre_velocity_pos_neg'] == 'neg']
@@ -1229,6 +1463,36 @@ def Plot_ON_OFF_V_mean(result,path,mouse_type,folder,fps,back_front_boundary,v_t
     
 
 def violin_plot_X_V_distiction(result, path,mouse_type,folder,fps,back_front_boundary,v_threshold,pre_stim_inter,ylim=[-30,30],save_as_format = '.pdf'):
+
+	'''Plot violin plots with columns for pre_laser distinction and hue for back and front distinction on the treadmill.
+
+	Parameters
+    ----------
+
+	result : dataframe
+		dataframe containing information of all animals 
+
+	path : str
+		Path to save the figure
+
+	folder : str
+		Folder containing the experiment sessions
+
+	back_front_boundary : float
+		Threshold to set the position of the animal before the laser onset as either 'back' or 'front'
+
+	v_threshold : float
+		Threshold to set the velocity of the animal before the laser onset as either 'pos' or 'neg'
+
+	pre_stim_inter : int
+		Pre interval for averaging the positions/velocity and accelaration and report as pre_info
+
+	ylim : list (float) (optional)
+		Y axis limits for the figure, default set to [-30,30]
+
+	save_as_format : str (optional)
+		Format to save the figure default is '.pdf'
+	'''
     
     g = sns.catplot(x="epoch", y="mean_velocity",
                     hue="pre_x_front_back", col="pre_velocity_pos_neg",
@@ -1278,7 +1542,39 @@ def violin_plot_X_V_distiction(result, path,mouse_type,folder,fps,back_front_bou
 
 
 def plot_phase_space_V(result,path,mouse_type,folder,fps,back_front_boundary,v_threshold,pre_stim_inter,xlim=[-25,32],ylim=[-30,40],save_as_format='.pdf'):
-    '''Plot the phase space of laser-ON vs. laser-OFF velocity for all trials of all mice.'''
+    
+    '''Plot the phase space of laser-ON vs. laser-OFF velocity for all trials of all mice.
+
+    Parameters
+    ----------
+
+	result : dataframe
+		dataframe containing information of all animals 
+
+	path : str
+		Path to save the figure
+
+	folder : str
+		Folder containing the experiment sessions
+
+	back_front_boundary : float
+		Threshold to set the position of the animal before the laser onset as either 'back' or 'front'
+
+	v_threshold : float
+		Threshold to set the velocity of the animal before the laser onset as either 'pos' or 'neg'
+
+	pre_stim_inter : int
+		Pre interval for averaging the positions/velocity and accelaration and report as pre_info
+
+	xlim : list (float) (optional)
+		X axis limits for the figure, default set to [-25,32]
+
+	ylim : list (float) (optional)
+		Y axis limits for the figure, default set to [-20,15]
+
+	save_as_format : str (optional)
+		Format to save the figure default is '.pdf'
+    '''
     
     result_pos = result[result['pre_velocity_pos_neg'] == 'pos']
     result_neg = result[result['pre_velocity_pos_neg'] == 'neg']
@@ -1305,6 +1601,38 @@ def plot_phase_space_V(result,path,mouse_type,folder,fps,back_front_boundary,v_t
                              '_inten='+inten+save_as_format),bbox_inches='tight',orientation='landscape',dpi=350)
 
 def min_velocity_diff_inten_box_plot(file_path_list,path_to_save,intervals_dict,pre_x_v_dict,ylim=[-40,15],save_as_format = '.pdf'):
+
+	'''Compare min velocity during laser for trials with positive and negative pre laser velocity. 
+		Box plots to show this comparison for different intensity in same animal types.
+
+	Parameters
+	----------
+
+	file_path_list : list (str)
+		list of paths to .npz files 
+
+	path_to_save : str
+		Path to save figure 
+
+	intervals_dict : dictionary
+		Dictionary of interals:{'pre_interval' : int(.5*fps), # interval before laser onset
+                  				'interval' : int(interval_in_sec * fps), # number of timebins of stimulation
+                  				'post_interval' : int(.5*fps*2), # interval after laser onset
+                   				'pre_stim_inter' : pre_stim_inter }
+
+    pre_x_v_dict : dictionary
+    	{'back_front_boundary' : (treadmill_len-elec_shock)/2, # set the limit below which is considered back of the treadmill
+                'v_threshold' : 0,
+                'pre_stim_inter' : pre_stim_inter # number of timebins in the pre-stimulus period}
+                
+	ylim : list (float) (optional)
+		y axis limits for figure. Default is set to [-40,15]
+
+	save_as_format : str (optional)
+		format to save the figure. Default is set to '.pdf'
+
+	'''
+
     n_subplots = len(file_path_list)
 
 
@@ -1356,6 +1684,38 @@ def min_velocity_diff_inten_box_plot(file_path_list,path_to_save,intervals_dict,
     plt.savefig(os.path.join(path.replace(Path(path).name,''),'Min_V_diff_inten_'+mouse_type+save_as_format),bbox_inches='tight',orientation='landscape',dpi=200)
 
 def min_velocity_mouse_type_box_plot(file_path_list,path_to_save,intervals_dict,pre_x_v_dict,ylim=[-40,15],save_as_format = '.pdf'):
+	
+	'''Compare min velocity during laser for trials with positive and negative pre laser velocity. 
+		Box plots to show this comparison for same intensity in different animal types.
+
+	Parameters
+	----------
+
+	file_path_list : list (str)
+		list of paths to .npz files 
+
+	path_to_save : str
+		Path to save figure 
+
+	intervals_dict : dictionary
+		Dictionary of interals:{'pre_interval' : int(.5*fps), # interval before laser onset
+                  				'interval' : int(interval_in_sec * fps), # number of timebins of stimulation
+                  				'post_interval' : int(.5*fps*2), # interval after laser onset
+                   				'pre_stim_inter' : pre_stim_inter }
+
+    pre_x_v_dict : dictionary
+    	{'back_front_boundary' : (treadmill_len-elec_shock)/2, # set the limit below which is considered back of the treadmill
+                'v_threshold' : 0,
+                'pre_stim_inter' : pre_stim_inter # number of timebins in the pre-stimulus period}
+
+	ylim : list (float) (optional)
+		y axis limits for figure. Default is set to [-40,15]
+
+	save_as_format : str (optional)
+		format to save the figure. Default is set to '.pdf'
+
+	'''
+
     n_subplots = len(file_path_list)
 
 
@@ -1415,15 +1775,33 @@ def extract_epochs(bins,x,smallest_accep_inter,largest_accep_inter,pre_interval,
     
     bins : 2D-array (int)
         array of start and end times for trials
+
+    smallest_accep_inter : int
+    	Smallest acceptable duration of an interval in frames
+
+    largest_accep_inter : int
+    	Largest acceptable duration of an interval in frames
         
-    pre_interval : int
-        number of timebins for the pre-laser epoch
-    
-    post_interval : int
-        number of timebins for the post-laser epoch
-        
-    interval : int
-        number of timebins for the laser epoch
+	pre_interval : int 
+		Number of time bins to be taken into account before laser onset 
+
+	interval : int 
+		Laser duration in timebins.
+
+	post_interval : int
+		Number of time bins to be taken into account after laser onset 
+
+	Returns
+	-------
+
+	epochs : 2D array (float)
+		Trials containtning laser stimulation aligned in rows. n_col = pre_interval + interval + post_interval
+
+	n_trials : int
+		Number of trials
+
+	take : 1D array (int)
+		Array of indices corresponding to pre | on | post epoch frmaes.
     '''
     bins_in = np.copy(bins)
     ### remove the unacceptable epochs
@@ -1464,36 +1842,74 @@ def extract_epochs_over_trials(files_list,files_list_laser,direct,folder,scale_p
         
     direct : str
         Path to the parent directory containing all folders
-        
+
+    folder : str
+    	folder containing sessions for this particular protocol
+    
+    scale_pix_to_cm : float
+		Scaling coefficient converting pixels to cm
+
     spont : str
         Either 'n' --> for trials containing laser stimulation
         or 'y' --> for spontaneous trials with no laser
-    
-    no_sample : int (optional)
-        Number of samples to extract from one spontaneous session. Only necessary for spont = 'y' cases.
         
     accep_interval_range: tuple (int)
         Smallest and largest acceptable trial sizes in timebins
         
-    
-    interval_dict : dictionary
-        Contains {'pre_interval',interval,'post_interval'}
-        Number of timebins for the pre-laser, laser and post-laser epochs
+	spont_trial_dict : dictionary
+		Dictionary with values : {'max_distance' : int(4.5*fps), # max #n_timebines between sampled epochs for spontaneous
+                     			  'min_distance' : int(3*fps), # min #n_timebines between sampled epochs for spontaneous
+                   				  'n_trials_spont' : 25 # the average number of trials extracted from one spontaneous session}
+
+	misdetection_dict : dictionary 
+		Dictionary of constants used in the misdetection correction algorithm:
+		misdetection_dict = { 'acc_deviance' : int, # cm = acceptable deviance between right and left detections
+                      'internal_ctr_dev' : int,
+                      'percent_thresh_align' : int,
+                      't_s' : int, # number of time steps before and after to look at
+                      'n_iter_jitter' : int, # how many times go over data to find jitters and clear them out
+                      'jitter_threshold' : int # max_speed/fps}
+
+	study_param_dict : dictionray
+		Dictionary of values regarding coordinate (x,y), body part (list of body parts) and plot parameter 
+		(position, velocity, acceleration) packed from input of user
+
+	pre_interval : int 
+		Number of time bins to be taken into account before laser onset 
+
+	interval : int 
+		Laser duration in timebins.
+
+	post_interval : int
+		Number of time bins to be taken into account after laser onset 
+
+	pre_stim_inter : int
+		Pre interval for averaging the positions/velocity and accelaration and report as pre_info
+
+    fps : int
+    	Frame per second of the video
         
     n_timebin : int
-        Number of timebins for the x derivative to yiels velocity
+        Number of frames as timebins for the x derivative to yields velocity
     
     window_veloc : int
-        Velocity moving average window in timebins
+        Velocity moving average window in frames
     
     window_pos : int
-        Position moving average window in timebins
+        Position moving average window in frames
+
+    no_sample : int (optional)
+        Number of samples to extract from one spontaneous session. Only necessary for spont = 'y' cases.
         
     Returns
     -------
     
-    epochs : 2D-array
+    epochs : 2D array (float)
         (pre | Laser ON | post) epochs with shape (n_trials, pre_interval+post_interval+interval+1)
+
+    pre_info : 2D array (float)
+    	Three columns with averages of : pre_x , pre_v, pre_acceleration over pre_stim_interval duration.
+    	with shape (n_trials, 3)
     
     '''
     if pre_interval > pre_stim_inter:
@@ -1574,7 +1990,10 @@ def run_one_intensity_save_data(pre_direct,scale_pix_to_cm, mouse_type, mouse_li
     ----------
     pre_direct : str
         path to rooot directory
-        
+    
+    scale_pix_to_cm : float
+    	SCaling coefficient for converting pixels to cm.
+
     mouse_type : str
         mouse type such as 'FoxP2' or ..
     
@@ -1588,7 +2007,52 @@ def run_one_intensity_save_data(pre_direct,scale_pix_to_cm, mouse_type, mouse_li
         "ChR2" --> for ChR2 injected animals
         "Control" --> for Control group
 
+    treadmil_velocity : float
+		Treadmill velocity in cm/s
     
+    ylim : list (float)
+
+	spont_trial_dict : dictionary
+		Dictionary with values : {'max_distance' : int(4.5*fps), # max #n_timebines between sampled epochs for spontaneous
+                     			  'min_distance' : int(3*fps), # min #n_timebines between sampled epochs for spontaneous
+                   				  'n_trials_spont' : 25 # the average number of trials extracted from one spontaneous session}
+
+	misdetection_dict : dictionary 
+		Dictionary of constants used in the misdetection correction algorithm:
+		misdetection_dict = { 'acc_deviance' : int, # cm = acceptable deviance between right and left detections
+                      'internal_ctr_dev' : int,
+                      'percent_thresh_align' : int,
+                      't_s' : int, # number of time steps before and after to look at
+                      'n_iter_jitter' : int, # how many times go over data to find jitters and clear them out
+                      'jitter_threshold' : int # max_speed/fps}
+
+	intervals_dict : dictionary
+		dictionary of interals:{'pre_interval' : int(.5*fps), # interval before laser onset
+                  				'interval' : int(interval_in_sec * fps), # number of timebins of stimulation
+                  				'post_interval' : int(.5*fps*2), # interval after laser onset
+                   				'pre_stim_inter' : pre_stim_inter }
+
+    t_window_dict: dictionary
+    	Dictionary containing information about time contants of the project:
+    	t_window_dict = {'fps' : int, 'n_timebin' : int, 'window_pos' : int , 'window_veloc' : int}
+
+    accep_interval_range: tuple (int)
+        Smallest and largest acceptable trial sizes in timebins
+
+    study_param_dict : dictionray
+		Dictionary of values regarding coordinate (x,y), body part (list of body parts) and plot parameter 
+		(position, velocity, acceleration) packed from input of user
+
+	max_distance : int
+		maximum number of frames between sampled epochs for spontaneous
+
+	min_distance : int
+		mainimum number of frames between sampled epochs for spontaneous
+
+	n_trials_spont : int
+		number of spontaneous trials
+
+
     '''
     epochs_spont_all_mice = np.empty((0,intervals_dict['pre_interval']+intervals_dict['interval']+
                                       intervals_dict['post_interval']+1))
@@ -1685,6 +2149,9 @@ def save_npz_limb_and_tail(pre_direct,scale_pix_to_cm, mouse_type, mouse_list,fo
     ----------
     pre_direct : str
         path to rooot directory
+
+    scale_pix_to_cm : float
+	    Scaling coeficient for pixels to cm.
         
     mouse_type : str
         mouse type such as 'FoxP2' or ..
@@ -1698,8 +2165,40 @@ def save_npz_limb_and_tail(pre_direct,scale_pix_to_cm, mouse_type, mouse_list,fo
     opto_par: str
         "ChR2" --> for ChR2 injected animals
         "Control" --> for Control group
-
     
+	misdetection_dict : dictionary 
+		Dictionary of constants used in the misdetection correction algorithm:
+		misdetection_dict = { 'acc_deviance' : int, # cm = acceptable deviance between right and left detections
+                      'internal_ctr_dev' : int,
+                      'percent_thresh_align' : int,
+                      't_s' : int, # number of time steps before and after to look at
+                      'n_iter_jitter' : int, # how many times go over data to find jitters and clear them out
+                      'jitter_threshold' : int # max_speed/fps}
+
+	pre_interval : int 
+		Number of time bins to be taken into account before laser onset 
+
+	interval : int 
+		Laser duration in timebins.
+
+	post_interval : int
+		Number of time bins to be taken into account after laser onset 
+
+	t_window_dict : dictionary
+	    Dictionary containing information about time contants of the project:
+    	t_window_dict = {'fps' : int, 'n_timebin' : int, 'window_pos' : int , 'window_veloc' : int}
+
+    accep_interval_range: tuple (int)
+        Smallest and largest acceptable trial sizes in timebins
+
+    cor_list : list(str)
+		list of available coordinates e.g. 'x', 'y'
+
+	body_part_list : list(str)
+		list of DLC labeled body parts 
+
+	plot_param_list : list(str)
+		List of available parameters for analysis e.g position or velocity.
     '''
     print(" 1. X \n 2. Y ")
     which_plot = int(input())-1 # ask what body part to plot
@@ -1774,7 +2273,7 @@ def extract_epochs_over_trials_one_side_one_body_part(files_list_DLC,files_list_
     Parameters
     ----------
     
-    files_list : list (str)
+    files_list_DLC : list (str)
         List of paths to all DLC .csv files for sessions
         
     files_list_laser : list (str)
@@ -1782,30 +2281,50 @@ def extract_epochs_over_trials_one_side_one_body_part(files_list_DLC,files_list_
         
     direct : str
         Path to the parent directory containing all folders
-        
-    spont : str
-        Either 'n' --> for trials containing laser stimulation
-        or 'y' --> for spontaneous trials with no laser
-    
-    no_sample : int (optional)
-        Number of samples to extract from one spontaneous session. Only necessary for spont = 'y' cases.
-        
+
+    folder : str
+    	Folder containing sessions for this protocol
+          
+    scale_pix_to_cm : float
+
     accep_interval_range: tuple (int)
         Smallest and largest acceptable trial sizes in timebins
-        
     
-    interval_dict : dictionary
-        Contains {'pre_interval',interval,'post_interval'}
-        Number of timebins for the pre-laser, laser and post-laser epochs
+	misdetection_dict : dictionary 
+		Dictionary of constants used in the misdetection correction algorithm:
+		misdetection_dict = { 'acc_deviance' : int, # cm = acceptable deviance between right and left detections
+                      'internal_ctr_dev' : int,
+                      'percent_thresh_align' : int,
+                      't_s' : int, # number of time steps before and after to look at
+                      'n_iter_jitter' : int, # how many times go over data to find jitters and clear them out
+                      'jitter_threshold' : int # max_speed/fps}
+
+	pre_interval : int 
+		Number of time bins to be taken into account before laser onset 
+
+	interval : int 
+		Laser duration in timebins.
+
+	post_interval : int
+		Number of time bins to be taken into account after laser onset 
+
+	pre_stim_inter : int
+		Pre interval for averaging the positions/velocity and accelaration and report as pre_info
+
+    fps : int
+    	Frame per second of the video
         
     n_timebin : int
-        Number of timebins for the x derivative to yiels velocity
+        Number of frames as timebins for the x derivative to yields velocity
     
     window_veloc : int
-        Velocity moving average window in timebins
+        Velocity moving average window in frames
     
     window_pos : int
-        Position moving average window in timebins
+        Position moving average window in frames
+
+    left_or_right : str (optional)
+    	Either left side or right side. Default value is set to 'right'.
         
     Returns
     -------
@@ -1840,4 +2359,18 @@ def extract_epochs_over_trials_one_side_one_body_part(files_list_DLC,files_list_
 
 
     return epochs
+
+
+
+# def detect_remove_jitter(velocity, max_accel = 95):
+#     ''' detect when the DLC labeled wrongly by filtering with acceleration criteria
+    
+#     to do: set the inconsistent one to the average of before and after'''
+#     shifted = shift(velocity, 1, cval= velocity[0])
+#     accel = (velocity - shifted)/(1/fps)
+#     print(np.sort(accel)[-2])
+#     print("max accel = ", max(accel), np.argmax(accel)/fps)
+#     ind = np.where(np.absolute(accel) > max_accel)
+#     print("# jitters in speed = ",len(ind[0]))
+#     return velocity
     
