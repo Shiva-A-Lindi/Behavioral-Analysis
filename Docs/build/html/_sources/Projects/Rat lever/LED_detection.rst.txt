@@ -1,0 +1,198 @@
+==================================
+ Behavioral analysis documentation
+==================================
+Welcome! This is the documentation for data analysis of rodent behavioral task data last updated Aug, 2020.
+
+As a user you do not need to be fluent in Python. You can follow this guide and by respecting the requirementes and file data hirerachy you should be fine!
+
+**Rats in lever press task**
+-----------------------------
+
+LED detection
+~~~~~~~~~~~~~
+
+The LED panel in the experiment chamber captures different events during the experiment such as auditory cue onset, pad contact, reward delivery, etc.
+
+For User:
+
+The LED_detection.py executable file searches the path that you specify for video files. It will take some information about your video frames and it will produce a **.csv** file in the same directory as your video specifying the state of the LED as a binary (0,1) in each frame of your video.
+
+Here are the steps you have to take:
+
+
+
+
+		   
+#. Download the executable **.py** file from here_ and run it in your terminal:
+   
+   .. code-block:: text
+		     
+      $ python LED_detecion.py
+      Enter the full path under which the video file hierarchy resides:OD
+      (There must not be any videos other than the ones you want analyzed in this directory tree.)
+
+#. Then input the root directory within which all your videos are as instructed above, for example in an IOS device:
+     
+   .. code-block:: text
+		     
+      /Users/apple/Desktop/Rat_Lever_experiment
+
+      Specify the left and right end of the pad and the lever location, resepectively.
+
+#. A window will pop up showing one frame of one of your videos. Specify the left and right  edges of the pad and then the lever center with mouse clicks:
+
+   .. code-block:: text
+		   
+      Pad edges (x,y): 
+      [153 364] [254 364]
+      Lever location (x,y):
+      [392 184]
+      Press esc when you're done to close the windows.
+
+
+   .. figure:: /images/Pad_and_lever_pos.png
+      :scale: 30 %
+      :alt: alternate text
+      :align: center
+
+	   
+   It will mark your selections and show them as in the image above. Press esc to continue.
+
+#. Then it will ask you to specify crop edges by mouse click in a new emerged window. Cropping around the LED panel will help not to overflow your memory during frame analysis:
+
+   .. code-block:: text
+
+      Now specify the upper left and lower right corner for cropping 
+      Corners:
+      [ 13 455]
+      [395 511]
+      Press esc when you're done to close the windows.
+
+   You will see your selection highlighted in green, as shown below. Press esc to continue.
+
+   .. figure:: /images/Cropped.png
+      :scale: 30 %
+      :alt: alternate text
+      :align: center
+
+#. Lastly, you will have to specify the circles corresponding to LED lights:
+
+   .. code-block:: text
+		   
+      Specify the center and one point on the edge for each LED 
+
+      Circle centers and radii ([X, Y, R]): 
+      [[ 23  27  14]
+      [ 96  34  14]
+      [173  37  16]
+      [254  40  13]
+      [336  40  12]]
+      Press esc when you're done to close the windows. 
+
+   It will both show circles drawn around the LEDs (shown below) and report their coordinates for you to evaluate.
+
+   .. figure:: /images/Circles.png
+      :scale: 40 %
+      :alt: alternate text
+      :align: center
+
+   .. note::
+
+      Note that the mouse clicks have to be in this particular order :
+
+      #. Far left LED center
+      #. Far left LED edge point
+      #. Second left center
+      #. Second left edge point...
+
+#. The LEDs change intensity from "off" to "on" state continouesly. Last step is to specify where on the spectrum from minimum to maximum intensity the LED has to be considered switched on. You should input this value as percentage (without the % sign):
+
+   .. code-block:: text
+
+      Above what percentage of max intensity should be considered switched on? (Either press enter to set the default (25%) or input the percentage value for each LED seperated by spaces.) 
+      30 25 30 40 50
+      Wait while the LED on-thresholds are set...
+      runtime =  101  sec
+      max intensities =  [109  84 173 254 254]
+      min intensities =  [13 19 22 21 22]
+
+      The LED thresholds are as following: [ 42  35  67 114 138] 
+
+#. After the threshold are set. It will ask you if you want to proceed with the analysis of all the videos in the root directory you provided in the beginning. You can confirmas below:
+   
+   .. code-block:: text
+		   
+      Do you want to proceed with analysis of all video files?(y/n) 
+      y
+
+After the analysis is finished, you would be able to see the **.csv** files in the same directory as each video.
+
+.. _here: https://github.com/Shiva-A-Lindi/Behavioral-Analysis/tree/master/LED_detection
+
+For developer/contributer:
+
+Classes:
+________
+
+* **Video()**:
+  grabs each video and captures frames for analysis
+
+* **Frame()**:
+  each captured frame by video grabber becomes an instance of this class for further analysis
+
+* **LED_class()**:
+  stores informations regarding the LED lights, such as their location in the image, intensity and the minimum intensity threshold for on and off state.
+
+Functions:
+__________
+
+First a few functions to get inputs from user and get things ready for analysis:
+
+* **build_videoPath_list** (*path*):
+
+ ``input``: full path of the folder containing all videos within directories and subdirectories.
+ 
+ ``result``: a list of strings returning the full path for each video file in the directory tree.
+
+ .. note:: Note that there should not be any other videos in this directory tree since all of them would be extracted with this function.
+
+* **get_one_frame_from_video** (*videofile_path*):
+
+  ``input``: full path to a video file
+
+  ``result``: a BW frame of the video 
+
+* **crop** (*image*):
+
+  Pops up a window showing a frame of the video and waits for two consecutive mouse clicks. First should be on the left upper corner and second on the right lower corner of the LED panel. 
+  ``input``: a BW frame of the video containing the LED panel
+
+  ``result``: cropped BW image containing only the LED panel
+
+* **get_pad_and_lever_from_user** (*image*)
+
+  Pops up a window with full frame and waits for 3 consecutive mouse clicks. 1) left end of the pad, 2) right end of the lever and 3) center of the lever.
+  
+  ``input``: a full BW frame of the video
+
+  ``result``: an array with 3 entries corresponding to (x,y) coordinates for left and right end of the pad and the center of the lever respectively.
+
+* **get_circles** (*cropped_image*):
+
+  Pops up the cropped image and gets the center and one point on the edge of the presumed circle for each LED. 
+
+  ``input``: BW image presenting the LED panel only
+
+  ``result``: returning a (5,3) size array, with (x,y,radius) for each of the 5 LEDs
+
+
+* **find_on_threshold** (*videoPath_list*, *X0*, *X1*, *Y0*, *Y1*, *on_range*)
+
+  Averages the pixel intensities of each LED in all frames of all videos. LED threshold is set on the first quarter of the max and min range.
+  
+  ``input``: *videoPath_list* is the list of all the full paths of videos. (X0,Y0) is the upper left corner of the cropping rectangle and (X1,Y1) the lower right end. *on_range* is an array with n_LED elements specifying with what percentage of maximum intensity the LEDs should be considered as on (default is 25% for all).
+
+  ``result``: a list containing 5 values as specific thresholds for each LED.
+
+.. seealso:: See
+	     
