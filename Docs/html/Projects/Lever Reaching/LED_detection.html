@@ -1,0 +1,275 @@
+
+
+<!doctype html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED detection &#8212; Behavioral Analysis 0.0.1 documentation</title>
+    <link rel="stylesheet" href="../../_static/bizstyle.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+    <script src="../../_static/jquery.js"></script>
+    <script src="../../_static/underscore.js"></script>
+    <script src="../../_static/doctools.js"></script>
+    <script src="../../_static/language_data.js"></script>
+    <script src="../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <link rel="next" title="Lever Reaching Task Analysis" href="Lever_reaching.html" />
+    <link rel="prev" title="Lever Reaching Code Doc" href="Code_doc_Lever_Reaching.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0">
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="Lever_reaching.html" title="Lever Reaching Task Analysis"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="Code_doc_Lever_Reaching.html" title="Lever Reaching Code Doc"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Behavioral Analysis 0.0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" accesskey="U">Lever Reaching</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">LED detection</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="led-detection">
+<h1>LED detection<a class="headerlink" href="#led-detection" title="Permalink to this headline">¶</a></h1>
+<p>The LED panel in the experiment chamber captures different events during the experiment such as auditory cue onset, pad contact, reward delivery, etc.</p>
+<p>For User:</p>
+<p>The LED_detection.py executable file searches the path that you specify for video files. It will take some information about your video frames and it will produce a <strong>.csv</strong> file in the same directory as your video specifying the state of the LED as a binary (0,1) in each frame of your video.</p>
+<p>Here are the steps you have to take:</p>
+<ol class="arabic">
+<li><p>Download the executable <strong>.py</strong> file from <a class="reference external" href="https://github.com/Shiva-A-Lindi/Behavioral-Analysis/tree/master/LED_detection">here</a> and run it in your terminal:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ python LED_detecion.py
+Enter the full path under which the video file hierarchy resides:OD
+(There must not be any videos other than the ones you want analyzed in this directory tree.)
+</pre></div>
+</div>
+</li>
+<li><p>Then input the root directory within which all your videos are as instructed above, for example in an IOS device:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>/Users/apple/Desktop/Rat_Lever_experiment
+
+Specify the left and right end of the pad and the lever location, resepectively.
+</pre></div>
+</div>
+</li>
+<li><p>A window will pop up showing one frame of one of your videos. Specify the left and right  edges of the pad and then the lever center with mouse clicks:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Pad edges (x,y):
+[153 364] [254 364]
+Lever location (x,y):
+[392 184]
+Press esc when you&#39;re done to close the windows.
+</pre></div>
+</div>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/Pad_and_lever_pos.png"><img alt="alternate text" src="../../_images/Pad_and_lever_pos.png" style="width: 307.2px; height: 321.0px;" /></a>
+</div>
+<p>It will mark your selections and show them as in the image above. Press esc to continue.</p>
+</li>
+<li><p>Then it will ask you to specify crop edges by mouse click in a new emerged window. Cropping around the LED panel will help not to overflow your memory during frame analysis:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Now specify the upper left and lower right corner for cropping
+Corners:
+[ 13 455]
+[395 511]
+Press esc when you&#39;re done to close the windows.
+</pre></div>
+</div>
+<p>You will see your selection highlighted in green, as shown below. Press esc to continue.</p>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/Cropped.png"><img alt="alternate text" src="../../_images/Cropped.png" style="width: 380.09999999999997px; height: 321.59999999999997px;" /></a>
+</div>
+</li>
+<li><p>Lastly, you will have to specify the circles corresponding to LED lights:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Specify the center and one point on the edge for each LED
+
+Circle centers and radii ([X, Y, R]):
+[[ 23  27  14]
+[ 96  34  14]
+[173  37  16]
+[254  40  13]
+[336  40  12]]
+Press esc when you&#39;re done to close the windows.
+</pre></div>
+</div>
+<p>It will both show circles drawn around the LEDs (shown below) and report their coordinates for you to evaluate.</p>
+<div class="figure align-center">
+<a class="reference internal image-reference" href="../../_images/Circles.png"><img alt="alternate text" src="../../_images/Circles.png" style="width: 402.40000000000003px; height: 146.4px;" /></a>
+</div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Note that the mouse clicks have to be in this particular order :</p>
+<ol class="arabic simple">
+<li><p>Far left LED center</p></li>
+<li><p>Far left LED edge point</p></li>
+<li><p>Second left center</p></li>
+<li><p>Second left edge point…</p></li>
+</ol>
+</div>
+</li>
+<li><p>The LEDs change intensity from “off” to “on” state continouesly. Last step is to specify where on the spectrum from minimum to maximum intensity the LED has to be considered switched on. You should input this value as percentage (without the % sign):</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Above what percentage of max intensity should be considered switched on? (Either press enter to set the default (25%) or input the percentage value for each LED seperated by spaces.)
+30 25 30 40 50
+Wait while the LED on-thresholds are set...
+runtime =  101  sec
+max intensities =  [109  84 173 254 254]
+min intensities =  [13 19 22 21 22]
+
+The LED thresholds are as following: [ 42  35  67 114 138]
+</pre></div>
+</div>
+</li>
+<li><p>After the threshold are set. It will ask you if you want to proceed with the analysis of all the videos in the root directory you provided in the beginning. You can confirmas below:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Do you want to proceed with analysis of all video files?(y/n)
+y
+</pre></div>
+</div>
+</li>
+</ol>
+<p>After the analysis is finished, you would be able to see the <strong>.csv</strong> files in the same directory as each video.</p>
+<p>For developer/contributer:</p>
+<div class="section" id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p><strong>Video()</strong>:
+grabs each video and captures frames for analysis</p></li>
+<li><p><strong>Frame()</strong>:
+each captured frame by video grabber becomes an instance of this class for further analysis</p></li>
+<li><p><strong>LED_class()</strong>:
+stores informations regarding the LED lights, such as their location in the image, intensity and the minimum intensity threshold for on and off state.</p></li>
+</ul>
+</div>
+<div class="section" id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Permalink to this headline">¶</a></h2>
+<p>First a few functions to get inputs from user and get things ready for analysis:</p>
+<ul class="simple">
+<li><p><strong>build_videoPath_list</strong> (<em>path</em>):</p></li>
+</ul>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">input</span></code>: full path of the folder containing all videos within directories and subdirectories.</p>
+<p><code class="docutils literal notranslate"><span class="pre">result</span></code>: a list of strings returning the full path for each video file in the directory tree.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Note that there should not be any other videos in this directory tree since all of them would be extracted with this function.</p>
+</div>
+</div></blockquote>
+<ul>
+<li><p><strong>get_one_frame_from_video</strong> (<em>videofile_path</em>):</p>
+<p><code class="docutils literal notranslate"><span class="pre">input</span></code>: full path to a video file</p>
+<p><code class="docutils literal notranslate"><span class="pre">result</span></code>: a BW frame of the video</p>
+</li>
+<li><p><strong>crop</strong> (<em>image</em>):</p>
+<p>Pops up a window showing a frame of the video and waits for two consecutive mouse clicks. First should be on the left upper corner and second on the right lower corner of the LED panel.
+<code class="docutils literal notranslate"><span class="pre">input</span></code>: a BW frame of the video containing the LED panel</p>
+<p><code class="docutils literal notranslate"><span class="pre">result</span></code>: cropped BW image containing only the LED panel</p>
+</li>
+<li><p><strong>get_pad_and_lever_from_user</strong> (<em>image</em>)</p>
+<p>Pops up a window with full frame and waits for 3 consecutive mouse clicks. 1) left end of the pad, 2) right end of the lever and 3) center of the lever.</p>
+<p><code class="docutils literal notranslate"><span class="pre">input</span></code>: a full BW frame of the video</p>
+<p><code class="docutils literal notranslate"><span class="pre">result</span></code>: an array with 3 entries corresponding to (x,y) coordinates for left and right end of the pad and the center of the lever respectively.</p>
+</li>
+<li><p><strong>get_circles</strong> (<em>cropped_image</em>):</p>
+<p>Pops up the cropped image and gets the center and one point on the edge of the presumed circle for each LED.</p>
+<p><code class="docutils literal notranslate"><span class="pre">input</span></code>: BW image presenting the LED panel only</p>
+<p><code class="docutils literal notranslate"><span class="pre">result</span></code>: returning a (5,3) size array, with (x,y,radius) for each of the 5 LEDs</p>
+</li>
+<li><p><strong>find_on_threshold</strong> (<em>videoPath_list</em>, <em>X0</em>, <em>X1</em>, <em>Y0</em>, <em>Y1</em>, <em>on_range</em>)</p>
+<p>Averages the pixel intensities of each LED in all frames of all videos. LED threshold is set on the first quarter of the max and min range.</p>
+<p><code class="docutils literal notranslate"><span class="pre">input</span></code>: <em>videoPath_list</em> is the list of all the full paths of videos. (X0,Y0) is the upper left corner of the cropping rectangle and (X1,Y1) the lower right end. <em>on_range</em> is an array with n_LED elements specifying with what percentage of maximum intensity the LEDs should be considered as on (default is 25% for all).</p>
+<p><code class="docutils literal notranslate"><span class="pre">result</span></code>: a list containing 5 values as specific thresholds for each LED.</p>
+</li>
+</ul>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>See</p>
+</div>
+</div>
+</div>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../../index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">LED detection</a><ul>
+<li><a class="reference internal" href="#classes">Classes</a></li>
+<li><a class="reference internal" href="#functions">Functions</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="Code_doc_Lever_Reaching.html"
+                        title="previous chapter">Lever Reaching Code Doc</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="Lever_reaching.html"
+                        title="next chapter">Lever Reaching Task Analysis</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../../_sources/Projects/Lever Reaching/LED_detection.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="Lever_reaching.html" title="Lever Reaching Task Analysis"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="Code_doc_Lever_Reaching.html" title="Lever Reaching Code Doc"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Behavioral Analysis 0.0.1 documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="index.html" >Lever Reaching</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">LED detection</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2020, Shiva A. Lindi.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 3.1.2.
+    </div>
+  </body>
+</html>
