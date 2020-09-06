@@ -41,7 +41,7 @@ Here are the steps you have to take:
       Press esc when you're done to close the windows.
 
 
-   .. figure:: /images/Pad_and_lever_pos.png
+   .. figure:: /media/Pad_and_lever_pos.png
       :scale: 30 %
       :alt: alternate text
       :align: center
@@ -61,7 +61,7 @@ Here are the steps you have to take:
 
    You will see your selection highlighted in green, as shown below. Press esc to continue.
 
-   .. figure:: /images/Cropped.png
+   .. figure:: /media/Cropped.png
       :scale: 30 %
       :alt: alternate text
       :align: center
@@ -82,7 +82,7 @@ Here are the steps you have to take:
 
    It will both show circles drawn around the LEDs (shown below) and report their coordinates for you to evaluate.
 
-   .. figure:: /images/Circles.png
+   .. figure:: /media/Circles.png
       :scale: 40 %
       :alt: alternate text
       :align: center
