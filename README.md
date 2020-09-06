@@ -10,8 +10,8 @@ The data for this project is provided through different pipelines. Temporal posi
 
 
 <p align="left">
-  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Locomotion_DLC_and_plot.gif width="50%" height="50%" hspace="50">
-  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/Rat_lever_demo.gif width="22%" height="22%" hspace="40">
+  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/gifs/Locomotion_DLC_and_plot.gif width="50%" height="50%" hspace="50">
+  <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/gifs/Rat_lever_demo.gif width="22%" height="22%" hspace="40">
   <p align="left">Resulting body-part tracking with DLC. <strong>Left</strong>: Locomotion task. Plot shows the average of nose extremity and tail base. <strong>Right</strong>: Lever reaching task. Plot shows the traces of wrist base (light blue dot) <p align="center">
 
 </p>
