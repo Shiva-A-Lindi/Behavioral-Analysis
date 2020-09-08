@@ -1,7 +1,8 @@
 Locomotion Task Analysis
 ========================
 
-blah 
+File hierarchy
+--------------
 
 The root directory to your project should have this hierarchy::
 
@@ -51,5 +52,12 @@ The root directory to your project should have this hierarchy::
 	|
 	`-- Subplots
 
+Jupyter notebook
+----------------
+
+Here_ you will find the jupyter notebook that contains different aspects of Locomotion task data analysis. In the same location you would also find the *Locomotion.py* moodule used for this analysis. The documentation for its functions can be found here_. 
+In order to start work on data analysis, you have to first fix some parameters:
 
 
+.. _Here: https://github.com/Shiva-A-Lindi/Behavioral-Analysis/tree/master/Locomotion
+.. _here: https://shiva-a-lindi.github.io/Behavioral-Analysis/build/html/Projects/Locomotion/Code_doc_Locomotion.html
