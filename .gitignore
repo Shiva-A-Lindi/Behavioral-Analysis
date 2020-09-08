@@ -1,4 +1,5 @@
 .ipynb_checkpoints
 */.ipynb_checkpoints/*
 
-/Locomotion/__pycache__/*
+#all __pycache folders
+*/__pycache__/*
