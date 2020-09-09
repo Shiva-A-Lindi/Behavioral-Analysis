@@ -55,9 +55,88 @@ The root directory to your project should have this hierarchy::
 Jupyter notebook
 ----------------
 
-Here_ you will find the jupyter notebook that contains different aspects of Locomotion task data analysis. In the same location you would also find the *Locomotion.py* moodule used for this analysis. The documentation for its functions can be found here_. 
-In order to start work on data analysis, you have to first fix some parameters:
-
+`Here`_ you will find the jupyter notebook that contains different aspects of Locomotion task data analysis.
 
 .. _Here: https://github.com/Shiva-A-Lindi/Behavioral-Analysis/tree/master/Locomotion
-.. _here: https://shiva-a-lindi.github.io/Behavioral-Analysis/build/html/Projects/Locomotion/Code_doc_Locomotion.html
+
+In the same location you would also find the *Locomotion.py* moodule used for this analysis. Here's the documentation_ for its functions. 
+
+In order to start work on data analysis, you have to first fix some parameters specified under heading **Constants**:
+
+``video_height`` : the height of video in pixels
+
+``video_width`` : the width in pixels
+
+``fps`` : number of frames per second of video 
+
+``left_edge_x`` : left end of treadmil in the frame in pixels
+
+``right_edge_x``  : right end of treadmil in the frame in pixels
+
+``treadmill_len`` : True length of the treadmill in cm
+
+``elec_shock`` : length of the electro shock section of the treadmil in cm
+
+``treadmil_velocity`` : velocity of the treadmill during task in cm/s
+
+``interval_in_sec`` : duration of stimulation in sec
+
+``pre_stim_interval`` : pre stimulus interval in sec for looking at x ,v and acceleration
+
+``pre_stim_interval_measure`` : pre stimulus interval in seconds for the laser-OFF epoch before laser
+
+``post_stim_interval_measure`` : pre stimulus interval in seconds for the laser-OFF epoch after stimulation
+
+``n_timebin`` : number of frames for diffrentriation of position to yield velocity 
+
+``window_pos`` : moving average window for position curve smoothing
+
+``window_veloc`` : moving average window for velocity curve smoothing
+
+``max_speed`` : the presumed max speed of the animal to use for misdetections
+
+
+``mouse_no_dict`` : Animal number dictionary. Every item is a tuple of two lists, first element represents *ChR2* animals and second element the *Control* 
+e.g. :: 
+
+ 	{'D2' : ([156, 165, 166, 195, 196, 198, 199],[172, 178]), 
+ 	'Vglut2':([116, 117, 118, 119, 164, 165, 166],[359, 360]), 
+  	'FoxP2':([8, 9, 10, 11, 24, 27],[23, 26])}
+
+``pre_direct`` : path to the root directory shown above
+
+.. _documentation: https://shiva-a-lindi.github.io/Behavioral-Analysis/build/html/Projects/Locomotion/Code_doc_Locomotion.html
+
+
+Data analysis
+~~~~~~~~~~~~~
+
+We first extract sessions from the readings obtained from the DeepLabCut package :
+
+.. image:: /media/Locomotion_position.png
+	:align: center
+	:scale: 40 %
+
+Where the blue shades show the intervals with laser stimulation.
+
+We then extract all the windows that contain a certain period (``pre_stim_interval_measure``) before laser onset, the duration of laser and (``interval_in_sec``) and a period after (``post_stim_interval_measure``).
+
+
+.. image:: /media/Average_trials.png
+	:align: center
+	:scale: 30 %
+
+If the experimenter has provided sessions with no laser stimulation (blak like, here addressed as *Spontaneous*), we extraced the same number of trials from those sessions and plots them together to have an internal control.
+
+You will find the chance to assess your data through a variety of options:
+	* look at single trials of specific animals,
+	* averages of all or specific sessions for individual animals and all the animals at once. 
+
+	* You would also be able to categorize trials based on their charecteristics in the miliseconds prior to lase stimulation to see how the intial conditions would change the behavior during laser stimulation. 
+
+	* compare average of a chosen measure *position*, *velocity* or acceleration within an animal type group or between groups or for different animal groups with different optogenetic expression
+
+	* distribution of pre laser position for individual animals
+
+	* Compare the effect of simultaneous or separate laser stimulation in different brain areas within the same animal group e.g. stimulation of Subthalamic nucleus and External Globus Pallidus in Vglut2-Cre transgenic animals.
+
