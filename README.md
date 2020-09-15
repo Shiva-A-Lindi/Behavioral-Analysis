@@ -57,4 +57,4 @@ The necessary information, code structure, file hierarchy about the developed co
 
 <b id="f1">1</b> Unpublishe data provided by Nicolas Mallet at Physiology and pathophysiology of executive functions Lab (Institut des Maladies Neurodégénératives ([IMN](https://www.imn-bordeaux.org/en/teams/physiology-and-pathophysiology-of-executive-functions/)), CNRS, Bordeaux). [↩](#a1)
 
-<b id="f2">2</b> Mathis A, Mamidanna P, Cury KM, Abe T, Murthy VN, Mathis MW, Bethge M (2018) DeepLabCut: mark- erless pose estimation of user-defined body parts with deep learning. Nature Neuroscience 21:1281–1289. [↩](#a2)
+<b id="f2">2</b> Mathis A, Mamidanna P, Cury KM, Abe T, Murthy VN, Mathis MW, Bethge M (2018) DeepLabCut: markerless pose estimation of user-defined body parts with deep learning. Nature Neuroscience 21:1281–1289. [↩](#a2)
