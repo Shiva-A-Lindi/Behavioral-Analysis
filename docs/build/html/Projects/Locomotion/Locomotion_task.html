@@ -88,10 +88,9 @@
 <li class="toctree-l2"><a class="reference internal" href="Code_doc_Locomotion.html">Locomotion Code Doc</a></li>
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Locomotion Task Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="#file-hierarchy">File hierarchy</a></li>
-<li class="toctree-l3"><a class="reference internal" href="#jupyter-notebook">Jupyter notebook</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#data-analysis">Data analysis</a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="#jupyter-notebook">Jupyter notebook</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data-analysis">Data analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#misdetection-correction">Misdetection correction</a></li>
 </ul>
 </li>
 </ul>
@@ -103,7 +102,16 @@
 <li class="toctree-l3"><a class="reference internal" href="../Lever Reaching/LED_detection.html#functions">Functions</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="../Lever Reaching/Lever_reaching.html">Lever Reaching Task Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../Lever Reaching/Lever_reaching.html">Lever Reaching Task Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../Lever Reaching/Lever_reaching.html#file-hierarchy">File hierarchy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../Lever Reaching/Lever_reaching.html#experiment">Experiment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../Lever Reaching/Lever_reaching.html#config-file">Config file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../Lever Reaching/Lever_reaching.html#measures">Measures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../Lever Reaching/Lever_reaching.html#misdetection-correction">Misdetection Correction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../Lever Reaching/Lever_reaching.html#metadata">Metadata</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../Lever Reaching/Lever_reaching.html#jupyter-notebook-and-data-analysis">Jupyter Notebook and Data Analysis</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -179,7 +187,7 @@
 <h2>File hierarchy<a class="headerlink" href="#file-hierarchy" title="Permalink to this headline">¶</a></h2>
 <p>The root directory to your project should have this hierarchy:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root
-|-- Animal_Type_1               &lt;-- all data for one specific animal type e.g. &#39;FoxP2-Cre&#39;
+|-- Animal_Type_1                       &lt;-- all data for one specific animal type e.g. &#39;FoxP2-Cre&#39;
 |       |-- ChR2                        &lt;-- Optogenetic expression
 |       |       |-- Animal_0            &lt;-- data for one animal in that animal type.
 |       |       |       |-- Protocol_0  &lt;-- folders separate protocols e.g. &#39;Square_1_mW&#39;
@@ -187,7 +195,7 @@
 |       |       |       |       |       |-- session_0_DLC.xlsx
 |       |       |       |       |       .
 |       |       |       |       |       .
-|       |       |       |       |-- Laser &lt;-- contains laser detection files
+|       |       |       |       `-- Laser &lt;-- contains laser detection files
 |       |       |       |               |-- session_0_laser.xlsx
 |       |       |       |               |-- session_1_laser.xlsx
 |       |       |       |               .
@@ -197,9 +205,9 @@
 |       |       |       |-- Protocol_n
 |       |       |       |
 |       |       |       `-- Spontaneous &lt;-- Same everything just for Spontaneous sessions
-|       |       |               `DLC &lt;-- only DLC folder since there&#39;s no laser
+|       |       |               `DLC    &lt;-- only DLC folder since there&#39;s no laser
 |       |       |
-|       |       |-- Animal_1 &lt;-- same for all other animals
+|       |       |-- Animal_1            &lt;-- same for all other animals
 |       |       .
 |       |       .
 |       |       |
@@ -212,7 +220,7 @@
 |-- Animal_Type_1
 |
 |
-|-- Animal_Type_n &lt;-- same for all other animal types
+|-- Animal_Type_n                       &lt;-- same for all other animal types
 |
 |-- data_npz
 |       |-- Protocol_0
@@ -255,14 +263,15 @@ e.g.</p>
 </pre></div>
 </div>
 <p><code class="docutils literal notranslate"><span class="pre">pre_direct</span></code> : path to the root directory shown above</p>
+</div>
 <div class="section" id="data-analysis">
-<h3>Data analysis<a class="headerlink" href="#data-analysis" title="Permalink to this headline">¶</a></h3>
+<h2>Data analysis<a class="headerlink" href="#data-analysis" title="Permalink to this headline">¶</a></h2>
 <p>We first extract sessions from the readings obtained from the DeepLabCut package :</p>
 <a class="reference internal image-reference" href="../../_images/Locomotion_position.png"><img alt="../../_images/Locomotion_position.png" class="align-center" src="../../_images/Locomotion_position.png" style="width: 480.0px; height: 320.0px;" /></a>
 <p>Where the blue shades show the intervals with laser stimulation.</p>
 <p>We then extract all the windows that contain a certain period (<code class="docutils literal notranslate"><span class="pre">pre_stim_interval_measure</span></code>) before laser onset, the duration of laser and (<code class="docutils literal notranslate"><span class="pre">interval_in_sec</span></code>) and a period after (<code class="docutils literal notranslate"><span class="pre">post_stim_interval_measure</span></code>).</p>
 <a class="reference internal image-reference" href="../../_images/Average_trials.png"><img alt="../../_images/Average_trials.png" class="align-center" src="../../_images/Average_trials.png" style="width: 499.79999999999995px; height: 336.0px;" /></a>
-<p>If the experimenter has provided sessions with no laser stimulation (blak like, here addressed as <em>Spontaneous</em>), we extraced the same number of trials from those sessions and plots them together to have an internal control.</p>
+<p>If the experimenter has provided sessions with no laser stimulation (black line, here addressed as <em>Spontaneous</em>), we extraced the same number of trials from those sessions and plots them together to have an internal control.</p>
 <dl class="simple">
 <dt>You will find the chance to assess your data through a variety of options:</dt><dd><ul class="simple">
 <li><p>look at single trials of specific animals,</p></li>
@@ -275,6 +284,44 @@ e.g.</p>
 </dd>
 </dl>
 </div>
+<div class="section" id="misdetection-correction">
+<h2>Misdetection correction<a class="headerlink" href="#misdetection-correction" title="Permalink to this headline">¶</a></h2>
+<p>Even with an optimized trained network it so happens that there are mistakes in the trackings of body parts. This causes crazy changes in velocity of the animal and yield a noisy reading of what we are looking for.
+Here we try to reduce this type of noise in the data by thresholding and comparison between the two sets of data from identical cameras on each side.</p>
+<p>Here are the steps taken:</p>
+<p class="plantuml">
+<img src="../../_images/plantuml-8509cee599c2c2e219b8b6b5b9cbf03dd4c1c0b8.png" alt="&#64;startuml
+
+if (&lt;size:16&gt;**Average both right and left side?**&lt;/size&gt;) then (yes)
+   fork
+     if (Is there a shift between the right and left sides?) then (yes)
+             :Correct shift;
+     else (no)
+
+     endif
+
+     :Compare right and left traces, detect where \n there's an unacceptable deviance;
+
+     :Decide which side is faulty;
+
+             :Replace the above detections with the average of \n surrounding detections of the non-faulty side in time;
+
+             :Average the left and right side detections;
+       endfork
+else (no)
+
+endif
+
+while (Detect unreasonalble detections with velocity threshold)
+
+   :Replace the above detections with the \n average of surrounding detections in time;
+endwhile (no more misdetections)
+
+
+stop
+
+&#64;enduml"/>
+</p>
 </div>
 </div>
 

@@ -7,15 +7,15 @@ File hierarchy
 The root directory to your project should have this hierarchy::
 
 	root
-	|-- Animal_Type_1 		<-- all data for one specific animal type e.g. 'FoxP2-Cre'
+	|-- Animal_Type_1 			<-- all data for one specific animal type e.g. 'FoxP2-Cre'
 	|	|-- ChR2			<-- Optogenetic expression 
 	|	|	|-- Animal_0		<-- data for one animal in that animal type.
 	|	|	|	|-- Protocol_0	<-- folders separate protocols e.g. 'Square_1_mW'
 	|	|	|	|	|-- DLC <-- contains body part trackings of all sessions derived from DLC
-	|	|	|	|	|	|-- session_0_DLC.xlsx 
+	|	|	|	|	|	|-- session_0_DLC.xlsx
 	|	|	|	|	|	.
 	|	|	|	|	|	.
-	|	|	|	|	|-- Laser <-- contains laser detection files
+	|	|	|	|	`-- Laser <-- contains laser detection files
 	|	|	|	|		|-- session_0_laser.xlsx
 	|	|	|	|		|-- session_1_laser.xlsx
 	|	|	|	|		.
@@ -25,9 +25,9 @@ The root directory to your project should have this hierarchy::
 	|	|	|	|-- Protocol_n  
 	|	|	|	|	
 	|	|	|	`-- Spontaneous <-- Same everything just for Spontaneous sessions
-	|	|	|		`DLC <-- only DLC folder since there's no laser
+	|	|	|		`DLC 	<-- only DLC folder since there's no laser
 	|	|	|
-	|	|	|-- Animal_1 <-- same for all other animals
+	|	|	|-- Animal_1 		<-- same for all other animals
 	|	|	.
 	|	|	.
 	|	|	|
@@ -40,7 +40,7 @@ The root directory to your project should have this hierarchy::
 	|-- Animal_Type_1 
 	|	
 	|
-	|-- Animal_Type_n <-- same for all other animal types
+	|-- Animal_Type_n 			<-- same for all other animal types
 	|
 	|-- data_npz
 	|	|-- Protocol_0
@@ -109,7 +109,7 @@ e.g. ::
 
 
 Data analysis
-~~~~~~~~~~~~~
+-------------
 
 We first extract sessions from the readings obtained from the DeepLabCut package :
 
@@ -126,7 +126,7 @@ We then extract all the windows that contain a certain period (``pre_stim_interv
 	:align: center
 	:scale: 30 %
 
-If the experimenter has provided sessions with no laser stimulation (blak like, here addressed as *Spontaneous*), we extraced the same number of trials from those sessions and plots them together to have an internal control.
+If the experimenter has provided sessions with no laser stimulation (black line, here addressed as *Spontaneous*), we extraced the same number of trials from those sessions and plots them together to have an internal control.
 
 You will find the chance to assess your data through a variety of options:
 	* look at single trials of specific animals,
@@ -140,3 +140,44 @@ You will find the chance to assess your data through a variety of options:
 
 	* Compare the effect of simultaneous or separate laser stimulation in different brain areas within the same animal group e.g. stimulation of Subthalamic nucleus and External Globus Pallidus in Vglut2-Cre transgenic animals.
 
+
+Misdetection correction
+------------------------
+Even with an optimized trained network it so happens that there are mistakes in the trackings of body parts. This causes crazy changes in velocity of the animal and yield a noisy reading of what we are looking for. 
+Here we try to reduce this type of noise in the data by thresholding and comparison between the two sets of data from identical cameras on each side.
+
+Here are the steps taken:
+
+.. uml::
+
+   @startuml
+   
+   if (<size:16>**Average both right and left side?**</size>) then (yes)
+      fork
+      	if (Is there a shift between the right and left sides?) then (yes)
+         	:Correct shift;
+      	else (no)
+    
+      	endif
+
+      	:Compare right and left traces, detect where \n there's an unacceptable deviance;
+
+      	:Decide which side is faulty;
+      
+   	  	:Replace the above detections with the average of \n surrounding detections of the non-faulty side in time;
+
+   	  	:Average the left and right side detections;
+   	  endfork
+   else (no)
+   
+   endif   
+      
+   while (Detect unreasonalble detections with velocity threshold) 
+
+      :Replace the above detections with the \n average of surrounding detections in time;
+   endwhile (no more misdetections)
+
+   
+   stop
+   
+   @enduml

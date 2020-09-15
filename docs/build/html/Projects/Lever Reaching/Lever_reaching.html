@@ -88,6 +88,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../Locomotion/Locomotion_task.html">Locomotion Task Analysis</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../Locomotion/Locomotion_task.html#file-hierarchy">File hierarchy</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../Locomotion/Locomotion_task.html#jupyter-notebook">Jupyter notebook</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../Locomotion/Locomotion_task.html#data-analysis">Data analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../Locomotion/Locomotion_task.html#misdetection-correction">Misdetection correction</a></li>
 </ul>
 </li>
 </ul>
@@ -99,7 +101,16 @@
 <li class="toctree-l3"><a class="reference internal" href="LED_detection.html#functions">Functions</a></li>
 </ul>
 </li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">Lever Reaching Task Analysis</a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">Lever Reaching Task Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#file-hierarchy">File hierarchy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#experiment">Experiment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#config-file">Config file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#measures">Measures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#misdetection-correction">Misdetection Correction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#metadata">Metadata</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#jupyter-notebook-and-data-analysis">Jupyter Notebook and Data Analysis</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -171,6 +182,199 @@
             
   <div class="section" id="lever-reaching-task-analysis">
 <h1>Lever Reaching Task Analysis<a class="headerlink" href="#lever-reaching-task-analysis" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="file-hierarchy">
+<h2>File hierarchy<a class="headerlink" href="#file-hierarchy" title="Permalink to this headline">¶</a></h2>
+<p>The root directory to your project should have this hierarchy:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root
+|-- Laser_ChR2                          &lt;-- optogenetic manipulation with CHR2
+|       |-- Animal_0                    &lt;-- data for animal with ChR2 expression
+|       |       |-- StimType0_intensity0_mW_protocol0_Nf_NumberOfFrames0        &lt;-- folders separate protocols e.g. &#39;Beta_15_mW_all-RT_Nf_500&#39;
+|       |       |       |-- Right/Left  &lt;-- specifying the side that was filmed
+|       |       |       |       |-- DLC &lt;-- contains body part trackings of all sessions derived from DLC
+|       |       |       |       |       |-- session_0_DLC.xlsx
+|       |       |       |       |       .
+|       |       |       |       |       .
+|       |       |       |       `-- Laser &lt;-- contains laser detection files derived from LED_deetection.py
+|       |       |       |               |-- session_0_laser.xlsx
+|       |       |       |               |-- session_1_laser.xlsx
+|       |       |       |               .
+|       |       |       |               .
+|       |       |       |
+|       |       |       `config_protocol0.ymal &lt;-- config file for this specific protocol and animal
+|       |       |
+|       |       |-- StimType1_intensity1_mW_protocol1_Nf_NumberOfFrames1
+|       |       |
+|       |       .
+|       |       .
+|       .       |
+|       .       `-- StimType1_intensity1_mW_protocol1_Nf_NumberOfFrames1
+|       |
+|       `-- Animal_n            &lt;-- same for all other animals
+|
+|-- Laser_ArchT
+|
+|-- 6OHDA
+|       |-- Animal_0
+|       .
+|       .
+|       |
+|       `-- Animal_m
+|
+|
+`-- Subplots
+</pre></div>
+</div>
+</div>
+<div class="section" id="experiment">
+<h2>Experiment<a class="headerlink" href="#experiment" title="Permalink to this headline">¶</a></h2>
+<p>There are different experiment protocols for laser stimulation:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>all-RT : where laser stimulation starts when auditory cue is ended and lasts until paw leaves the pad.</p></li>
+<li><p>all-MT : where laser stimulation starts when paw leaves the pad until lever is pressed <em>(successful trials)</em> or untill the end of trial <em>(failed trials)</em></p></li>
+<li><p>partial-MT : where laser stimulation starts when paw leaves the pad and continues for a certain time period smaller than the whole movement time (usually 250 ms, see example bellow)</p></li>
+</ul>
+</div></blockquote>
+<a class="reference internal image-reference" href="../../_images/Lever_reaching_position.png"><img alt="../../_images/Lever_reaching_position.png" src="../../_images/Lever_reaching_position.png" style="width: 30%;" /></a>
+<a class="reference internal image-reference" href="../../_images/Lever_reaching_velocity.png"><img alt="../../_images/Lever_reaching_velocity.png" src="../../_images/Lever_reaching_velocity.png" style="width: 49%;" /></a>
+</div>
+<div class="section" id="config-file">
+<h2>Config file<a class="headerlink" href="#config-file" title="Permalink to this headline">¶</a></h2>
+<p>When calling the function <code class="docutils literal notranslate"><span class="pre">set_conf_and_df</span></code> a template of the config file is generated and the corressponding information about the protocol are added to it using the folder name. You have to make sure before any attempt to integrate all sessions, all the protocols do have their corresponding config.yaml file.
+In case you wanted to modify any information about the config file, open, edit, save and make sure you import the cfg file manually again.</p>
+</div>
+<div class="section" id="measures">
+<h2>Measures<a class="headerlink" href="#measures" title="Permalink to this headline">¶</a></h2>
+<dl class="simple">
+<dt><strong>Traveled distance :</strong></dt><dd><p>The whole distance travelled by the paw during MT, starting movement until lever press for <em>successful</em> trials and until the end of trial for <em>failures</em></p>
+</dd>
+</dl>
+<div class="figure align-right" style="width: 40%">
+<img alt="../../_images/Tortuosity.png" src="../../_images/Tortuosity.png" />
+</div>
+<dl class="simple">
+<dt><strong>Tursoisity:</strong></dt><dd><p>The ratio of the travelled distance to the direct line connecting the position of the paw on the pad to the lever.</p>
+</dd>
+<dt><strong>MT:</strong></dt><dd><p>Movement time</p>
+</dd>
+<dt><strong>RT:</strong></dt><dd><p>Reaction time</p>
+</dd>
+<dt><strong>Maximum velocity:</strong></dt><dd><p>The maximum velocity reached within one trial</p>
+</dd>
+</dl>
+</div>
+<div class="section" id="misdetection-correction">
+<h2>Misdetection Correction<a class="headerlink" href="#misdetection-correction" title="Permalink to this headline">¶</a></h2>
+<div class="figure align-right" style="width: 40%">
+<img alt="../../_images/mis_tracking_lever_reaching.png" src="../../_images/mis_tracking_lever_reaching.png" />
+</div>
+<p>Even with an optimized trained network it so happens that there are mistakes in the trackings of body parts. Since the movement of the hand is rather fast, even with a recording of 250 fps, the time resolution is not high enough to be able to detect where DeepLabCut is making a mistake. However, each detection derived from the DeepLabCut is reported together with a likelihood value. Here we get use of this value for detecting these misdetections by setting a <code class="docutils literal notranslate"><span class="pre">p_cutoff</span></code>.</p>
+<p>Here are the steps taken:</p>
+<p class="plantuml">
+<img src="../../_images/plantuml-03c2d885d85ef0a58a8cf042ec7bd8be4b9015b4.png" alt="&#64;startuml
+
+if (&lt;size:16&gt;**Less than &quot;n_good_points_ratio&quot; likelihood&gt;p_cutoff detections?**&lt;/size&gt;) then (yes)
+       :Dicard trial;
+       stop
+else (no)
+
+     if (Check for likelihood&gt;p_cutoff detection above \n the pad within a certain x vicinity of it) then (Found)
+     :Put equidistant points for frames starting \n from the pad to the point found above;
+     else (Not found)
+             :Discard trial;
+             stop
+
+     endif
+     :Detect single frame misdetections \n among &gt;p_cutoff detections;
+     :Correct by the average position of a \n number of detections before and after;
+
+     if (&lt;size:16&gt;** Check for multiple consecutive high likelihood misdetections?**&lt;/size&gt;) then (Found)
+             :Replace the points with a set of equidistant points between \n the start and end of misdetected points;
+     else (Not found)
+
+endif
+
+:Replace likelihood&lt;p_cutoff detections with sets of \n equidistant points between the likelihood&gt;p_cutoff points;
+
+
+stop
+
+&#64;enduml"/>
+</p>
+</div>
+<div class="section" id="metadata">
+<h2>Metadata<a class="headerlink" href="#metadata" title="Permalink to this headline">¶</a></h2>
+<p>The data derived from DeepLabCut and LED detections is then structured into a class object after misdetection handling for easier access. All the trials with the same protocol from different animals is integrated into one class. The class hold information about the following parameters for all trials (and in some cases detailed down to frames of each trial):</p>
+<p><code class="docutils literal notranslate"><span class="pre">path</span></code> : full path to the session which contains the trial</p>
+<p><code class="docutils literal notranslate"><span class="pre">rat_no</span></code> : rat number the trial belongs to</p>
+<p><code class="docutils literal notranslate"><span class="pre">pad_left_x</span></code> : far left x end of the pad in the session in cm</p>
+<p><code class="docutils literal notranslate"><span class="pre">pad_right_x</span></code> : far right x end of the pad in the session in cm</p>
+<p><code class="docutils literal notranslate"><span class="pre">pad_y</span></code> : y position of the pad in cm</p>
+<p><code class="docutils literal notranslate"><span class="pre">lever_x</span></code> : x position of the lever for each trial</p>
+<p><code class="docutils literal notranslate"><span class="pre">lever_y</span></code> : y position of the lever for each trial</p>
+<p><code class="docutils literal notranslate"><span class="pre">folder</span></code> : the folder to this protocol</p>
+<p><code class="docutils literal notranslate"><span class="pre">n_pad_miss_detection</span></code> : number of pad LED misbehavior in all sessions</p>
+<p><code class="docutils literal notranslate"><span class="pre">fp_trial</span></code> : frame per second of video recording</p>
+<p><code class="docutils literal notranslate"><span class="pre">tortuosity</span></code> : tortuosity of the trial</p>
+<p><code class="docutils literal notranslate"><span class="pre">distance</span></code> : the distance travelled by the paw</p>
+<p><code class="docutils literal notranslate"><span class="pre">epochs_x</span></code> : x position of one body land mark for the whole trial (frames dedicated to timebins before leaving the pad and after reaching the lever are set to -1)</p>
+<p><code class="docutils literal notranslate"><span class="pre">epochs_y</span></code> : y position of one body land mark for the whole trial (frames dedicated to timebins before leaving the pad and after reaching the lever are set to -1)</p>
+<p><code class="docutils literal notranslate"><span class="pre">likelihood</span></code> : likelihood of each DLC detection</p>
+<p><code class="docutils literal notranslate"><span class="pre">velocity_r</span></code> : absolute velocity of the paw during the whole trial (this value for frames dedicated to timebins before leaving the pad and after reaching the lever are set to <code class="docutils literal notranslate"><span class="pre">velocity_mask</span></code>)</p>
+<p><code class="docutils literal notranslate"><span class="pre">steps</span></code> : the absolute displacement within each frame</p>
+<p><code class="docutils literal notranslate"><span class="pre">pad_off_t</span></code> : times when paw left the pad relative to start of trial (-1 if didn’t) reported in frame numbers</p>
+<p><code class="docutils literal notranslate"><span class="pre">got_reward_t</span></code> : times of lever press in each trial (-1 for failed) reported in frame numbers</p>
+<p><code class="docutils literal notranslate"><span class="pre">pad_miss_detection</span></code> : set True for mis detected pad trials</p>
+<p><code class="docutils literal notranslate"><span class="pre">starts</span></code> : start of each trial in the session timeline reported in frame numbers</p>
+<p><code class="docutils literal notranslate"><span class="pre">ends</span></code> : stop of each trial in the session timeline reported in frame numbers</p>
+<p><code class="docutils literal notranslate"><span class="pre">MT</span></code> : The whole movement time reported in frame numbers</p>
+<p><code class="docutils literal notranslate"><span class="pre">failure</span></code> : True for trials where either paw didn’t leave the pad or didn’t press the lever</p>
+<p><code class="docutils literal notranslate"><span class="pre">to_keep</span></code> : set True for trials that are cleared without any problems</p>
+<p><code class="docutils literal notranslate"><span class="pre">n_trials</span></code> : number of trials in sessions</p>
+<p><code class="docutils literal notranslate"><span class="pre">n_failed</span></code> : number of failed trials in sessions</p>
+<p><code class="docutils literal notranslate"><span class="pre">n_succeeded</span></code> : number of successful trials in all sessions</p>
+<p><code class="docutils literal notranslate"><span class="pre">n_laser_trials</span></code> : number of trials containing laser stimulation</p>
+<p><code class="docutils literal notranslate"><span class="pre">laser_trial</span></code> : set True for trials that contain laser stimulation</p>
+<p><code class="docutils literal notranslate"><span class="pre">laser_ind</span></code>: stores the indices for laser-on time points</p>
+<p><code class="docutils literal notranslate"><span class="pre">laser_duration</span></code> : laser duration reported in number of frames</p>
+<p><code class="docutils literal notranslate"><span class="pre">laser_start</span></code> : time of the laser onset reported in number of frames</p>
+<p><code class="docutils literal notranslate"><span class="pre">laser_pulse</span></code> : laser pulse type (e.g. Square, Beta etc.)</p>
+<p><code class="docutils literal notranslate"><span class="pre">laser_intensity</span></code> : intensity of the laser stimulation in mW</p>
+<p><code class="docutils literal notranslate"><span class="pre">laser_protocol</span></code> : laser stimulation protocol (e.g. all-RT, all-MT etc.)</p>
+<p>you can save the data containing the session in form of .pickle or a .csv file.</p>
+</div>
+<div class="section" id="jupyter-notebook-and-data-analysis">
+<h2>Jupyter Notebook and Data Analysis<a class="headerlink" href="#jupyter-notebook-and-data-analysis" title="Permalink to this headline">¶</a></h2>
+<p>You will have the chance to look at a variety of measures for the sessions:</p>
+<blockquote>
+<div><ul class="simple">
+<li><dl class="simple">
+<dt>Visualize the traces of the paw and the absolute velocity in time with highlighting the laser-on time points as shown above for:</dt><dd><ul>
+<li><p>one trial</p></li>
+<li><p>trials in one session</p></li>
+<li><p>all trials of one animal</p></li>
+<li><p>all trials of same protocol in multiple animals</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>Compare Successful and failed trial traces.</p></li>
+<li><p>Compare trials containing laser with trials without laser stimulation</p></li>
+<li><dl class="simple">
+<dt>Compare statistical values of parameters bellow for laser vs. non laser sessions:</dt><dd><ul>
+<li><p>RT</p></li>
+<li><p>MT</p></li>
+<li><p>Travelled distance</p></li>
+<li><p>Maximum Velocity</p></li>
+<li><p>Tortuosity</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>Look at mean trajectory of trials showing variances in x bins.</p></li>
+</ul>
+</div></blockquote>
+</div>
 </div>
 
 
