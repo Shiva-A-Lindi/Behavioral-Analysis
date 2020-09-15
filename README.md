@@ -12,7 +12,7 @@ The metadata for this project is provided through different pipelines. Temporal 
 <p align="left">
   <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/gifs/Locomotion_DLC_and_plot.gif width="50%" height="50%" hspace="50">
   <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/gifs/Rat_lever_demo.gif width="22%" height="22%" hspace="40">
-  <p align="left">Resulting body-part tracking with DLC. <strong>Left</strong>: Locomotion task. Plot shows the average of nose extremity and tail base. <strong>Right</strong>: Lever reaching task. Plot shows the traces of wrist base (light blue dot) <sup id="a1">[1]</sup>. (<p align="center">
+  <p align="left">Resulting body-part tracking with DLC. <strong>Left</strong>: Locomotion task. Plot shows the average of nose extremity and tail base. <strong>Right</strong>: Lever reaching task. Plot shows the traces of wrist base (light blue dot) <sup id="a1">[1]</sup>. <p align="center">
 
 </p>
 
@@ -24,7 +24,7 @@ Even when optimizing the trained network it so happens that there are mistakes i
 <p align="center">
   <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/mis_tracking_locomotion.png width="40%" height="40%">
   <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/mis_tracking_lever_reaching.png width="40%" height="40%">
-  <p align="left">Mistrackings with DLC pose estimation. <strong>Left</strong>: Individual traces of left and right side cameras. Below: corrected, averaged with a moving window. <strong>Right</strong>: Traces of multiple trials correction shown bellow.<p align="center">
+  <p align="left">Mistrackings with DLC pose estimation. <strong>Left</strong>: Individual traces of left and right side cameras. Below: corrected, averaged with a moving window. <strong>Right</strong>: Traces of multiple trials correction shown below.<p align="center">
 </p>
 
 ### Building metadata and measuring across trials:
@@ -55,6 +55,6 @@ You can find the necessary information about the developed codes [here](https://
 
 ### References:
 
-<b id="f1">1</b> Unpublishe data provided by Nicolas Mallet at Physiology and pathophysiology of executive functions Lab, Institut des Maladies Neurodégénératives (IMN), CNRS, Bordeaux). [↩](#a1)
+<b id="f1">1</b> Unpublishe data provided by Nicolas Mallet at Physiology and pathophysiology of executive functions Lab (Institut des Maladies Neurodégénératives ([IMN](https://www.imn-bordeaux.org/en/teams/physiology-and-pathophysiology-of-executive-functions/)), CNRS, Bordeaux). [↩](#a1)
 
 <b id="f2">2</b> Mathis A, Mamidanna P, Cury KM, Abe T, Murthy VN, Mathis MW, Bethge M (2018) DeepLabCut: mark- erless pose estimation of user-defined body parts with deep learning. Nature Neuroscience 21:1281–1289. [↩](#a2)
