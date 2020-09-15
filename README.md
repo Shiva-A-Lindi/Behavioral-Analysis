@@ -1,9 +1,9 @@
 # Behavioral Analysis
 
 
-This repository is dedicated to the data analysis of behavioral experiments. These experiments include goal-directed lever-reaching tasks in rats as well as mice engaged in locomotion tasks during different experimental conditions such as *brain lesion* or *optogenetic manipulations*. 
+This repository is dedicated to the data analysis of behavioral experiments. These experiments include goal-directed lever-reaching tasks in rats as well as mice engaged in locomotion tasks during different experimental conditions such as *brain lesion* or *optogenetic manipulations*<sup id="a1">[1](#f1)</sup>. 
 
-The data for this project is provided through different pipelines. Temporal position of body parts are tracked using [DeepLabCut](https://github.com/DeepLabCut/DeepLabCut), a package for markerless pose estimation of user-defined features with deep learning for all animals. Whereas the information provided by the experiment chamber itself is processed with this interactive [code](https://github.com/Shiva-A-Lindi/Behavioral-Analysis/LED_detection) developed using cv2 Python package. The step-by-step guide is provided [here]().
+The metadata for this project is provided through different pipelines. Temporal position of body parts are tracked using [DeepLabCut]<sup id="a2">[2](#f2)</sup>(https://github.com/DeepLabCut/DeepLabCut), a package for markerless pose estimation of user-defined features with deep learning for all animals. Whereas the information provided by the experiment chamber itself is processed with a stand-alone code developed using cv2 Python package. The step-by-step guide for different aspects of this project is provided [here](https://shiva-a-lindi.github.io/Behavioral-Analysis/build/html/index.html).
 
 
 ## Body-part tracking with DLC:
@@ -12,7 +12,7 @@ The data for this project is provided through different pipelines. Temporal posi
 <p align="left">
   <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/gifs/Locomotion_DLC_and_plot.gif width="50%" height="50%" hspace="50">
   <img alt="img-name" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/gifs/Rat_lever_demo.gif width="22%" height="22%" hspace="40">
-  <p align="left">Resulting body-part tracking with DLC. <strong>Left</strong>: Locomotion task. Plot shows the average of nose extremity and tail base. <strong>Right</strong>: Lever reaching task. Plot shows the traces of wrist base (light blue dot) <p align="center">
+  <p align="left">Resulting body-part tracking with DLC. <strong>Left</strong>: Locomotion task. Plot shows the average of nose extremity and tail base. <strong>Right</strong>: Lever reaching task. Plot shows the traces of wrist base (light blue dot) <sup id="a1">[1](#f1)</sup>. (<p align="center">
 
 </p>
 
@@ -47,12 +47,14 @@ The data from all sessions with multiple trials each are then organized and stor
 
 <img align="right" src=https://github.com/Shiva-A-Lindi/Behavioral-Analysis/blob/media/LED_detection.png width="25%" height="25%" alt="">
 
-In the lever-reaching task the experiment chamber is equipped with an LED panel with LED lights conveying information about the experiment e.g. whether or not the paw is on the pad, a cue is being presented or a reward is being delivered. [Here](https://github.com/Shiva-A-Lindi/Behavioral-Analysis/LED_detection) you can find an Python script that targets the extraction of these information from the videos.
+In the lever-reaching task the experiment chamber is equipped with an LED panel with LED lights conveying information about the experiment e.g. whether or not the paw is on the pad, a cue is being presented or a reward is being delivered. [Here](https://github.com/Shiva-A-Lindi/Behavioral-Analysis/tree/master/LED_detection) you can find an Python script that targets the extraction of these information from the videos.
 
 ### Documentation:
 
-You can find the necessary information about the developed codes [here]().
+You can find the necessary information about the developed codes [here](https://shiva-a-lindi.github.io/Behavioral-Analysis/build/html/index.html).
 
 ### References:
 
-* Mathis A, Mamidanna P, Cury KM, Abe T, Murthy VN, Mathis MW, Bethge M (2018) DeepLabCut: mark- erless pose estimation of user-defined body parts with deep learning. Nature Neuroscience 21:1281–1289.
+<b id="f1">1</b> Data provided by Physiology and pathophysiology of executive functions Lab under supervision of Nicolas Mallet at IMN (Institut des Maladies Neurodégénératives, CNRS, Bordeaux). [↩](#a1)
+
+<b id="f2">2</b>Mathis A, Mamidanna P, Cury KM, Abe T, Murthy VN, Mathis MW, Bethge M (2018) DeepLabCut: mark- erless pose estimation of user-defined body parts with deep learning. Nature Neuroscience 21:1281–1289.  [↩](#a2)
