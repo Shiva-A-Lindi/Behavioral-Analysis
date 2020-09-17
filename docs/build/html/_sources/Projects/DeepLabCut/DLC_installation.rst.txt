@@ -10,7 +10,7 @@ On a Windows 10 computer, one way to find out is by right-clicking on the deskto
 
 .. figure:: /media/DLC_installation/1.png
 	:align: center
-	:figwidth: 40%
+	:figwidth: 60%
 
 Here_ you input the properties of your GPU and it tells you the nvidia version you should install:
 
@@ -20,19 +20,19 @@ For example:
 Here a GeForce GTX 1070 is listed. The latest version available is 445.87. The driver is backwards compatible so the latest version works fine with earlier versions of CUDA.
 
 .. image:: /media/DLC_installation/2.png
-	:width: 40%
+	:width: 59%
 
 .. image:: /media/DLC_installation/3.png
-	:width: 40%
+	:width: 39%
 
 **Now check which Nvidia version is already installed:**
 Right click on desktop and choose Nvidia control panel:
 
 .. image:: /media/DLC_installation/4.png
-	:width: 40%
+	:width: 20%
 
 .. image:: /media/DLC_installation/5.png
-	:width: 40%
+	:width: 75%
 
 Then click on system information 
 
@@ -40,7 +40,7 @@ Find out the version under Display Tab - Details:
 
 .. figure:: /media/DLC_installation/6.png
 	:align: center
-	:figwidth: 40%
+	:figwidth: 60%
 
 2. CUDA Toolkit installation
 ----------------------------
@@ -55,7 +55,7 @@ In order to get a package working you need a hierarchy of compatible versions in
 
 .. figure:: /media/DLC_installation/7.png
 	:align: center
-	:figwidth: 40%
+	:figwidth: 70%
 
 See https://docs.nvidia.com/deploy/cuda-compatibility/index.html for more info.
 
@@ -72,7 +72,7 @@ Visual studio is required for the installation of Nvidia CUDA Toolkit . If you a
 
 .. figure:: /media/DLC_installation/8.png
 	:align: center
-	:figwidth: 40%
+	:figwidth: 70%
 
 At the time of writing, the Visual Studio Express Community Version 2017 is compatible with CUDA 10 version. However the latest version is 2019. You can get previous versions of Visual Studio for free by joining “Visual Studio Dev Essentials” and then searching for the version of Visual Studio you want.
 
@@ -90,7 +90,7 @@ After installation you should add the path to the environment variables. Right-c
 
 .. figure:: /media/DLC_installation/9.png
 	:align: center
-	:figwidth: 40%
+	:figwidth: 70%
 
 3. cuDNN installation
 ---------------------
@@ -99,7 +99,7 @@ After finishing the CUDA Toolkit installation you have to install cuDNN on Windo
 
 .. figure:: /media/DLC_installation/10.png
 	:align: center
-	:figwidth: 40%
+	:figwidth: 70%
 
 The writers of the Deeplabcut package say that in case you download the conda environment for this package there is no need to separately install cuDNN. However I had to separately install it in Ubuntu despite using the aforementioned environment. Either way we cover it here in case you are not using the Anaconda distribution.
 
@@ -107,7 +107,7 @@ The NVIDIA CUDA Deep Neural Network library (cuDNN) is a GPU-accelerated library
 
 .. figure:: /media/DLC_installation/11.png
 	:align: center
-	:figwidth: 40%
+	:figwidth: 70%
 
 After downloading the installation file. You should unzip it and copy a few files as instructed below.
 
@@ -123,13 +123,14 @@ There are three files in the unzipped cuDNN folder subdirectories which are to b
 
 		C:\Program Files\NVIDA GPU Computing Toolkit\CUDA\v9.0
 
-	you can copy the ``cudnn64_7.dll`` file directly into the CUDA folder’s bin folder path 
+	you can copy the ``cudnn64_7.dll`` file directly into the CUDA folder’s bin folder path::
+
+		C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.0\bin\
 
 	.. note:: 
 
-		you don’t need to create any new subfolders::
-			C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.0\bin\
-
+		you don’t need to create any new subfolders.
+			
 	#. *cudnn.h*
 
 	As with the ``cudnn64_7.dll`` file above, after downloading and unzipping the cuDNN folder, the header file ``cudnn64.h`` can be found in the path::

@@ -207,21 +207,21 @@
 <h2>1. Nvidia Driver installation<a class="headerlink" href="#nvidia-driver-installation" title="Permalink to this headline">¶</a></h2>
 <p>First off you should check the properties of your gpu.
 On a Windows 10 computer, one way to find out is by right-clicking on the desktop area and choosing Display Settings. In the <strong>Display Settings</strong> box, select <strong>Advanced Display Settings</strong> and then choose the Display Adapter <strong>properties</strong> option. On the Adapter tab in the box, you should see the brand of the graphics card and its memory amount listed. You can also get to the same Properties box from the Windows 10 Start menu — select Settings, then System to get to Advanced Display Settings, and then Display Adapter Properties:</p>
-<div class="figure align-center" style="width: 40%">
+<div class="figure align-center" style="width: 60%">
 <img alt="../../_images/1.png" src="../../_images/1.png" />
 </div>
 <p><a class="reference external" href="https://www.nvidia.com/Download/index.aspx">Here</a> you input the properties of your GPU and it tells you the nvidia version you should install:</p>
 <p>For example:
 Here a GeForce GTX 1070 is listed. The latest version available is 445.87. The driver is backwards compatible so the latest version works fine with earlier versions of CUDA.</p>
-<a class="reference internal image-reference" href="../../_images/2.png"><img alt="../../_images/2.png" src="../../_images/2.png" style="width: 40%;" /></a>
-<a class="reference internal image-reference" href="../../_images/3.png"><img alt="../../_images/3.png" src="../../_images/3.png" style="width: 40%;" /></a>
+<a class="reference internal image-reference" href="../../_images/2.png"><img alt="../../_images/2.png" src="../../_images/2.png" style="width: 59%;" /></a>
+<a class="reference internal image-reference" href="../../_images/3.png"><img alt="../../_images/3.png" src="../../_images/3.png" style="width: 39%;" /></a>
 <p><strong>Now check which Nvidia version is already installed:</strong>
 Right click on desktop and choose Nvidia control panel:</p>
-<a class="reference internal image-reference" href="../../_images/4.png"><img alt="../../_images/4.png" src="../../_images/4.png" style="width: 40%;" /></a>
-<a class="reference internal image-reference" href="../../_images/5.png"><img alt="../../_images/5.png" src="../../_images/5.png" style="width: 40%;" /></a>
+<a class="reference internal image-reference" href="../../_images/4.png"><img alt="../../_images/4.png" src="../../_images/4.png" style="width: 20%;" /></a>
+<a class="reference internal image-reference" href="../../_images/5.png"><img alt="../../_images/5.png" src="../../_images/5.png" style="width: 75%;" /></a>
 <p>Then click on system information</p>
 <p>Find out the version under Display Tab - Details:</p>
-<div class="figure align-center" style="width: 40%">
+<div class="figure align-center" style="width: 60%">
 <img alt="../../_images/6.png" src="../../_images/6.png" />
 </div>
 </div>
@@ -238,7 +238,7 @@ Right click on desktop and choose Nvidia control panel:</p>
 </div></blockquote>
 <p>So it’s best to install the latest version of Nvidia compatible with your gpu and then see what Cuda versions you’re left with. The compatibilities are reported here:</p>
 </div></blockquote>
-<div class="figure align-center" style="width: 40%">
+<div class="figure align-center" style="width: 70%">
 <img alt="../../_images/7.png" src="../../_images/7.png" />
 </div>
 <p>See <a class="reference external" href="https://docs.nvidia.com/deploy/cuda-compatibility/index.html">https://docs.nvidia.com/deploy/cuda-compatibility/index.html</a> for more info.</p>
@@ -252,7 +252,7 @@ Right click on desktop and choose Nvidia control panel:</p>
 <div class="section" id="visual-studio-installation">
 <h3>2.1 Visual Studio installation<a class="headerlink" href="#visual-studio-installation" title="Permalink to this headline">¶</a></h3>
 <p>Visual studio is required for the installation of Nvidia CUDA Toolkit . If you attempt to download and install CUDA Toolkit for Windows without having first installed Visual Studio, you get the message shown:</p>
-<div class="figure align-center" style="width: 40%">
+<div class="figure align-center" style="width: 70%">
 <img alt="../../_images/8.png" src="../../_images/8.png" />
 </div>
 <p>At the time of writing, the Visual Studio Express Community Version 2017 is compatible with CUDA 10 version. However the latest version is 2019. You can get previous versions of Visual Studio for free by joining “Visual Studio Dev Essentials” and then searching for the version of Visual Studio you want.</p>
@@ -263,7 +263,7 @@ A PC reboot after installation of Visual Studio May be Required.</p>
 <h3>2.2 CUDA installation<a class="headerlink" href="#cuda-installation" title="Permalink to this headline">¶</a></h3>
 <p>After installing Visual Studio, move straight on to downloading and attempting to install CUDA Toolkit for Windows.You might get a message that Visual Studio was still operating and was preventing the installation of CUDA Toolkit. Rebooting your PC before attempting to install CUDA Toolkit again will solve this problem.</p>
 <p>After installation you should add the path to the environment variables. Right-clicking on my Computer, going to the <strong>‘Advanced system settings`</strong> page, then <strong>environment variables</strong>. Click on <strong>path</strong>, if the path to your CUDA version is not there, you should add it. For example here CUDA 9.0 was already there and the path for CUDA 10.0 was added at the bottom.</p>
-<div class="figure align-center" style="width: 40%">
+<div class="figure align-center" style="width: 70%">
 <img alt="../../_images/9.png" src="../../_images/9.png" />
 </div>
 </div>
@@ -271,12 +271,12 @@ A PC reboot after installation of Visual Studio May be Required.</p>
 <div class="section" id="cudnn-installation">
 <h2>3. cuDNN installation<a class="headerlink" href="#cudnn-installation" title="Permalink to this headline">¶</a></h2>
 <p>After finishing the CUDA Toolkit installation you have to install cuDNN on Windows 10 which is compatible with CUDA version. The table below shows the compatibolities for Linux operating system as an example:</p>
-<div class="figure align-center" style="width: 40%">
+<div class="figure align-center" style="width: 70%">
 <img alt="../../_images/10.png" src="../../_images/10.png" />
 </div>
 <p>The writers of the Deeplabcut package say that in case you download the conda environment for this package there is no need to separately install cuDNN. However I had to separately install it in Ubuntu despite using the aforementioned environment. Either way we cover it here in case you are not using the Anaconda distribution.</p>
 <p>The NVIDIA CUDA Deep Neural Network library (cuDNN) is a GPU-accelerated library of primitives for deep neural networks. cuDNN provides highly tuned implementations for standard routines such as forward and backward convolution, pooling, normalization, and activation layers. cuDNN is part of the NVIDIA Deep Learning SDK. cuDNN download link : <a class="reference external" href="https://developer.nvidia.com/cudnn">https://developer.nvidia.com/cudnn</a> . You have to create an account in order to download this. Then you will get to choose the version as shown below:</p>
-<div class="figure align-center" style="width: 40%">
+<div class="figure align-center" style="width: 70%">
 <img alt="../../_images/11.png" src="../../_images/11.png" />
 </div>
 <p>After downloading the installation file. You should unzip it and copy a few files as instructed below.</p>
@@ -293,13 +293,13 @@ A PC reboot after installation of Visual Studio May be Required.</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">C</span><span class="p">:</span>\<span class="n">Program</span> <span class="n">Files</span>\<span class="n">NVIDA</span> <span class="n">GPU</span> <span class="n">Computing</span> <span class="n">Toolkit</span>\<span class="n">CUDA</span>\<span class="n">v9</span><span class="o">.</span><span class="mi">0</span>
 </pre></div>
 </div>
-<p>you can copy the <code class="docutils literal notranslate"><span class="pre">cudnn64_7.dll</span></code> file directly into the CUDA folder’s bin folder path</p>
+<p>you can copy the <code class="docutils literal notranslate"><span class="pre">cudnn64_7.dll</span></code> file directly into the CUDA folder’s bin folder path:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">C</span><span class="p">:</span>\<span class="n">Program</span> <span class="n">Files</span>\<span class="n">NVIDIA</span> <span class="n">GPU</span> <span class="n">Computing</span> <span class="n">Toolkit</span>\<span class="n">CUDA</span>\<span class="n">v9</span><span class="o">.</span><span class="mi">0</span>\<span class="nb">bin</span>\
+</pre></div>
+</div>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<dl class="simple">
-<dt>you don’t need to create any new subfolders::</dt><dd><p>C:Program FilesNVIDIA GPU Computing ToolkitCUDAv9.0bin</p>
-</dd>
-</dl>
+<p>you don’t need to create any new subfolders.</p>
 </div>
 <ol class="arabic simple">
 <li><p><em>cudnn.h</em></p></li>

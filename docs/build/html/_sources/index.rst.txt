@@ -1,9 +1,6 @@
 Behavioral Analysis
 ===================
 
-
-Blah blah 
-
 ..  figure:: /media/gifs/Locomotion_DLC_and_plot.gif
     :figwidth: 60%
     :align: right
