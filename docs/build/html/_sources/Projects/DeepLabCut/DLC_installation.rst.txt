@@ -2,7 +2,6 @@ Guide to DeepLabCut installation on Windows 10
 ==============================================
 
 
-
 1. Nvidia Driver installation
 -----------------------------
 First off you should check the properties of your gpu. 
@@ -59,11 +58,12 @@ In order to get a package working you need a hierarchy of compatible versions in
 
 See https://docs.nvidia.com/deploy/cuda-compatibility/index.html for more info.
 
-Once you’ve decided on the CUDA Toolkit version, you go to the CUDA archive  https://developer.nvidia.com/cuda-toolkit-archive and download. But before proceeding with CUDA installation, CUDA Toolkit requires Visual Studio as a prerequisite. So check if you have the right version of the VS which is compatible with your chosen version of CUDA Toolkit. In case your package is developed for a exclusive versions of CUDA toolkit you should take that into account while choosing the version. For example, in the case of Deeplabcut, there are only a few versions that are pre-tested to work for this package:
+Once you’ve decided on the CUDA Toolkit version, you go to the CUDA archive_ and download. But before proceeding with CUDA installation, CUDA Toolkit requires *Visual Studio* as a prerequisite. So, check if you have the right version of the VS compatible with your chosen version of CUDA Toolkit installed. In case your package is developed for a exclusive versions of CUDA toolkit you should take that into account while choosing the version. For example, in the case of Deeplabcut, there are only a few versions that are pre-tested to work for this package:
 
 *“In the Nature Neuroscience paper, we used TensorFlow 1.0 with CUDA (Cuda 8.0); in the Nature Protocols paper, we tested up through TensorFlow 1.14 with CUDA 10. Some other versions of TensorFlow have been tested (i.e. these versions have been tested 1.2, 1.4, 1.8 and 1.10-1.14, but might require different CUDA versions - CUDA 10.1+ is NOT supported)! Currently, TensorFlow 2.0 is not supported. Please check your driver/cuDNN/CUDA/TensorFlow versions”* [#]_
 
 .. [#] : https://github.com/AlexEMG/DeepLabCut/blob/master/docs/installation.md
+.. _archive: https://developer.nvidia.com/cuda-toolkit-archive
 
 2.1 Visual Studio installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -103,7 +103,9 @@ After finishing the CUDA Toolkit installation you have to install cuDNN on Windo
 
 The writers of the Deeplabcut package say that in case you download the conda environment for this package there is no need to separately install cuDNN. However I had to separately install it in Ubuntu despite using the aforementioned environment. Either way we cover it here in case you are not using the Anaconda distribution.
 
-The NVIDIA CUDA Deep Neural Network library (cuDNN) is a GPU-accelerated library of primitives for deep neural networks. cuDNN provides highly tuned implementations for standard routines such as forward and backward convolution, pooling, normalization, and activation layers. cuDNN is part of the NVIDIA Deep Learning SDK. cuDNN download link : https://developer.nvidia.com/cudnn . You have to create an account in order to download this. Then you will get to choose the version as shown below:
+The NVIDIA CUDA Deep Neural Network library (cuDNN) is a GPU-accelerated library of primitives for deep neural networks. cuDNN provides highly tuned implementations for standard routines such as forward and backward convolution, pooling, normalization, and activation layers. cuDNN is part of the NVIDIA Deep Learning SDK. cuDNN download link : https://developer.nvidia.com/cudnn.
+
+You have to create an account in order to download this. Then you will get to choose the version as shown below:
 
 .. figure:: /media/DLC_installation/11.png
 	:align: center
@@ -111,55 +113,53 @@ The NVIDIA CUDA Deep Neural Network library (cuDNN) is a GPU-accelerated library
 
 After downloading the installation file. You should unzip it and copy a few files as instructed below.
 
-There are three files in the unzipped cuDNN folder subdirectories which are to be copied into the CUDA Toolkit directories. These are cudnn64_7.dll, ``cudnn.h`` and ``cudnn.lib``:
+There are three files in the unzipped cuDNN folder subdirectories which are to be copied into the CUDA Toolkit directories. These are ``cudnn64_7.dll``, ``cudnn.h`` and ``cudnn.lib``:
 
 	#. *cudnn64_7.dll*
 
-	``cudnn64_7.dll`` can be found in the following path within the downloaded cuDNN files::
+		``cudnn64_7.dll`` can be found in the following path within the downloaded cuDNN files::
 
-		<downloadpath>\cudnn-9.0-windows10-x64-v7.5.0.56\cuda\bin\cudnn64_7.dll
+			<downloadpath>\cudnn-9.0-windows10-x64-v7.5.0.56\cuda\bin\cudnn64_7.dll
 
-	Assuming that you installed CUDA 9.0 (version 9.0 here is an example) to its default path, namely the following default path:::
+		Assuming that you installed CUDA 9.0 (version 9.0 here is an example) to its default path, namely the following default path:::
 
-		C:\Program Files\NVIDA GPU Computing Toolkit\CUDA\v9.0
+			C:\Program Files\NVIDA GPU Computing Toolkit\CUDA\v9.0
 
-	you can copy the ``cudnn64_7.dll`` file directly into the CUDA folder’s bin folder path::
+		you can copy the ``cudnn64_7.dll`` file directly into the CUDA folder’s bin folder path::
 
-		C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.0\bin\
+			C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.0\bin\
 
-	.. note:: 
+		.. note:: 
 
-		you don’t need to create any new subfolders.
+			you don’t need to create any new subfolders.
 			
 	#. *cudnn.h*
 
-	As with the ``cudnn64_7.dll`` file above, after downloading and unzipping the cuDNN folder, the header file ``cudnn64.h`` can be found in the path::
+		As with the ``cudnn64_7.dll`` file above, after downloading and unzipping the cuDNN folder, the header file ``cudnn64.h`` can be found in the path::
 
-		<downloadpath>\cudnn-9.0-windows10-x64-v7.5.0.56\cuda\ include\cudnn.h
+			<downloadpath>\cudnn-9.0-windows10-x64-v7.5.0.56\cuda\ include\cudnn.h
 
-	Again, assuming that you installed **CUDA 9.0** into the default path, copy ``cudnn.h`` directly into the CUDA folder with the following path (no new subfolders are necessary)::
+		Again, assuming that you installed **CUDA 9.0** into the default path, copy ``cudnn.h`` directly into the CUDA folder with the following path (no new subfolders are necessary)::
 
-		C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.0\include\
+			C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.0\include\
 
 	#. *cudnn.lib*
 
-	The file ``cudnn.lib`` can be found in the downloaded cuDNN path::
+		The file ``cudnn.lib`` can be found in the downloaded cuDNN path::
 
-		<downloadpath>\cudnn-9.0-windows10-x64-v7.5.0.56\cuda\lib\x64\cudnn.lib
+			<downloadpath>\cudnn-9.0-windows10-x64-v7.5.0.56\cuda\lib\x64\cudnn.lib
 
-	Copy ``cudnn.lib`` directly into the CUDA folder with the following path::
+		Copy ``cudnn.lib`` directly into the CUDA folder with the following path::
 
-		C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.0\lib\x64\
+			C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v9.0\lib\x64\
 
 
 4. Tensorflow installation
 --------------------------
 
-You can download the deeplabcut conda environment as mentioned earlier if you have anaconda installed or want to install it through this link_
+You can download the deeplabcut conda environment as mentioned earlier if you have anaconda installed or want to install it through this link_ which has all the necessary packages in itself and you can skip the points below and proceed with your projects.
 
 .. _link: https://github.com/AlexEMG/DeepLabCut/tree/master/conda-environments
-
- which has all the necessary packages in itself and you can skip the points below and proceed with your projects.
 
 4.1 Create virtual environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -183,7 +183,7 @@ Then activate your env with the command below (replace the \pathto\ with the pat
 
 Now you should install tensorflow::
 
-	pip install tensorflow-gpu==1.12 #(or any version you see fit).
+	pip install tensorflow-gpu==1.12 #(or any version you see fit)
 
 4.4 check Tensorflow installation
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -193,7 +193,9 @@ Then to check if your gpu is being occupied run this in an ipython console::
 	import tensorflow as tf
 	sess = tf.Session(config=tf.ConfigProto(log_device_placement=True))
 
-Look for a result like this::
+Look for a result like this:
+
+.. code-block:: text
 
 	Device mapping:
 	/job:localhost/replica:0/task:0/device:GPU:0 -> device: 0, name: GeForce GTX 1070, pci bus id: 0000:01:00.0, compute capability: 6.1
@@ -211,7 +213,9 @@ Which shows your gpu has been correctly recognized.
 		print (sess.run(c))
 
 
-If you have a gpu and can use it, you will see the result. Otherwise you will see an error with a long stacktrace. In the end you will have something like this::
+If you have a gpu and can use it, you will see the result. Otherwise you will see an error with a long stacktrace. In the end you will have something like this:
+
+.. code-block:: text
 
 	Cannot assign a device to node 'MatMul': Could not satisfy explicit device specification '/device:GPU:0' because no devices matching that specification are registered in this process
 
@@ -219,7 +223,7 @@ If you have a gpu and can use it, you will see the result. Otherwise you will se
 5. Deeplabcut and wxpython installation
 ---------------------------------------
 
- Then when you are assured of your installations. You need to install only deeplabcut and wxpython into your env. Make sure you install the right version of wxpython. At the time of writing version 4.1 doesn’t work but version  4.0.7 does::
+Then when you are assured of your installations. You need to install only deeplabcut and wxpython into your env. Make sure you install the right version of wxpython. At the time of writing version 4.1 doesn’t work but version  4.0.7 does::
 
 	pip install -U wxPython==4.0.7.post2
 
@@ -232,17 +236,23 @@ If you don’t have conda installed, it’s best to install jupyter notebook ins
 	pip install jupyter 
 
 
-.. note::
+.. seealso::
 	
 	Take a look at the github page for Deeplabcut for further information:
 	https://github.com/DeepLabCut/DeepLabCut/blob/master/docs/installation.md
 
 
 	The link below has the complete instructions for installation of tensorflow with CUDA and cuDNN however the link directs to the latest release of Cuda. Bearing that in mind, scroll through if points are not cleared up here.
+
 	https://towardsdatascience.com/installing-tensorflow-with-cuda-cudnn-and-gpu-support-on-windows-10-60693e46e781
 
 	If you encounter problems with gcc:
-	Run “gcc -v” in cmd to see which version is installed if any. If not, follow instructions here to install :
+	Run the following command in cmd to see which version is installed if any::
+
+		gcc -v 
+
+	If not, follow instructions here to install:
+
 	https://preshing.com/20141108/how-to-install-the-latest-gcc-on-windows/
 
 
