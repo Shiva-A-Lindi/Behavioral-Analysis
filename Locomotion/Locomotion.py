@@ -705,6 +705,10 @@ def plot_what_which_where(df,laser_t,mouse_type,mouse_no,trial_no,opto_par, pre_
 	averaged_pos = average_position_r_l(df,window_pos,misdetection_dict,cor,body_part,plot_param)
 
 	time_series  = df.index / fps
+
+#	ind = np.logical_and(time_series>23,time_series<55)
+#	pd.DataFrame(averaged_pos[ind]).to_csv("/home/shiva/Desktop/ss.csv")
+
 	trial_time = max(time_series)
 	
 	if plot_param == "velocity":
@@ -2025,16 +2029,18 @@ def run_one_intensity_save_data(pre_direct,scale_pix_to_cm, mouse_type, mouse_li
 			epochs,pre_info = extract_epochs_over_trials(files_list_DLC,files_list_Laser,direct,folder,scale_pix_to_cm,'n',accep_interval_range,
 												spont_trial_dict,misdetection_dict,study_param_dict,**intervals_dict,**t_window_dict) 
 			print(epochs.shape[0], 'laser trials')
+			global no_sample
 			epochs_all_mice = np.append(epochs_all_mice, epochs, axis = 0)# construct an array of all the trial epochs of all mice
 			all_pre_info = np.append(all_pre_info, pre_info, axis = 0)
 			no_epochs = epochs.shape[0] # number of epochs extracted for the mouse
 			if len(files_list_spont)==0: # if no spont trials recorded set it to zero
 				epochs_spont = np.zeros(np.shape(epochs))
 				epochs_spont_all_mice = np.append(epochs_spont_all_mice, epochs_spont, axis = 0) # construct an array of all the spont epochs
+				no_sample = 0
 			else:
 				
 				n_spont_sessions = len(files_list_spont) # number of spont sessions
-				global no_sample
+				
 				no_sample = int(no_epochs/(n_spont_sessions*n_trials_spont))+1 # number of repeats 
 										# over a spont file to get the same number of epochs as laser session
 				epochs_spont,blah = extract_epochs_over_trials(files_list_spont,files_list_Laser,direct,'Spontaneous',scale_pix_to_cm,'y',accep_interval_range,
