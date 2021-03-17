@@ -170,6 +170,8 @@ def list_video_files(path, move_files = False,remove_emp_files = False):
     return videofile_path      
 
 def extract_useful_info_from_filename(df_original):
+    ''' strip the file names to form "Rat_<NUMBER>_<DATE>_<TIME>_<CAMERA>" '''
+    # states = ['broken','correct','mot_readable']
     df = df_original.copy()
     for i in df.index.to_list():
         filename = os.path.splitext(df['filename'][i])[0]
@@ -185,37 +187,27 @@ def extract_useful_info_from_filename(df_original):
             j +=1
         df['filename'][i] = "_".join([strips[0],strips[1],strips[ind-2],strips[ind-1],strips[ind]])+suffix
     return df
+
 def find_same_files_two_destinations(df1,df2):
     ''' look for the same files in both data frames and report back the overlaps'''
-    # states = ['broken','correct','mot_readable']
     mutual_df = pd.DataFrame(columns=df1.columns)
     parameter = 'filename'
-    # ind1 = [df1.index[df1[parameter] == filename].to_list() for filename in df1[parameter] if any(x in filename for x in states)]
-    # ind2 = [df2.index[df2[parameter] == filename].to_list() for filename in df2[parameter] if any(x in filename for x in states)]
-    # df1[parameter][np.squeeze(np.array(ind1))] = ["_".join(filename.split('_')[:-2]) for filename in df1[parameter] if any(x in filename for x in states)]
-    # df2[parameter][np.squeeze(np.array(ind2))] = ["_".join(filename.split('_')[:-2]) for filename in df2[parameter] if any(x in filename for x in states)]
     df1_stripped = extract_useful_info_from_filename(df1)
     df2_stripped = extract_useful_info_from_filename(df2)
     
     for filename in df1_stripped[parameter].values:
 
         entries = df2_stripped.loc[df2_stripped[parameter] == filename]
-        ind = df2_stripped.index[df2_stripped[parameter] == filename]
         if len(entries) != 0:
             mutual_df = pd.concat([mutual_df,df1.loc[df1_stripped[parameter] == filename]])
-            mutual_df = pd.concat([mutual_df,df2.loc[ind]])
+            mutual_df = pd.concat([mutual_df,df2.loc[df2_stripped[parameter] == filename]])
             mutual_df = mutual_df.append(pd.Series(name='space',dtype='float64'), ignore_index=False)
     return mutual_df
             
 def find_missing_files_two_destinations(df1,df2):
     ''' report items in df1 that are not in df2'''
-    # states = ['broken','correct','mot_readable']
     difference_df = pd.DataFrame(columns=df1.columns)
     parameter = 'filename'
-    # ind1 = [df1.index[df1[parameter] == filename].to_list() for filename in df1[parameter] if any(x in filename for x in states)]
-    # ind2 = [df2.index[df2[parameter] == filename].to_list() for filename in df2[parameter] if any(x in filename for x in states)]
-    # df1[parameter][np.squeeze(np.array(ind1))] = ["_".join(filename.split('_')[:-2]) for filename in df1[parameter] if any(x in filename for x in states)]
-    # df2[parameter][np.squeeze(np.array(ind2))] = ["_".join(filename.split('_')[:-2]) for filename in df2[parameter] if any(x in filename for x in states)]
     df1_stripped = extract_useful_info_from_filename(df1)
     df2_stripped = extract_useful_info_from_filename(df2)
     for filename in df1_stripped[parameter].values:
@@ -223,8 +215,8 @@ def find_missing_files_two_destinations(df1,df2):
         entries = df2_stripped.loc[df2_stripped[parameter] == filename]
         if len(entries) == 0:
             difference_df = pd.concat([difference_df,df1.loc[df1_stripped[parameter] == filename]])
-            # difference_df = difference_df.append(pd.Series(name='space',dtype='float64'), ignore_index=False)
     return difference_df
+
 def save_df_of_comparison(csv_path1, csv_path2, merge_csv_path):
     ''' open two csv reports, save identical files history to another csv in "merge_csv_path" '''
     df1 = pd.read_csv(csv_path1)
@@ -234,7 +226,7 @@ def save_df_of_comparison(csv_path1, csv_path2, merge_csv_path):
     df.to_csv(merge_csv_path, sep=',',index=False)
     
 def save_missing_items_between_two_lists(csv_path1, csv_path2, diff_csv_path):
-    
+    ''' save the list of the files that exist in one file but not the other'''
     df1 = pd.read_csv(csv_path1)
     df2 = pd.read_csv(csv_path2)
 
@@ -264,25 +256,25 @@ df = check_file_integrity(videofile_path_list,csv_path,df)
 #%%
 #%% If you explicitly want to compare two directories for duplicates look here:
 
+# 1. specify the path of first folder
 path1 = '/home/shiva/smbshare/Master2019_Ana/Video_All/Rat12/Mai'
 csv_directory = path1 ; csv_filename  = path1.split(os.sep)[-1]+'.csv'
 csv_path1 = os.path.join(csv_directory,csv_filename)
 
+# 1. specify the path of second folder
 path2 = '/home/shiva/smbshare/Master2019_Ana/Vidéos_old/Rat12/Mai' # run 
 csv_directory = path2 ; csv_filename  = path2.split(os.sep)[-1]+'.csv'
 csv_path2 = os.path.join(csv_directory,csv_filename)
 
+# 3. the comparisons csvs will be saved at the common path
 csv_directory = os.path.commonpath([path1,path2])
 merge_csv_path = os.path.join(csv_directory,'Rat12_comparison.csv')
+
+# 4. find mutual files
 save_df_of_comparison(csv_path1, csv_path2, merge_csv_path)
+
+# 5. find differences between files in two directory
 save_missing_items_between_two_lists(csv_path1, csv_path2, merge_csv_path)
-#%% Scribble if you want to check sth do it here 
-
-# videoPath = '/home/shiva/smbshare/Master2019_Ana/Video_All/Rat14/Juin/05-06-19_IntraLDOPA_10mM/Rat_14_all_head_PreIntraLDOPA_10mM_05-06-19_20190605_115709_C001H002S0001.avi'
-# videoPath = '/home/shiva/smbshare/Master2019_Ana/Vidéos_old/Rat12/Mai/24-05-19/Rat_12_6OHDA_head_1_24-05-19_20190524_091343_C001H001S0001/Rat_12_head_1_24-05-19_20190524_091343_C001H001S0001.avi'
-# find_broken_indx(videoPath)
-
-# df = check_file_integrity([videofile_path_list[0]],csv_path)
 
 
 
