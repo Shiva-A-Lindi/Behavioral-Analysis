@@ -48,9 +48,9 @@ def replace_space_with_underscore(path):
             new_name = dirnames[i].replace(' ', '_')
             os.rename(os.path.join(dirpath, dirnames[i]), os.path.join(dirpath, new_name))
             dirnames[i] = new_name
-    videofile_path = [ fi for fi in fname if fi.endswith(".avi") ]
+    # videofile_path = [ fi for fi in fname if fi.endswith(".avi") ]
 
-    return videofile_path
+    # return videofile_path
 
 
 def create_path_csv(videofile_path_list):
@@ -68,10 +68,10 @@ def create_path_csv(videofile_path_list):
         hierarchy = hierarchy[::-1] # reverse the order of file directories
 #        print(col_str[:len(hierarchy)])
         df.loc[i, col_str[:len(hierarchy)]] = hierarchy 
-    df.insert(0, 'index',['correct']*len(videofile_path_list))
-    df.insert(1, '%good_frames',['100']*len(videofile_path_list))
+    df.insert(0, 'index',['']*len(videofile_path_list))
+    df.insert(1, '%good_frames',['']*len(videofile_path_list))
     df.insert(2, '#total_frames_of_video',['']*len(videofile_path_list))
-
+    df.insert(3, 'renamed',['n']*len(videofile_path_list))
     return df
 
 
@@ -92,7 +92,7 @@ def find_broken_indx(videoPath):
             ret, video.currentFrame = video.capture.read()
             if ret:
                 frame += 1
-                print(frame)
+                # print(frame)
             else: 
                 state = 'broken' ; perc =round(frame/video.nbFrames*100,1)
                 print("state =",state, ' ', perc," %")
@@ -111,24 +111,33 @@ def repair_broken_index(video_path_list):
     for f in video_path_list:
         os.system('ffmpeg -i {0} -c copy {1}'.format(f,f))
         
-def check_file_integrity(videofile_path_list,csv_path):
-    start = timeit.default_timer()
-    df = create_path_csv(videofile_path_list)
+def check_file_integrity(videofile_path_list,csv_path,df):
+    
+    
     i = 0
     for filename in videofile_path_list:
-        print(i, " from ", len(videofile_path_list))
-        state, perc, n_frames = find_broken_indx(filename)
-        df.loc[i,['index', '%good_frames', '#total_frames_of_video']] = state, perc, n_frames
-        path = Path(filename)
-        # filename_without_prefix = os.path.splitext(filename)[0]
-        if not state in path.stem:
-            new_filename = path.with_name(f"{path.stem}_{state}_{str(int(round(perc,0)))}{path.suffix}")
-            os.rename(filename,new_filename)
-
+        start = timeit.default_timer()
+        try:
+            print(i, " from ", len(videofile_path_list))
+            state, perc, n_frames = find_broken_indx(filename)
+            df.loc[i,['index', '%good_frames', '#total_frames_of_video']] = state, perc, n_frames
+            path = Path(filename)
+            # filename_without_prefix = os.path.splitext(filename)[0]
+            if not state in path.stem:
+                new_filename = path.with_name(f"{path.stem}_{state}_{str(int(round(perc,0)))}{path.suffix}")
+                try:
+                    os.rename(filename,new_filename)
+                    df.loc[i,'renamed'] = 'y'
+                except OSError:
+                    continue
+        except Exception as e:
+            print(e)
+            break
         i+=1
+        stop = timeit.default_timer()
+        print("t = ", stop - start)
     df.to_csv(csv_path, sep=',',index=False)
-    stop = timeit.default_timer()
-    print("t = ", stop - start)
+
     return df
   
 def move_files_out_of_subfolder(dirpath,filename):
@@ -189,7 +198,8 @@ def save_df_of_comparison(csv_path1, csv_path2, merge_csv_path):
     
 #%%
 # 1. enter the path of the folder you want to scan
-path = '/home/shiva/smbshare/Master2019_Ana/Video_All'
+# path = '/home/shiva/smbshare/Master2019_Ana/Vidéos_old/Rat12/Mai' # run 
+path = '/home/shiva/smbshare/Master2019_Ana/Video_All/Rat12/Mai'
 
 # 2. replace the spaces with underscores everywhere in your path
 replace_space_with_underscore(path)
@@ -197,12 +207,14 @@ replace_space_with_underscore(path)
 # 3. list the video file paths within this directory
 videofile_path_list = list_video_files(path, move_files = False, remove_emp_files = False) # set "move_files = True" when you want to get rid of unecessary folders created by the camera and move their files outside
 
-# 4. enter the directory and name of the csv file you want to save your report
-csv_directory = path ; csv_filename  = path.split('_')[-1]+'.csv'
-csv_path = os.path.join(csv_directory,csv_filename)
 
-# 5. Run to check all the videos
-df = check_file_integrity(videofile_path_list,csv_path)
+# 4. enter the directory and name of the csv file you want to save your report
+csv_directory = path ; csv_filename  = path.split(os.sep)[-1]+'.csv'
+csv_path = os.path.join(csv_directory,csv_filename)
+# 5. Create the csv file (to be global not to lose if error is thrown)
+df = create_path_csv(videofile_path_list)
+# 6. Run to check all the videos
+df = check_file_integrity(videofile_path_list,csv_path,df)
 
 
 #%% If you explicitly want to compare two directories for duplicates look here:
