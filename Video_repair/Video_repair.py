@@ -173,6 +173,7 @@ def extract_useful_info_from_filename(df_original):
     ''' strip the file names to form "Rat_<NUMBER>_<DATE>_<TIME>_<CAMERA>" '''
     # states = ['broken','correct','mot_readable']
     df = df_original.copy()
+    
     for i in df.index.to_list():
         filename = os.path.splitext(df['filename'][i])[0]
         suffix = os.path.splitext(df['filename'][i])[1]
@@ -181,10 +182,17 @@ def extract_useful_info_from_filename(df_original):
         #     df['filename'][i] = "_".join(filename.split('_')[:-2])
         strips = filename.split('_')
         j = 0
+        camera_ind_found = False
         for string in strips:
             if string.startswith('C00') and string.endswith('001'): 
+                camera_ind_found = True
                 ind = j
+                break
             j +=1
+        if not camera_ind_found:
+            print('Camera details dont exist in:' , df['filename'])
+            # sys.exit(1)
+            continue
         df['filename'][i] = "_".join([strips[0],strips[1],strips[ind-2],strips[ind-1],strips[ind]])+suffix
     return df
 
@@ -236,7 +244,7 @@ def save_missing_items_between_two_lists(csv_path1, csv_path2, diff_csv_path):
 #%% MAIN
 # 1. enter the path of the folder you want to scan
 # path = '/home/shiva/smbshare/Master2019_Ana/Vidéos_old/Rat12/Mai' # run 
-path = '/home/shiva/smbshare/Master2019_Ana/Video_All/Rat12/Mai'
+path = '/home/shiva/smbshare/BackUp_Filer_Rongeur/Nico/Master_Ana_NeuroBim_2019/Vidéos'
 
 # 2. replace the spaces with underscores everywhere in your path
 replace_space_with_underscore(path)
@@ -257,18 +265,18 @@ df = check_file_integrity(videofile_path_list,csv_path,df)
 #%% If you explicitly want to compare two directories for duplicates look here:
 
 # 1. specify the path of first folder
-path1 = '/home/shiva/smbshare/Master2019_Ana/Video_All/Rat12/Mai'
+path1 = '/home/shiva/smbshare/BackUp_Filer_Rongeur/Nico/Master_Ana_NeuroBim_2019/Vidéos'
 csv_directory = path1 ; csv_filename  = path1.split(os.sep)[-1]+'.csv'
 csv_path1 = os.path.join(csv_directory,csv_filename)
 
 # 1. specify the path of second folder
-path2 = '/home/shiva/smbshare/Master2019_Ana/Vidéos_old/Rat12/Mai' # run 
+path2 = '/home/shiva/smbshare/Master2019_Ana/Video_All' # run 
 csv_directory = path2 ; csv_filename  = path2.split(os.sep)[-1]+'.csv'
 csv_path2 = os.path.join(csv_directory,csv_filename)
 
 # 3. the comparisons csvs will be saved at the common path
 csv_directory = os.path.commonpath([path1,path2])
-merge_csv_path = os.path.join(csv_directory,'Rat12_comparison.csv')
+merge_csv_path = os.path.join(csv_directory,'Maste_Ana_2019_BackUp_Filer_Rongeur_Nico_Vidéos_vs_Videos_all.csv')
 
 # 4. find mutual files
 save_df_of_comparison(csv_path1, csv_path2, merge_csv_path)
