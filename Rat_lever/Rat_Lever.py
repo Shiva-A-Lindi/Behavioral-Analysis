@@ -2107,6 +2107,82 @@ def group_and_av_animals(result,y):
     
     return grouped_ave_var
 
+# def build_sessions_transf_to_df(pre_direct, folder,exp_par):
+    
+#     ''' build a class object from all sessions with <folder> protocol
+#         separate laser/non-laser and successful/failed trials
+#         put important measurements into a df and return
+#     '''
+
+#     pre_direct_chosen = os.path.join(pre_direct, exp_par)
+
+
+#     cfg, files_list_DLC, files_list_LED = find_all_files_same_protocol(pre_direct_chosen, folder)
+#     where_plot,what_plot = 0,0
+#     body_part = cfg['body_part_list'][where_plot]
+#     all_sessions = extract_epochs_over_sessions(files_list_DLC, files_list_LED, folder,body_part,cfg)
+#     laser = Laser(all_sessions)
+#     laser_failed = Failed(laser)
+#     laser_successful = Successful(laser)
+
+#     non_laser = Non_Laser(all_sessions)
+#     normal_failed = Failed(non_laser)
+#     normal_successful = Successful(non_laser)
+    
+#     n1 = laser_successful.n_trials 
+#     n2 = laser_failed.n_trials
+#     n3 = normal_successful.n_trials
+#     n4 = normal_failed.n_trials 
+    
+#     print("laser success trials = ",laser_successful.n_trials)
+#     print("laser failed trials = ",laser_failed.n_trials)
+
+#     print("normal success trials = ",normal_successful.n_trials)
+#     print("normal failed trials = ",normal_failed.n_trials)
+
+
+#     col_names =  ['rat_no','opto_par','pulse','intensity','protocol','Nfpt','RT(ms)','MT(ms)', 'tortuosity','distance(cm)','v_max(cm/s)', 'trial', 'laser']
+    
+#     result = pd.DataFrame(columns = col_names)
+    
+#     df = pd.DataFrame(({'rat_no':laser_successful.rat_no, 
+#     					'opto_par':[exp_par] * n1, 
+#     					'pulse':[cfg['laser_pulse']] * n1, 
+#         				'intensity':[cfg['laser_intensity']] * n1,
+#         				'protocol':[cfg['laser_protocol']] * n1,
+#         				'Nfpt':[cfg['fp_trial']] * n1,
+#         				'RT(ms)':laser_successful.pad_off_t, 
+#         				'distance(cm)':laser_successful.distance,
+#         				'tortuosity':laser_successful.tortuosity,
+#         				'MT(ms)':laser_successful.got_reward_t - laser_successful.pad_off_t,
+#         				'v_max(cm/s)':np.max(laser_successful.velocity_r,axis=1),
+#         				'trial':['successful'] * n1 , 
+#         				'laser':['laser'] * n1 }))
+    
+#     df1 = pd.DataFrame(({'rat_no':laser_failed.rat_no, 'opto_par':[exp_par]*n2, 'pulse':[cfg['laser_pulse']]*n2, 
+#         'intensity':[cfg['laser_intensity']]*n2,'protocol':[cfg['laser_protocol']]*n2,'Nfpt':[cfg['fp_trial']]*n2,
+#         'RT(ms)':laser_failed.pad_off_t, 'distance(cm)':laser_failed.distance,'tortuosity':laser_failed.tortuosity,
+#         'MT(ms)':laser_failed.fp_trial[0]-laser_failed.pad_off_t,'v_max(cm/s)':np.max(laser_failed.velocity_r,axis=1),
+#         'trial':['failed']* n2, 'laser':['laser']* n2}))
+    
+#     df2 = pd.DataFrame(({'rat_no':normal_successful.rat_no, 'opto_par':[exp_par]*n3, 'pulse':[cfg['laser_pulse']]*n3,
+#         'intensity':[cfg['laser_intensity']]*n3,'protocol':[cfg['laser_protocol']]*n3,'Nfpt':[cfg['fp_trial']]*n3,
+#         'RT(ms)':normal_successful.pad_off_t,'distance(cm)':normal_successful.distance, 'tortuosity':normal_successful.tortuosity,
+#         'MT(ms)':normal_successful.got_reward_t - normal_successful.pad_off_t,'v_max(cm/s)':np.max(normal_successful.velocity_r,axis=1),
+#         'trial':['successful']* n3 , 'laser':['no laser']* n3 }))
+    
+#     df3 = pd.DataFrame(({'rat_no':normal_failed.rat_no, 'opto_par':[exp_par]*n4, 'pulse':[cfg['laser_pulse']]*n4, 
+#         'intensity':[cfg['laser_intensity']]*n4,'protocol':[cfg['laser_protocol']]*n4,'Nfpt':[cfg['fp_trial']]*n4,
+#         'RT(ms)':normal_failed.pad_off_t, 'distance(cm)':normal_failed.distance,'tortuosity':normal_failed.tortuosity,
+#         'MT(ms)':normal_failed.fp_trial[0]-normal_failed.pad_off_t,'v_max(cm/s)':np.max(normal_failed.velocity_r,axis=1),
+#         'trial':['failed']* n4 , 'laser':['no laser']* n4 }))
+
+#     result = pd.concat([result, df, df1, df2, df3],ignore_index=True)
+
+#     result['RT(ms)'] = result['RT(ms)']*1000/cfg['fp_trial']
+#     result['MT(ms)'] = result['MT(ms)']*1000/cfg['fp_trial']
+#     return result
+
 def build_sessions_transf_to_df(pre_direct, folder,exp_par):
     
     ''' build a class object from all sessions with <folder> protocol
@@ -2122,59 +2198,56 @@ def build_sessions_transf_to_df(pre_direct, folder,exp_par):
     body_part = cfg['body_part_list'][where_plot]
     all_sessions = extract_epochs_over_sessions(files_list_DLC, files_list_LED, folder,body_part,cfg)
     laser = Laser(all_sessions)
-    laser_failed = Failed(laser)
-    laser_successful = Successful(laser)
 
     non_laser = Non_Laser(all_sessions)
-    normal_failed = Failed(non_laser)
-    normal_successful = Successful(non_laser)
-    
-    n1 = laser_successful.n_trials 
-    n2 = laser_failed.n_trials
-    n3 = normal_successful.n_trials
-    n4 = normal_failed.n_trials 
-    
-    print("laser success trials = ",laser_successful.n_trials)
-    print("laser failed trials = ",laser_failed.n_trials)
 
-    print("normal success trials = ",normal_successful.n_trials)
-    print("normal failed trials = ",normal_failed.n_trials)
+    
+    sessions_dict = { 'laser' : { 'successful' : Successful(laser) , 'failed' : Failed(laser)}, 
+    			'non-laser' :  { 'successful' : Successful(non_laser) , 'failed' : Failed(non_laser) }
+    			}
 
 
     col_names =  ['rat_no','opto_par','pulse','intensity','protocol','Nfpt','RT(ms)','MT(ms)', 'tortuosity','distance(cm)','v_max(cm/s)', 'trial', 'laser']
     
-    result = pd.DataFrame(columns = col_names)
+    results = pd.DataFrame(columns = col_names)
     
-    df = pd.DataFrame(({'rat_no':laser_successful.rat_no, 'opto_par':[exp_par]*n1, 'pulse':[cfg['laser_pulse']]*n1, 
-        'intensity':[cfg['laser_intensity']]*n1,'protocol':[cfg['laser_protocol']]*n1,'Nfpt':[cfg['fp_trial']]*n1,
-        'RT(ms)':laser_successful.pad_off_t, 'distance(cm)':laser_successful.distance,'tortuosity':laser_successful.tortuosity,
-        'MT(ms)':laser_successful.got_reward_t- laser_successful.pad_off_t,'v_max(cm/s)':np.max(laser_successful.velocity_r,axis=1),
-        'trial':['successful']* n1 , 'laser':['laser']* n1 }))
-    
-    df1 = pd.DataFrame(({'rat_no':laser_failed.rat_no, 'opto_par':[exp_par]*n2, 'pulse':[cfg['laser_pulse']]*n2, 
-        'intensity':[cfg['laser_intensity']]*n2,'protocol':[cfg['laser_protocol']]*n2,'Nfpt':[cfg['fp_trial']]*n2,
-        'RT(ms)':laser_failed.pad_off_t, 'distance(cm)':laser_failed.distance,'tortuosity':laser_failed.tortuosity,
-        'MT(ms)':laser_failed.fp_trial[0]-laser_failed.pad_off_t,'v_max(cm/s)':np.max(laser_failed.velocity_r,axis=1),
-        'trial':['failed']* n2, 'laser':['laser']* n2}))
-    
-    df2 = pd.DataFrame(({'rat_no':normal_successful.rat_no, 'opto_par':[exp_par]*n3, 'pulse':[cfg['laser_pulse']]*n3,
-        'intensity':[cfg['laser_intensity']]*n3,'protocol':[cfg['laser_protocol']]*n3,'Nfpt':[cfg['fp_trial']]*n3,
-        'RT(ms)':normal_successful.pad_off_t,'distance(cm)':normal_successful.distance, 'tortuosity':normal_successful.tortuosity,
-        'MT(ms)':normal_successful.got_reward_t - normal_successful.pad_off_t,'v_max(cm/s)':np.max(normal_successful.velocity_r,axis=1),
-        'trial':['successful']* n3 , 'laser':['no laser']* n3 }))
-    
-    df3 = pd.DataFrame(({'rat_no':normal_failed.rat_no, 'opto_par':[exp_par]*n4, 'pulse':[cfg['laser_pulse']]*n4, 
-        'intensity':[cfg['laser_intensity']]*n4,'protocol':[cfg['laser_protocol']]*n4,'Nfpt':[cfg['fp_trial']]*n4,
-        'RT(ms)':normal_failed.pad_off_t, 'distance(cm)':normal_failed.distance,'tortuosity':normal_failed.tortuosity,
-        'MT(ms)':normal_failed.fp_trial[0]-normal_failed.pad_off_t,'v_max(cm/s)':np.max(normal_failed.velocity_r,axis=1),
-        'trial':['failed']* n4 , 'laser':['no laser']* n4 }))
+    for laser, sessions in sessions_dict.items():
+    	for result, session in sessions.items():
+    		print( laser , result, 'trials =', session.n_trials )
 
-    result = pd.concat([result, df, df1, df2, df3],ignore_index=True)
+    		df = pd.DataFrame({'rat_no': session.rat_no, 
+		    					'opto_par': [exp_par] * session.n_trials, 
+		    					'pulse': [ cfg['laser_pulse'] ] * session.n_trials, 
+		        				'intensity': [ cfg['laser_intensity']] * session.n_trials,
+		        				'protocol': [ cfg['laser_protocol']] * session.n_trials,
+		        				'Nfpt': [ cfg['fp_trial']] * session.n_trials,
+		        				'RT(ms)': session.pad_off_t, 
+		        				'distance(cm)': session.distance,
+		        				'tortuosity': session.tortuosity,
+		        				'MT(ms)': session.got_reward_t - session.pad_off_t,
+		        				# 'v_max(cm/s)': np.max( session.velocity_r, axis=1 ),
+		        				'v_max(cm/s)': get_max_velocities_of_all_trials(session, cfg),
+		        				'trial': ['successful'] * session.n_trials , 
+		        				'laser': ['laser'] * session.n_trials })
 
-    result['RT(ms)'] = result['RT(ms)']*1000/cfg['fp_trial']
-    result['MT(ms)'] = result['MT(ms)']*1000/cfg['fp_trial']
-    return result
 
+    		results = pd.concat([results, df], ignore_index=True)
+
+    results['RT(ms)'] = results['RT(ms)']*1000/cfg['fp_trial']
+    results['MT(ms)'] = results['MT(ms)']*1000/cfg['fp_trial']
+    return results
+def get_max_velocities_of_all_trials(session, cfg):
+	''' exclude the masked velocities and return the maximum velocity reached in each trial'''
+	v_max = np.zeros(session.n_trials)
+	for trial in range(session.n_trials):
+		v_trial = session.velocity_r[:,trial]
+		v_filtered_trial = v_trial[ v_trial != cfg['velocity_mask'] ]
+		if len(v_filtered_trial) > 0 :
+			v_max[trial] = np.max( v_filtered_trial)
+		else:
+			print('no movement velocity could be calculated')
+			v_max[trial] = np.nan
+	return v_max
 def build_metadeta_all_folders(pre_direct, experiment_dict):
               
     result = build_sessions_transf_to_df(pre_direct, experiment_dict['folder'][0],experiment_dict['exp_par'][0])
