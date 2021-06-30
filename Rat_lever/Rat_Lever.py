@@ -28,7 +28,11 @@ import shutil
 import fnmatch
 flatten = itertools.chain.from_iterable
 
-
+def set_ticks(ax):
+    ax.get_xaxis().set_tick_params(direction='out',labelsize = 20)
+    ax.xaxis.set_ticks_position('bottom')
+    ax.get_yaxis().set_tick_params(direction='out',labelsize = 20)
+    ax.yaxis.set_ticks_position('left')
 ##################### Config file  ##########################################################################################
 def create_config_template():
     """
@@ -1191,34 +1195,79 @@ def get_input_cor_body_part():
     what_plot = int(input())-1 # ask what body part to plot
     return where_plot,what_plot
 
-def run_one_folder(rat_no, folder_list):
+# def run_one_folder(rat_no, folder_list): #### not compatible anymore
     
+#     ''' run data over all rats of one group and one intensity and 
+#         save data of epochs and individal rats to a npz file
+#     '''
+    
+#     plt.figure(2)
+#     fig = plt.figure(figsize=(20,15))
+#     nrows=2;ncols=3
+#     direct = os.path.join(pre_direct, 'Rat_' + str(rat_no))  # directory to the folder for each mouse
+#     count = 0
+#     for folder in folder_list: # Run over all the mice
+#         print(folder)
+#         count +=1
+#         start = timeit.default_timer()
+        
+#         path = os.path.join(direct, folder)
+#         files_list_DLC = list_all_files(os.path.join(path, 'DLC'),'.csv')
+#         files_list_LED = list_all_files(os.path.join(path, 'LED'),'.csv')
+
+#         body_part,what_plot = [0],0
+#         all_sessions = extract_epochs_over_sessions(files_list_DLC, files_list_LED, direct, folder, cfg['fp_trial'])
+#         all_sessions.discard_unacceptable_trials()
+
+#         failed = Failed(all_sessions)
+#         successful = Successful(all_sessions)
+#         print(" succeeded = ", successful.n_trials,"\n failed = ", failed.n_trials, "\n pad miss detections = ", session.n_pad_miss_detection)
+#         print(" max trial time = ", successful.max_time/cfg['fps']*1000 ," ms", "\n min trial time = ", successful.min_time/cfg['fps']*1000 ," ms")
+
+
+#         if len(files_list_DLC)==0 :
+#             print("No files for ",folder)
+#             continue
+#         elif len(files_list_LED)==0 :
+#             print("No LED detection")
+#             continue
+#         else:
+
+#             ax = fig.add_subplot(nrows,ncols,count)
+#             plot_mean_trajectory(all_sessions,folder)
+#             stop = timeit.default_timer()
+#             print('run time = ',stop-start)
+
+#     plt.tight_layout()
+
+#     plt.savefig(os.path.join(pre_direct,'Subplots','All_days_'+'Rat_'+str(rat_no)+'.png'),bbox_inches='tight',orientation='landscape',dpi=200)
+#     plt.show()
+
+#     save_npz(mouse_type,exp_par,folder,folder, cfg['window'],cfg['n_timebin'],"",
+#              epochs_all_mice, epochs_mean_each_mouse, epochs_spont_all_mice)
+# 
+def run_one_folder_traj(path, rat_no, folder_list, pad_constraint = False, mask_beg_end = False):
     ''' run data over all mice of one group and one intensity and 
-        save data of epochs and individal rats to a npz file
-    '''
-    
-    plt.figure(2)
-    fig = plt.figure(figsize=(20,15))
-    nrows=2;ncols=3
-    direct = os.path.join(pre_direct, 'Rat_' + str(rat_no))  # directory to the folder for each mouse
+    save data of epochs and individal rats to a npz file'''
+    fig = plt.figure(figsize=(30,20))
+
+    nrows=3;ncols= int(len(folder_list)/nrows)+1
+
     count = 0
     for folder in folder_list: # Run over all the mice
-        print(folder)
         count +=1
-        start = timeit.default_timer()
-        
-        path = os.path.join(direct, folder)
-        files_list_DLC = list_all_files(os.path.join(path, 'DLC'),'.csv')
-        files_list_LED = list_all_files(os.path.join(path, 'LED'),'.csv')
-
-        body_part,what_plot = [0],0
-        all_sessions = extract_epochs_over_sessions(files_list_DLC, files_list_LED, direct, folder, cfg['fp_trial'])
-        all_sessions.discard_unacceptable_trials()
+        cfg_sample,files_list_DLC, files_list_LED = find_all_files_same_protocol_non_laser(path, folder)
+        where_plot,what_plot = 0,0
+        print(folder)
+        body_part = cfg_sample['body_part_list'][where_plot]
+        all_sessions = extract_epochs_over_sessions( files_list_DLC, files_list_LED, folder,
+                                                    body_part,cfg_sample, pad_constraint= pad_constraint,
+                                                    mask_beg_end = mask_beg_end)
 
         failed = Failed(all_sessions)
         successful = Successful(all_sessions)
-        print(" succeeded = ", successful.n_trials,"\n failed = ", failed.n_trials, "\n pad miss detections = ", session.n_pad_miss_detection)
-        print(" max trial time = ", successful.max_time/cfg['fps']*1000 ," ms", "\n min trial time = ", successful.min_time/cfg['fps']*1000 ," ms")
+        print(" succeeded = ", successful.n_trials,"\n failed = ", failed.n_trials, "\n pad miss detections = ", all_sessions.n_pad_miss_detection)
+#         print(" max trial time = ", successful.max_time/cfg['fps']*1000 ," ms", "\n min trial time = ", successful.min_time/cfg['fps']*1000 ," ms")
 
 
         if len(files_list_DLC)==0 :
@@ -1230,17 +1279,60 @@ def run_one_folder(rat_no, folder_list):
         else:
 
             ax = fig.add_subplot(nrows,ncols,count)
-            plot_mean_trajectory(all_sessions,folder)
-            stop = timeit.default_timer()
-            print('run time = ',stop-start)
+            set_ticks(ax)
+            plot_mean_trajectory(all_sessions,folder,cfg_sample)
+    plt.tight_layout()
+
+def run_one_folder_stat(path , rat_no, folder_list, pad_constraint = False , mask_beg_end = False):
+    ''' run data over all mice of one group and one intensity and 
+    save data of epochs and individal rats to a npz file'''
+    fig = plt.figure(figsize=(30,20))
+
+    nrows=3;ncols= int(len(folder_list)/nrows)+1
+
+    count = 0
+    for folder in folder_list: # Run over all the mice
+        count +=1
+        cfg_sample,files_list_DLC, files_list_LED = find_all_files_same_protocol_non_laser(path, folder)
+        where_plot,what_plot = 0,0
+        print(folder)
+        body_part = cfg_sample['body_part_list'][where_plot]
+        all_sessions = extract_epochs_over_sessions( files_list_DLC, files_list_LED, folder,
+                                                    body_part,cfg_sample, pad_constraint= pad_constraint,
+                                                    mask_beg_end = mask_beg_end)
+
+        failed = Failed(all_sessions)
+        successful = Successful(all_sessions)
+        print(" succeeded = ", successful.n_trials,"\n failed = ", failed.n_trials, "\n pad miss detections = ", all_sessions.n_pad_miss_detection)
+#         print(" max trial time = ", successful.max_time/cfg['fps']*1000 ," ms", "\n min trial time = ", successful.min_time/cfg['fps']*1000 ," ms")
+
+
+        if len(files_list_DLC)==0 :
+            print("No files for ",folder)
+            continue
+        elif len(files_list_LED)==0 :
+            print("No LED detection")
+            continue
+        else:
+
+            ax = fig.add_subplot(nrows,ncols,count)
+            set_ticks(ax)
+            plot_successful_failed(all_sessions,folder,cfg_sample)
 
     plt.tight_layout()
 
-    plt.savefig(os.path.join(pre_direct,'Subplots','All_days_'+'Rat_'+str(rat_no)+'.png'),bbox_inches='tight',orientation='landscape',dpi=200)
-    plt.show()
-
-#     save_npz(mouse_type,exp_par,folder,folder, cfg['window'],cfg['n_timebin'],"",
-#              epochs_all_mice, epochs_mean_each_mouse, epochs_spont_all_mice)
+def plot_successful_failed(sessions,folder,cfg):
+    x = ["successful", "failed"]
+    plt.bar(x, [sessions.n_succeeded/sessions.n_trials*100 , sessions.n_failed/sessions.n_trials*100],
+           color = ['g','r'])
+    name= folder.split('_')
+    title  = name[0]+' '+name[1]
+    if len(name) > 6:
+        title = title +' ' + name[2] + ' ' + name[3]
+    plt.title(title,fontsize = 28)
+    plt.ylabel("% trials",fontsize = 20)
+    plt.xlabel("",fontsize = 20)
+    plt.ylim(0,100)
 
 def plot_trajectory(epochs_x,epochs_y,day):
 #     epochs_mean_x = np.average(epochs_x, axis = 0)
@@ -1485,7 +1577,7 @@ def extract_opto_epochs(df, df_LED, path,folder,body_part,cfg):
     print("n trials = ",session.n_trials)
     return session
 
-def extract_epochs(df, df_LED, path, folder, body_part, cfg):
+def extract_epochs(df, df_LED, path, folder, body_part, cfg, pad_constraint = True, mask_beg_end = True):
     
     ''' extract epochs of one session 
         return the session class containing all the info for the session
@@ -1499,7 +1591,8 @@ def extract_epochs(df, df_LED, path, folder, body_part, cfg):
     session = Session(folder)
     session.set_epochs(x, y,likelihood, cfg) # reshapes to separate trials  
     session.set_properties(path,df_LED,cfg)
-    session.apply_pad_constraint(cfg)
+    if pad_constraint :
+    	session.apply_pad_constraint(cfg) # may not be applied in 6OHDA rats due to akinesia
     session.mark_unreasonable_n_acc_likelihood(cfg)
     
     session.epochs_x, session.epochs_y = correct_labeling_jitter(session.epochs_x, session.epochs_y,
@@ -1510,14 +1603,16 @@ def extract_epochs(df, df_LED, path, folder, body_part, cfg):
     session.calculate_steps_traveled(cfg) # get the steps before masking 
     session.calculate_velocity(cfg)
     session.discard_unacceptable_trials()
-    session.mask_beginnings_and_end_of_trials(cfg, True, True)
+    if mask_beg_end :
+    	session.mask_beginnings_and_end_of_trials(cfg, True, True)
     print("n trials = ",session.n_trials)
     return session
 
-def extract_epochs_over_sessions(files_list_DLC, files_list_LED, folder,body_part,cfg_sample):
+def extract_epochs_over_sessions(files_list_DLC, files_list_LED, folder,body_part,cfg_sample, trials_each = 45, 
+								pad_constraint = True, mask_beg_end = True):
     
     '''return all the epochs of all trials for one animal '''
-    trials_each = 45 # estimated number of trials per session
+    # trials_each = 45 estimated number of trials per session
     all_sessions = All_Session(len(files_list_DLC)* trials_each,cfg_sample['optogenetic_manip'],cfg_sample['fp_trial'])
     trial_count = 0
     for i in range(0,len(files_list_DLC)):
@@ -1533,7 +1628,8 @@ def extract_epochs_over_sessions(files_list_DLC, files_list_LED, folder,body_par
         if cfg['optogenetic_manip'] == True:
             session = extract_opto_epochs(df, df_LED, path, folder, body_part, cfg)
         elif cfg['optogenetic_manip'] == False:
-            session = extract_epochs(df, df_LED, path, folder, body_part, cfg)
+            session = extract_epochs(df, df_LED, path, folder, body_part, cfg, pad_constraint = pad_constraint,
+            						mask_beg_end = mask_beg_end)
 #         print(np.max(session.velocity_r,axis = 1))
         all_sessions.add_session(trial_count, session.n_trials, session,cfg['optogenetic_manip'])
         trial_count += session.n_trials
@@ -1541,14 +1637,51 @@ def extract_epochs_over_sessions(files_list_DLC, files_list_LED, folder,body_par
     
     return all_sessions
 
-def find_mean_trajectory(cfg, all_sessions):
+# def find_mean_trajectory(cfg, all_sessions): ####### primitive version
     
+#     ''' finds the mean trajectory by averaging within a 
+#         each x-grid cfg['window'] and return the mean and stats in class <trials>
+#     '''
+    
+#     epochs_x, epochs_y = all_sessions.epochs_x,all_sessions.epochs_y
+#     x_grid = np.linspace(min(epochs_x[epochs_x > 0]), max(epochs_x[epochs_x > 0]), cfg['n_grid'])
+
+#     trials = Trials(cfg['n_grid']-1)
+
+#     for i in range(len(x_grid[:-1])):
+#     #     plt.axvline(x=x_grid[i], ls='-', c='y',linewidth = 1)
+#         xs = epochs_x[np.logical_and(epochs_x < x_grid[i+1], epochs_x > x_grid[i])]
+#         ys = epochs_y[np.logical_and(epochs_x < x_grid[i+1], epochs_x > x_grid[i])]
+#         if len(xs) !=0 : # if there are actual observations for this grid cfg['window']
+#             trials.x[i] = np.average(xs)
+#             trials.y[i] = np.average(ys)
+#             temp_x = sms.DescrStatsW(xs).tconfint_mean(alpha=0.05, alternative='two-sided')
+#             trials.conf_inter_x [i,:] = temp_x[1] - trials.x[i], trials.x[i]-temp_x[0]
+#             temp_y = sms.DescrStatsW(xs).tconfint_mean(alpha=0.05, alternative='two-sided')
+#             trials.conf_inter_y [i,:] = temp_y[1] - trials.y[i], trials.y[i]-temp_y[0]
+
+#             trials.err_y[i] = np.std(ys)
+#             trials.err_x[i] = np.std(xs)
+
+# #             trials.err_y[i] = stats.sem(ys)
+# #             trials.err_x[i] = stats.sem(xs)
+
+#     trials.remove_nans()
+#     return trials
+
+def find_mean_trajectory(cfg, all_sessions):  #### taken from the 6OHDA notebook
     ''' finds the mean trajectory by averaging within a 
-        each x-grid cfg['window'] and return the mean and stats in class <trials>
-    '''
-    
+    each x-grid cfg['window'] and return the mean and stats in class <trials>'''
     epochs_x, epochs_y = all_sessions.epochs_x,all_sessions.epochs_y
-    x_grid = np.linspace(min(epochs_x[epochs_x > 0]), max(epochs_x[epochs_x > 0]), cfg['n_grid'])
+    ep_x = epochs_x[epochs_x > 0]
+    if len(ep_x) == 0:
+        print("no data")
+        min_x = 0 # set borders of the exp chamber
+        max_x = 7
+    else:
+        min_x = min(ep_x)
+        max_x = max(ep_x)
+    x_grid = np.linspace( min_x, max_x , cfg['n_grid'])
 
     trials = Trials(cfg['n_grid']-1)
 
@@ -1573,6 +1706,328 @@ def find_mean_trajectory(cfg, all_sessions):
     trials.remove_nans()
     return trials
 
+    
+def plot_mean_trajectory(session,folder,cfg):
+    trials = find_mean_trajectory(cfg, session)
+    plt.errorbar(trials.x,trials.y,  trials.err_y, trials.err_x,  marker = 'o',
+             markersize=5, linewidth=2, capsize=5, capthick=1, color = 'navy', ecolor='powderblue')
+    plt.plot([session.lever_x[0] - 0.1, session.lever_x[0] + 0.1],[session.lever_y[0],session.lever_y[0]],lw = 5, c = 'grey')
+    plt.plot([session.pad_left_x[0],session.pad_right_x[0]],[session.pad_y[0],session.pad_y[0]],lw = 5, c = 'grey')
+    name= folder.split('_')
+    title  = name[0]+' '+name[1]
+    if len(name) > 6:
+        title = title +' ' + name[2] + ' ' + name[3]
+    plt.title(title,fontsize = 28)
+    plt.ylabel("Y (cm)",fontsize = 20)
+    plt.xlabel("X (cm)",fontsize = 20)
+    plt.legend(fontsize = 10)
+    plt.xlim(0,7.5)
+    plt.ylim(0,6)
+  
+
+def plot_laser_trajectory(pre_direct, rat_no, n,files_list_DLC,files_list_LED,path,folder,cfg, font, font_label):
+    df, df_LED = get_DLC_LED_df(files_list_DLC, files_list_LED, n,cfg)
+    i = 0
+    j = 0
+    where_plot= 0
+    body_part = cfg['body_part_list'][where_plot]
+    session = extract_opto_epochs(df,df_LED,path,folder,body_part,cfg)
+    laser = Laser(session)
+    failed = Failed(laser)
+    successful = Successful(laser)
+    print(" succeeded = ", successful.n_trials,"\n failed = ", failed.n_trials, "\n pad miss detections = ", session.n_pad_miss_detection)
+    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(20, 8), sharey=True)
+    ax[0] = plt.subplot(121)
+#     for j in range (m,m+1):
+    for j in range (0,successful.n_trials):
+        overall_ind, = np.where(successful.epochs_x[j,:] != -1 )
+
+#         alphas = np.linspace(0.1, 1, len(overall_ind))
+#         rgba_colors = np.zeros((len(overall_ind),4))
+#         rgba_colors[:,:-1] = np.random.random((3))
+#         rgba_colors[:, 3] = alphas
+#         plt.scatter(successful.epochs_x[j,overall_ind],successful.epochs_y[j,overall_ind], color = rgba_colors )
+#         plt.plot(successful.epochs_x[j,overall_ind],successful.epochs_y[j,overall_ind],alpha = 0.2, color = rgba_colors[0,:-1] )
+        ind_bef = overall_ind[overall_ind <= successful.laser_start[j]]
+        ind_aft = overall_ind[overall_ind >= (successful.laser_start[j]+successful.laser_duration[j])]
+        plt.plot(successful.epochs_x[j,ind_bef],successful.epochs_y[j,ind_bef],'-o', color = 'k',alpha = 0.6 , markersize = 4)
+        plt.plot(successful.epochs_x[j,ind_aft],successful.epochs_y[j,ind_aft],'-o', color = 'k',alpha = 0.6 , markersize = 4)
+        # to doo
+        ind = np.arange(successful.laser_duration[j],dtype = int)+int(successful.laser_start[j])
+        ind = ind[ind >= successful.pad_off_t[j]]
+        plt.plot(successful.epochs_x[j,ind],successful.epochs_y[j,ind],'-o', c = 'deepskyblue', alpha = 1, markersize = 4 )
+
+    plt.plot(successful.epochs_x[j,ind],successful.epochs_y[j,ind],'-o', c = 'deepskyblue', alpha = 1, markersize = 4,label= "Laser-ON" )
+    plt.plot([session.lever_x[0] - 0.1, session.lever_x[0] + 0.1],[session.lever_y[0],session.lever_y[0]],lw = 5, c = 'grey')
+    plt.plot([session.pad_left_x[0],session.pad_right_x[0]],[session.pad_y[0],session.pad_y[0]],lw = 5, c = 'grey')
+    plt.legend(fontsize = 20)
+    plt.title("Rat #"+str(rat_no)+" "+folder+"\n Laser session : "+str(n+1)+"\n (Successful)").set_fontproperties(font)
+    plt.ylabel("Y (cm)").set_fontproperties(font_label)
+    plt.xlabel("X (cm)").set_fontproperties(font_label)
+    plt.xlim(1,6.5)
+    plt.ylim(0,6)
+    set_ticks(ax[0])
+    ax[1] = plt.subplot(122)
+
+    for i in range (0,failed.n_trials):
+#         failed.epochs_x[i,failed.likelihood[i] < cfg['p_cutoff']] = -1
+        overall_ind, = np.where(failed.epochs_x[i,:] != -1 )
+        ind = np.arange(failed.laser_duration[i],dtype = int)+int(failed.laser_start[i]) 
+        
+#         alphas = np.linspace(0.1, 1, len(overall_ind))
+#         rgba_colors = np.zeros((len(overall_ind),4))
+#         rgba_colors[:,:-1] = np.random.random((3))
+#         rgba_colors[:, 3] = alphas
+#         plt.scatter(failed.epochs_x[i,overall_ind],failed.epochs_y[i,overall_ind], color = rgba_colors )
+#         plt.plot(failed.epochs_x[i,ind],failed.epochs_y[i,ind], c = 'navy', alpha = 0.5 )
+#         plt.plot(failed.epochs_x[i,overall_ind],failed.epochs_y[i,overall_ind],alpha = 0.2, color = rgba_colors[0,:-1] )
+        
+        ind_bef = overall_ind[overall_ind <= failed.laser_start[i]]
+        ind_aft = overall_ind[overall_ind >= (failed.laser_start[i]+failed.laser_duration[i])]
+        plt.plot(failed.epochs_x[i,ind_bef],failed.epochs_y[i,ind_bef],'-o', color = 'k',alpha = 0.6 , markersize = 4)
+        plt.plot(failed.epochs_x[i,ind_aft],failed.epochs_y[i,ind_aft],'-o', color = 'k',alpha = 0.6 , markersize = 4)
+
+    if failed.n_trials > 0:
+#         plt.plot(failed.epochs_x[i,ind],failed.epochs_y[i,ind], c = 'navy', alpha = 0.1, label= "Laser-ON" )
+        plt.plot(failed.epochs_x[i,ind],failed.epochs_y[i,ind],'-o', c = 'deepskyblue', alpha = 1, markersize = 4, label= "Laser-ON" )
+
+    plt.plot([session.lever_x[0] - 0.1, session.lever_x[0] + 0.1],[session.lever_y[0],session.lever_y[0]],lw = 5, c = 'grey')
+    plt.plot([session.pad_left_x[0],session.pad_right_x[0]],[session.pad_y[0],session.pad_y[0]],lw = 5, c = 'grey')
+    plt.legend(fontsize = 20)
+    plt.title("Rat #"+str(rat_no)+" "+folder+"\n Laser session : "+str(n+1)+'\n (Failed)').set_fontproperties(font)
+    plt.ylabel("Y (cm)").set_fontproperties(font_label)
+    plt.xlabel("X (cm)").set_fontproperties(font_label)
+    plt.xlim(1,6.5)
+    plt.ylim(0,6)
+    set_ticks(ax[1])
+    plt.savefig(os.path.join(pre_direct, 'Subplots', 'Rat_'+str(rat_no)+'_'+folder+'_session = '+str(n+1)+
+                 '.png'),bbox_inches='tight',orientation='landscape',dpi=200)
+
+def plot_laser_velocity(pre_direct, rat_no, n,files_list_DLC,files_list_LED,path,folder,cfg, font, font_label):
+
+
+    df, df_LED = get_DLC_LED_df(files_list_DLC, files_list_LED, n,cfg)
+
+    i = 0
+    j = 0
+    where_plot= 0
+    body_part = cfg['body_part_list'][where_plot]
+    session = extract_opto_epochs(df,df_LED,path,folder,body_part,cfg)  
+    laser = Laser(session)
+    failed = Failed(laser)
+    successful = Successful(laser)
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(20, 8), sharey=True)
+    for j in range (0,successful.n_trials):
+        overall_ind, = np.where(successful.velocity_r[j,:] != cfg['velocity_mask'] )
+        if successful.laser_start[j] < successful.pad_off_t[j]:
+            laser_start = successful.pad_off_t[j]
+        else:
+            laser_start = successful.laser_start[j]
+        if successful.laser_duration[j]+successful.laser_start[j] > successful.got_reward_t[j]:
+            laser_end = successful.got_reward_t[j]
+        else: 
+            laser_end = successful.laser_duration[j] + successful.laser_start[j]
+        ind_bef = overall_ind[overall_ind <= laser_start]
+        ind_aft = overall_ind[(overall_ind >= laser_end)]
+        time_series_bef = np.arange(laser_start-successful.pad_off_t[j] + 1 ) / cfg['fps']
+        time_series_aft = ( np.arange(laser_end, overall_ind[-1] + 1 ) / cfg['fps'] - 
+                                    successful.pad_off_t[j] / cfg['fps'] )
+        try:
+            ax.plot(time_series_bef,successful.velocity_r[j,ind_bef],'-o', color = 'k',alpha = 0.6 , 
+                     markersize = 4)
+            ax.plot(time_series_aft,successful.velocity_r[j,ind_aft],'-o', color = 'k',alpha = 0.6 , markersize = 4)
+        
+        except ValueError as err:
+            print(err, "Velocities could not be computed, cannot be plotted for trial ")
+        ind = np.arange(laser_start,laser_end,dtype = int)
+        
+        if len(ind) != 0: # it could be possible that the hand doesn't leave the pad during laser
+            time_series_laser = (np.arange(laser_start,laser_end)-successful.pad_off_t[j])/cfg['fps']
+            ax.plot(time_series_laser,successful.velocity_r[j,ind],'-o', c = 'deepskyblue', 
+                     alpha = 1 , markersize = 4)
+
+    ax.set_title("Rat #" + str(rat_no)+ " " + folder + "\n Laser session : " 
+              + str(n+1) + "\n (Successful)").set_fontproperties(font)
+    
+    ax.set_ylabel("V (cm/s)").set_fontproperties(font_label)
+    ax.set_xlabel("t (s)").set_fontproperties(font_label)
+    black_patch = mpatches.Patch(color='k', label='Laser-OFF')
+    blue_patch = mpatches.Patch(color='deepskyblue', label='Laser-ON')
+    ax.legend(handles=[black_patch, blue_patch], fontsize = 20)
+    ax.set_xlim(-0.02,1.)
+    ax.set_ylim(-45,80)
+    set_ticks(ax)
+    fig.savefig(os.path.join(pre_direct, 'Subplots','Velocity_Rat_' + str(rat_no)+ 
+                             '_'+folder+'_session = '+str(n+1)+'.png'),
+                bbox_inches='tight',orientation='landscape',dpi=200)
+
+def plot_non_laser_trajectory(pre_direct, rat_no, n,files_list_DLC,files_list_LED,path,folder,cfg, font, font_label):
+    df, df_LED = get_DLC_LED_df(files_list_DLC, files_list_LED, n,cfg)
+    i = 0
+    j = 0
+    where_plot= 0
+    body_part = cfg['body_part_list'][where_plot]
+    session = extract_opto_epochs(df,df_LED,path,folder,body_part,cfg)
+    non_laser = Non_Laser(session)
+    failed = Failed(non_laser)
+    successful = Successful(non_laser)
+    print(" succeeded = ", successful.n_trials,"\n failed = ", failed.n_trials, "\n pad miss detections = ", session.n_pad_miss_detection)
+    plt.figure(1)
+    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(20, 8), sharey=True)
+    ax[0] = plt.subplot(121)
+    for j in range (0,successful.n_trials):
+#     for j in range (m,m+1):
+#         successful.epochs_x[j,successful.likelihood[j] < cfg['p_cutoff']] = -1
+        overall_ind, = np.where(successful.epochs_x[j,:] != -1 )
+        ind = np.arange(successful.laser_duration[j],dtype = int)+int(successful.laser_start[j])
+
+#         alphas = np.linspace(0.1, 1, len(overall_ind))
+#         rgba_colors = np.zeros((len(overall_ind),4))
+#         rgba_colors[:,:-1] = np.random.random((3))
+#         rgba_colors[:, 3] = alphas
+#         plt.scatter(successful.epochs_x[j,overall_ind],successful.epochs_y[j,overall_ind], color = rgba_colors )
+#         plt.plot(successful.epochs_x[j,overall_ind],successful.epochs_y[j,overall_ind],alpha = 0.2, color = rgba_colors[0,:-1] )
+
+        plt.plot(successful.epochs_x[j,overall_ind],successful.epochs_y[j,overall_ind],'-o', color = 'k',alpha = 0.6 , markersize = 4,label = 'traveled path')
+
+    plt.plot([session.lever_x[0] - 0.1, session.lever_x[0] + 0.1],[session.lever_y[0],session.lever_y[0]],lw = 5, c = 'grey')
+    plt.plot([session.pad_left_x[0],session.pad_right_x[0]],[session.pad_y[0],session.pad_y[0]],lw = 5, c = 'grey')
+#     plt.plot([successful.epochs_x[j,overall_ind[0]],session.lever_x[0]],[session.pad_y[0],session.lever_y[0]],'--',
+#              lw = 3, c = 'lightskyblue',label = 'straight line')
+
+    plt.title("Rat #"+str(rat_no)+" "+folder+"\n non Laser session : "+str(n+1)+"\n (Successful)").set_fontproperties(font)
+    plt.ylabel("Y (cm)").set_fontproperties(font_label)
+    plt.xlabel("X (cm)").set_fontproperties(font_label)
+#     plt.legend(fontsize = 20)
+#     plt.xlim(1,6.5)
+#     plt.ylim(0,6)
+    set_ticks(ax[0])
+    ax[1] = plt.subplot(122)
+
+    for i in range (0,failed.n_trials):
+#         failed.epochs_x[i,failed.likelihood[i] < cfg['p_cutoff']] = -1
+        overall_ind, = np.where(failed.epochs_x[i,:] != -1 )
+#         ind = np.arange(failed.cfg['laser_duration'][i],dtype = int)+int(failed.laser_start[i]) 
+#         alphas = np.linspace(0.1, 1, len(overall_ind))
+#         rgba_colors = np.zeros((len(overall_ind),4))
+#         rgba_colors[:,:-1] = np.random.random((3))
+#         rgba_colors[:, 3] = alphas
+#         plt.scatter(failed.epochs_x[i,overall_ind],failed.epochs_y[i,overall_ind], color = rgba_colors )
+#         plt.plot(failed.epochs_x[i,overall_ind],failed.epochs_y[i,overall_ind],alpha = 0.2, color = rgba_colors[0,:-1] )
+        plt.plot(failed.epochs_x[i,overall_ind],failed.epochs_y[i,overall_ind],'-o', color = 'k',alpha = 0.6 , markersize = 4)
+    
+    plt.plot([session.lever_x[0] - 0.1, session.lever_x[0] + 0.1],[session.lever_y[0],session.lever_y[0]],lw = 5, c = 'grey')
+    plt.plot([session.pad_left_x[0],session.pad_right_x[0]],[session.pad_y[0],session.pad_y[0]],lw = 5, c = 'grey')
+
+    plt.title("Rat #"+str(rat_no)+" "+folder+"\n non Laser session : "+str(n+1)+'\n (Failed)').set_fontproperties(font)
+    plt.ylabel("Y (cm)").set_fontproperties(font_label)
+    plt.xlabel("X (cm)").set_fontproperties(font_label)
+#     plt.xlim(1,6.5)
+#     plt.ylim(0,6)
+    set_ticks(ax[1])
+    plt.savefig(os.path.join(pre_direct,'Subplots', 'Rat_'+str(rat_no)+'_'+folder+'_non_laser_session = '+str(n+1)+
+                 '.png'),bbox_inches='tight',orientation='landscape',dpi=200)
+
+    
+    return session
+
+
+def plot_6OHDA_trajectory_separate_colors(pre_direct, rat_no, n,files_list_DLC, files_list_LED,path,folder
+										,cfg, font, font_label,  pad_constraint = False, mask_beg_end = False):
+    df, df_LED = get_DLC_LED_df(files_list_DLC, files_list_LED, n,cfg)
+    i = 0
+    j = 0
+    where_plot= 0
+    body_part = cfg['body_part_list'][where_plot]
+    sessions = extract_epochs_over_sessions( files_list_DLC, files_list_LED, folder,
+                                                    body_part,cfg, pad_constraint= pad_constraint,
+                                                    mask_beg_end = mask_beg_end)
+    failed = Failed(sessions)
+    successful = Successful(sessions)
+    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(20, 8), sharey=True)
+    ax[0] = plt.subplot(121)
+    for j in range (0,successful.n_trials):
+#     for j in range (m,m+1):
+#         successful.epochs_x[j,successful.likelihood[j] < cfg['p_cutoff']] = -1
+        overall_ind, = np.where(successful.epochs_x[j,:] != -1 )
+        # ind = np.arange(successful.laser_duration[j],dtype = int)+int(successful.laser_start[j])
+
+        alphas = np.linspace(0.1, 1, len(overall_ind))
+        rgba_colors = np.zeros((len(overall_ind),4))
+        rgba_colors[:,:-1] = np.random.random((3))
+        rgba_colors[:, 3] = alphas
+        plt.scatter(successful.epochs_x[j,overall_ind],successful.epochs_y[j,overall_ind], color = rgba_colors )
+        plt.plot(successful.epochs_x[j,overall_ind],successful.epochs_y[j,overall_ind],alpha = 0.2, color = rgba_colors[0,:-1] )
+
+
+    plt.plot([sessions.lever_x[0] - 0.1, sessions.lever_x[0] + 0.1],[sessions.lever_y[0],sessions.lever_y[0]],lw = 5, c = 'grey')
+    plt.plot([sessions.pad_left_x[0],sessions.pad_right_x[0]],[sessions.pad_y[0],sessions.pad_y[0]],lw = 5, c = 'grey')
+#     plt.plot([successful.epochs_x[j,overall_ind[0]],session.lever_x[0]],[session.pad_y[0],session.lever_y[0]],'--',
+#              lw = 3, c = 'lightskyblue',label = 'straight line')
+
+    plt.title("Rat #"+str(rat_no)+" "+folder+"\n non Laser session : "+str(n+1)+"\n (Successful)").set_fontproperties(font)
+    plt.ylabel("Y (cm)").set_fontproperties(font_label)
+    plt.xlabel("X (cm)").set_fontproperties(font_label)
+#     plt.legend(fontsize = 20)
+#     plt.xlim(1,6.5)
+#     plt.ylim(0,6)
+    set_ticks(ax[0])
+    ax[1] = plt.subplot(122)
+
+    for i in range (0,failed.n_trials):
+#         failed.epochs_x[i,failed.likelihood[i] < cfg['p_cutoff']] = -1
+        overall_ind, = np.where(failed.epochs_x[i,:] != -1 )
+#         ind = np.arange(failed.cfg['laser_duration'][i],dtype = int)+int(failed.laser_start[i]) 
+        alphas = np.linspace(0.1, 1, len(overall_ind))
+        rgba_colors = np.zeros((len(overall_ind),4))
+        rgba_colors[:,:-1] = np.random.random((3))
+        rgba_colors[:, 3] = alphas
+        plt.scatter(failed.epochs_x[i,overall_ind],failed.epochs_y[i,overall_ind], color = rgba_colors )
+        plt.plot(failed.epochs_x[i,overall_ind],failed.epochs_y[i,overall_ind],alpha = 0.2, color = rgba_colors[0,:-1] )
+    
+    plt.plot([sessions.lever_x[0] - 0.1, sessions.lever_x[0] + 0.1],[sessions.lever_y[0],sessions.lever_y[0]],lw = 5, c = 'grey')
+    plt.plot([sessions.pad_left_x[0],sessions.pad_right_x[0]],[sessions.pad_y[0],sessions.pad_y[0]],lw = 5, c = 'grey')
+
+    plt.title("Rat #"+str(rat_no)+" "+folder+"\n non Laser session : "+str(n+1)+'\n (Failed)').set_fontproperties(font)
+    plt.ylabel("Y (cm)").set_fontproperties(font_label)
+    plt.xlabel("X (cm)").set_fontproperties(font_label)
+#     plt.xlim(1,6.5)
+#     plt.ylim(0,6)
+    set_ticks(ax[1])
+    plt.savefig(os.path.join(pre_direct,'Subplots', 'Rat_'+str(rat_no)+'_'+folder+'_non_laser_session = '+str(n+1)+
+                 '.png'),bbox_inches='tight',orientation='landscape',dpi=200)
+
+    
+
+def plot_non_laser_velocity(pre_direct, rat_no, n,files_list_DLC,files_list_LED,path,folder,cfg, font, font_label):
+    df, df_LED = get_DLC_LED_df(files_list_DLC, files_list_LED, n,cfg)
+
+    i = 0
+    j = 0
+    where_plot= 0
+    body_part = cfg['body_part_list'][where_plot]
+    session = extract_opto_epochs(df,df_LED,path,folder,body_part,cfg)  
+
+    laser = Non_Laser(session)
+    failed = Failed(laser)
+    successful = Successful(laser)
+    plt.figure(1)
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(20, 8), sharey=True)
+    for j in range (0,successful.n_trials):
+        overall_ind, = np.where(successful.velocity_r[j,:] != cfg['velocity_mask'] )
+        time_series_overall = np.arange(len(overall_ind))/cfg['fps']
+        plt.plot(time_series_overall,successful.velocity_r[j,overall_ind],'-o', color = 'k',alpha = 0.4, markersize = 3)
+
+    plt.title("Rat #"+str(rat_no)+" "+folder+"\n Non-Laser session : "+str(n+1)+"\n (Successful)").set_fontproperties(font)
+    plt.ylabel("V (cm/s)").set_fontproperties(font_label)
+    plt.xlabel("t (s)").set_fontproperties(font_label)
+    plt.legend(fontsize = 10)
+    plt.xlim(-0.02,1.)
+    plt.ylim(-45,80)
+    set_ticks(ax)
+    plt.savefig(os.path.join(pre_direct, 'Subplots', 'Velocity_Rat_'+str(rat_no)+'_'+folder+'_Non-Laser_session = '+str(n+1)+
+                     '.png'),bbox_inches='tight',orientation='landscape',dpi=200)
+    
 def find_all_files_same_protocol(direct, protocol_name):
     
     ''' gets folder as input and finds all sessions of a certain protocol among different animals.
@@ -1609,6 +2064,36 @@ def find_all_files_same_protocol(direct, protocol_name):
 #     print("number of sessionsf for "+ protocol_name + "protocol " , len(files_list_DLC))
     cfg_sample = read_plainconfig(configname)
     return  cfg_sample, files_list_DLC, files_list_LED
+
+
+def find_all_files_same_protocol_non_laser(direct, protocol_name):
+    ''' gets folder as input and finds all sessions of a certain protocol (non-laser) among different animals.
+        returns an array specifying L or R handedness together with DLC and LED file paths '''
+    files_list_DLC = []
+    files_list_LED = []
+    r_or_l_list = []
+    for dirpath, dirnames, filenames in os.walk(direct):
+        for dirname in dirnames:
+            if dirname == protocol_name:
+                path = os.path.join(dirpath, protocol_name)
+                prop = protocol_name.split('_')
+                R_L_folder = [ f.name for f in os.scandir(path) if f.is_dir() ][0] # gives the Right or Left
+                config_sup_info = { 'optogenetic_manip': False, 
+                                    'exp_par': os.path.basename(os.path.normpath(direct)),
+                                    'r_or_l': R_L_folder[0],
+                                    'fp_trial': int(prop[-1]),
+                                    'fps': int(prop[-3]),
+                                    'pad_thresh': 0} 
+                configname = set_config_file(protocol_name,dirpath)
+                edit_config(configname, config_sup_info)
+                attempt_to_make_folder(os.path.join(path,R_L_folder, 'Plots'))
+                
+                files_list_DLC += list_all_files(os.path.join(path, R_L_folder, 'DLC'),'.csv')
+                files_list_LED += (list_all_files(os.path.join(path, R_L_folder, 'LED'),'.csv'))
+#     print("number of sessionsf for "+ protocol_name + "protocol " , len(files_list_DLC))
+    cfg_sample = read_plainconfig(configname)
+    return  cfg_sample, files_list_DLC, files_list_LED
+
 
 def group_and_av_animals(result,y):
 
