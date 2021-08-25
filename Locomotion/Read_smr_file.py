@@ -9,19 +9,27 @@ Created on Fri Aug 20 13:58:00 2021
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import neo
 import sys
 import os
 import csv
 import subprocess
 
 # implement pip as a subprocess:
-subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'neo'])
-subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'sonpy'])
+try:
+    import neo
+except ImportError:
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'neo'])
+try:
+    import sonpy
+except ImportError:
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'sonpy'])
+try:
+    import scipy
+except ImportError:
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'scipy'])
 
 
-
-def build_fileoPath_list(path, extensions):
+def build_filePath_list(path, extensions):
     '''go over the directory tree in path and find all files with extensions included in <extensions>'''
     fname = []
     for (dirpath, dirnames, filenames) in os.walk(path):
@@ -81,7 +89,7 @@ def report_info_on_file(filename, block, analogsignals):
     for i in range(len(analogsignals)):
         print('signal {} contains series of shape {} '.format(i+1, analogsignals[i].shape))
      
-def laser_start_and_end(laser_series, laser_threshold = 4):
+def laser_start_and_end_SquarePulse(laser_series, laser_threshold = 4):
     
     peaks = (laser_series > laser_threshold).reshape(1,-1)[0]
     peaks = peaks * 1
@@ -90,7 +98,54 @@ def laser_start_and_end(laser_series, laser_threshold = 4):
 
     laser_start = np.where(peaks - shifted_right > 0)[0]
     laser_end = np.where(peaks - shifted_left > 0)[0]
+    print("number of SquarePulse stimulations = {}".format(len(laser_start)))
+
     return laser_start, laser_end
+
+def laser_start_and_end_BetaPulse(laser_series, 
+                                  peak_height_thresh = 1, 
+                                  min_dist_bet_laser_coef = 1.5):
+    laser_series = np.array(laser_series)
+    laser_series = laser_series.reshape(-1,)
+    peaks,_ = scipy.signal.find_peaks(laser_series, height = peak_height_thresh)
+    peaks = np.array(peaks)
+    dist_bet_peaks = np.diff(peaks)
+    
+    most_freq = np.argmax(np.bincount(dist_bet_peaks))
+    
+    laser_end = peaks[np.where(dist_bet_peaks > min_dist_bet_laser_coef * most_freq)]
+    laser_start = peaks[np.where(dist_bet_peaks > 1.5 * most_freq)[0]+1]
+    laser_start = np.insert(laser_start, 0, peaks[0] )
+    laser_end = np.append(laser_end, peaks[-1])
+    laser_end = np.array(laser_end).reshape(-1,)
+    
+    ## shift back the starts a quarter of a mini pulse
+    quarter_wavelength = int((np.min(dist_bet_peaks)) / 4)
+    laser_start = laser_start - quarter_wavelength
+    
+    ## shift forward the starts a quarter of a mini pulse
+    half_wavelength = int((np.min(dist_bet_peaks)) / 2)
+    laser_end = laser_end + quarter_wavelength
+    
+    print("number of SquarePulse stimulations = {}".format(len(laser_start)))
+    
+    return laser_start, laser_end
+
+def determine_stim_type(laser_series, freq_thresh = 0.5, peak_height_thresh = 1, fs = 1000 ):
+    
+    fs = 1000 # sampling rate
+    pts = int(np.prod(laser_series.shape)) # number of datapoints
+    secs = pts/fs # recording length in seconds
+    laser_series = laser_series.reshape(-1,)
+    peaks,_ = scipy.signal.find_peaks(laser_series, height = peak_height_thresh)
+    frequency_of_peaks = len(peaks)/ secs
+    print("frequency of detected peaks = {}".format(frequency_of_peaks))
+    if frequency_of_peaks > freq_thresh : 
+        stim_type = "BetaPulse"
+    else: 
+        stim_type = "SquarePulse"
+    print(" freq > {} Hz constitues a BetaPulse. \n Therefore, this signal is a {}".format(freq_thresh, stim_type))
+    return stim_type
 
 def save_laser_stamps_to_csv(filepath, laser_start, laser_end):
     
@@ -116,10 +171,18 @@ def analyze_all_files(file_path_list, laser_threshold, neo_version_check):
     for filepath in file_path_list:
 
         laser_series = read_laser_file(filepath, neo_version_check)
-        laser_start, laser_end = laser_start_and_end(laser_series, laser_threshold = laser_threshold)
+        stim_type = determine_stim_type(laser_series, freq_thresh = 0.5, peak_height_thresh = 1, fs = 1000 )
+        
+        if stim_type == 'SquarePulse':
+            laser_start, laser_end = laser_start_and_end_SquarePulse(laser_series, 
+                                                                     laser_threshold = laser_threshold)
+        else:
+            laser_start, laser_end = laser_start_and_end_BetaPulse(laser_series, 
+                                  peak_height_thresh = 1, 
+                                  min_dist_bet_laser_coef = 1.5)
+            
         save_laser_stamps_to_csv(filepath, laser_start, laser_end)
         if not plotted:
-            print("hey")
             plot_one_stim(laser_series, laser_start, laser_end)
             plotted = True
             
@@ -172,7 +235,7 @@ if __name__ == '__main__':
     extensions = [".smr", ".smrx"]
     # extension = extensions[ int(extension_ind) -1 ]
 
-    file_path_list = build_fileoPath_list(path, extensions)
+    file_path_list = build_filePath_list(path, extensions)
     path_to_txt = os.path.join(path, "list_of_smr_files_to_read.txt")
     save_list_to_txt( path_to_txt, 
                      file_path_list)
