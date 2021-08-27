@@ -5,15 +5,34 @@ Spyder Editor
 This is a temporary script file.
 """
 
-import cv2
+
 import csv
 import numpy as np
 import pandas as pd
 from os import walk
-import os
+import os, sys
+import sys
+import subprocess 
 import timeit
-from threading import Thread
 
+try:
+    import cv2
+except ImportError or ModuleNotFoundError:
+
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'opencv-python'])
+
+# def conda_install(environment, packages):
+#     proc = subprocess.run(["conda", "install", "--quiet"] + packages,
+#                 text=True, capture_output=True)
+#     return json.loads(proc.stdout)
+
+# conda_install("base", ["opencv"])
+# from threading import Thread
+import cv2
+# try:
+#     import cv2
+# except ImportError or ModuleNotFoundError:
+#     run.check_call([sys.executable, '-m', 'conda', 'install', 'cv2'])
 
 class Video:
     """class for videos
@@ -259,21 +278,23 @@ def write_to_csv(data,colnames, videoPath,pad_ends,lever):
     result = pd.concat([LED_data, supp_df ], axis=1)
     result.to_csv(csv_path,index=False)
     
-def build_videoPath_list(path):
+def build_videoPath_list(path, parent_folder_name = ""):
     '''go over the directory tree in path and find ll .avi files'''
     fname = []
     for (dirpath, dirnames, filenames) in walk(path):
     
         for f in filenames:
-#            if dirpath[-4:]=='Left':
-#                fname.append(os.path.join(dirpath, f))
-            fname.append(os.path.join(dirpath, f))
+            folder_name = os.path.basename(os.path.normpath(dirpath))
+            
+            if parent_folder_name in folder_name:
+                fname.append(os.path.join(dirpath, f))
     videofile_path = [ fi for fi in fname if (fi.endswith(".avi") or 
                                               fi.endswith(".mp4") or 
                                               fi.endswith(".mkv") or
+                                              fi.endswith(".wmv") or
                                               fi.endswith(".mpeg"))]
-#    for i in videofile_path:
-#        print(i)
+
+    print(videofile_path)
     return videofile_path
 
 def analyze_video(videoPath,x0,x1,y0,y1,on_thresh,pad_ends,lever):
@@ -318,7 +339,7 @@ def find_on_threshold(videoPath_list,x0,x1,y0,y1,on_range):
             LED_on_off, columns, on_threshold, video_corrupted = analyze_frame(video,frame,LED)
         count += 1
 #    print("on_thresh = ", on_threshold)
-    return on_threshold
+    return on_threshold, videoPath
 
 def analyze_frame(video,frame,LED):
     global LED_intensity
@@ -392,6 +413,43 @@ def analyze_frame(video,frame,LED):
     print("min intensities = ", min_intensity.astype(int))
     return LED_on_off,LED.mask.keys(), LED.on_thresh, video_corrupted
 
+def save_on_thresh(on_thresh, videoPath, path, csv_path):
+    columns = ['Cue','R_pad','L_pad', 'laser', 'reward']
+    df = pd.DataFrame(on_thresh, columns = columns)
+    supp_df = pd.DataFrame([path], columns = ['videofile_reference'])
+    result = pd.concat([df, supp_df ], axis=1)
+    result.to_csv(csv_path,index=False)
+    
+def set_LED_threshold(videoPath_list,x0,x1,y0,y1, on_range, path):
+    
+    while True:
+        derive_thresh_input = input("Do you want to derive thresholds (Press Enter)  \
+                                 or read from previously saved .csv file (Enter the full path to the file)? \n")
+        if derive_thresh_input == "": 
+            
+            on_thresh, videoPath = find_on_threshold(videoPath_list,x0,x1,y0,y1, on_range)
+            input_from_user_save_thresh(derive_thresh_input, videoPath, path)  
+            break
+        
+        elif os.path.isfile(derive_thresh_input): 
+            on_thresh = read_on_thresh(derive_thresh_input)
+            input_from_user_save_thresh(derive_thresh_input, videoPath, path)              
+    print("\n The LED thresholds are as following: {} \n".format((on_thresh).astype(int)))
+    return on_thresh
+
+def input_from_user_save_thresh(derive_thresh_input, videoPath, path):
+    while True:
+        
+        if_save_thresh = input("Do you want to save the thresholds (y/[n])? \n")
+        
+        if if_save_thresh in ["y", "Y"]:
+            save_on_thresh(on_thresh, videoPath, path, os.path.join(path, 'on_threshold.csv'))
+            break 
+        elif if_save_thresh in ["n", "N", ""]:
+            break
+        else:
+            print("Invalid input. Try again. If you are entering a path make sure the path exists. \n")
+
 def check_intensity_set_threshold(image,x0,x1,y0,y1):
     ''' when inted to set manually show the derived average intensities of LEDs for one 
         frame and get the on-theshold from the user as input'''
@@ -422,31 +480,10 @@ def check_intensity_set_threshold(image,x0,x1,y0,y1):
     cv2.waitKey(1)
     return on_thresh
 
-#%% 
-##Rat_1   
-#path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_1"
-
-##Rat_2  
-#path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_2"
-    
-##Rat_3
-#path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_3"
-    
-##Rat_4 
-#path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_4"
-
-##Rat_12
-#path ="/media/shiva/LaCie/VideoRat_Sophie/videos_Rat12"
-
-##Rat_21 
-#path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_21"
-    
-##Rat_102  
-#path ="/media/shiva/LaCie/Nico_BackUp_Ordi-P1PNH-5/Données Valentin/videos/Rat_102"
-    
-##Rat_36 
-#path ="/media/shiva/LaCie/VideoRat_Sophie/videos_Rat36"
-
+def read_on_thresh(path):
+    df = pd.read_csv(path)
+    on_thresh = df.iloc[0][:-1]
+    return on_thresh
 
 if __name__ == '__main__':
     
@@ -454,12 +491,19 @@ if __name__ == '__main__':
     n_LED = 5 #default number of LED lights
     default_on_range = 25 #by default if each LED is lit by 25% of max intensity, it's considered switched on.
     path = input("Enter the full path under which the video file hierarchy resides: \n (There must not be any videos other than the ones you want analyzed in this directory tree.) \n")     
-    videoPath_list = build_videoPath_list(path) #get list of video paths
+    parent_folder_name = input("If you want to look under specific subfolders (e.g. Left/Right) enter the subfolder name, otherwise press enter to get all the videos. \n")
+    videoPath_list = build_videoPath_list(path, parent_folder_name = parent_folder_name) #get list of video paths
     image = get_one_frame_from_video(videoPath_list[0]) # get one frame to specify circle coordinates on
     pad_ends,lever = get_pad_and_lever_from_user(image)
     x0,x1,y0,y1 = crop(image) # get coordinates for cropping
     cropped_image = image[y0:y1,x0:x1]
-    circles_cor = get_circles(cropped_image) # specify circles on the frame
+    
+    while True:
+        circles_cor = get_circles(cropped_image) # specify circles on the frame
+        inp = input("Do you want to try marking the circles again ([n]/y)? \n")
+        if inp in ["n", "N", ""]:
+            break
+        
     #on_thresh = check_intensity_threshold(image,x0,x1,y0,y1) # to set the threshold manually
     while(True):
         try:
@@ -479,21 +523,31 @@ if __name__ == '__main__':
             print(("\n \n The number of inputs must be equal to the number of LEDs (n={})!. Try again! \n ".format(n_LED)))
         except ValueError:
             print("\n \n Invalid input. Try again. Make sure there are no extra spaces in your entry... \n ")
+    
+    on_thresh = set_LED_threshold(videoPath_list,x0,x1,y0,y1, on_range, path)
+    
+    while(True):
         
-    on_thresh = find_on_threshold(videoPath_list,x0,x1,y0,y1, on_range)
-    
-    print("\n The LED thresholds are as following: {} \n".format((on_thresh).astype(int)))
-    
-    if_analyse_all = input("Do you want to proceed with analysis of all video files?(y/n) \n")
-    
-    if if_analyse_all == 'y':
+        if_analyse_all = input("Do you want to proceed with analysis of all video files ([y]/n)? \n")
+        
+        if if_analyse_all in ['y', "Y", ""]:
+                
+            c = 0
+            for videoPath in videoPath_list:
+                c += 1
+                csv_path = videoPath.split('.')[0]+'_LED.csv'
+                if os.path.isfile(csv_path):
+                    print("File is already analyzed. Moving on ... \n")
+                    continue
+                print("files left = ", len(videoPath_list)-c+1)
+                analyze_video(videoPath, x0,x1,y0,y1,on_thresh,pad_ends,lever)
+            break
+        elif if_analyse_all in ["n", "N"]:
+            print("No analysis performed.. \n")
+            break
+        else:
+            print("\n \n Invalid input. Try again ([y]/n).")
             
-        c = 0
-        for videoPath in videoPath_list:
-            c += 1
-            print("files left = ", len(videoPath_list)-c+1)
-            analyze_video(videoPath, x0,x1,y0,y1,on_thresh,pad_ends,lever)
-        
     cv2.destroyAllWindows()
     cv2.waitKey(1)
 #%%         Find circles with OpenCV and show
