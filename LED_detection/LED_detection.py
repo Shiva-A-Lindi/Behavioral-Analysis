@@ -428,16 +428,16 @@ def set_LED_threshold(videoPath_list,x0,x1,y0,y1, on_range, path):
         if derive_thresh_input == "": 
             
             on_thresh, videoPath = find_on_threshold(videoPath_list,x0,x1,y0,y1, on_range)
-            input_from_user_save_thresh(derive_thresh_input, videoPath, path)  
+            input_from_user_save_thresh(on_thresh, derive_thresh_input, videoPath, path)  
             break
         
         elif os.path.isfile(derive_thresh_input): 
             on_thresh = read_on_thresh(derive_thresh_input)
-            input_from_user_save_thresh(derive_thresh_input, videoPath, path)              
+            input_from_user_save_thresh(on_thresh, derive_thresh_input, videoPath, path)              
     print("\n The LED thresholds are as following: {} \n".format((on_thresh).astype(int)))
     return on_thresh
 
-def input_from_user_save_thresh(derive_thresh_input, videoPath, path):
+def input_from_user_save_thresh(on_thresh, derive_thresh_input, videoPath, path):
     while True:
         
         if_save_thresh = input("Do you want to save the thresholds (y/[n])? \n")
