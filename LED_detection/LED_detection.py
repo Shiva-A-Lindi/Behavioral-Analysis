@@ -413,31 +413,47 @@ def analyze_frame(video,frame,LED):
     print("min intensities = ", min_intensity.astype(int))
     return LED_on_off,LED.mask.keys(), LED.on_thresh, video_corrupted
 
-def save_on_thresh(on_thresh, videoPath, path, csv_path):
-    columns = ['Cue','R_pad','L_pad', 'laser', 'reward']
-    df = pd.DataFrame(on_thresh, columns = columns)
-    supp_df = pd.DataFrame([path], columns = ['videofile_reference'])
-    result = pd.concat([df, supp_df ], axis=1)
-    result.to_csv(csv_path,index=False)
+
+def set_LED_on_range(n_LED, default_on_range):
+    while(True):
+        try:
+            on_range_str = []
+            on_range_str = input("Above what percentage of max intensity should be considered switched on? (Either press enter to set the default (25%) or input the percentage value for each LED seperated by spaces.) \n").split(' ')
+            if on_range_str[0] == '' or on_range_str[0] == 'exit':
+                print("\n default value is set. LEDs with >25% intensity are considered as switched on. \n")
+                on_range = np.full((n_LED), default_on_range)
+                break
+            else:
+                on_range = np.array([int(x.strip()) for x in on_range_str])
+                if len(on_range) != n_LED:
+                    raise NameError
+                else:
+                    break
+        except NameError:
+            print(("\n \n The number of inputs must be equal to the number of LEDs (n={})!. Try again! \n ".format(n_LED)))
+        except ValueError:
+            print("\n \n Invalid input. Try again. Make sure there are no extra spaces in your entry... \n ")
     
+    return on_range
+
 def set_LED_threshold(videoPath_list,x0,x1,y0,y1, on_range, path):
     
     while True:
-        derive_thresh_input = input("Do you want to derive thresholds (Press Enter)  \
-                                 or read from previously saved .csv file (Enter the full path to the file)? \n")
+        derive_thresh_input = input("Do you want to derive thresholds (Press Enter)  or read from previously saved .csv file (Enter the full path to the file)? \n")
         if derive_thresh_input == "": 
             
             on_thresh, videoPath = find_on_threshold(videoPath_list,x0,x1,y0,y1, on_range)
-            input_from_user_save_thresh(on_thresh, derive_thresh_input, videoPath, path)  
+            save_thresh_based_on_user_command(on_thresh, derive_thresh_input, videoPath, path)  
             break
         
         elif os.path.isfile(derive_thresh_input): 
-            on_thresh = read_on_thresh(derive_thresh_input)
-            input_from_user_save_thresh(on_thresh, derive_thresh_input, videoPath, path)              
+            on_thresh = read_csv(derive_thresh_input)
+            # save_thresh_based_on_user_command(on_thresh, derive_thresh_input, videoPath, path)    
+            break
     print("\n The LED thresholds are as following: {} \n".format((on_thresh).astype(int)))
     return on_thresh
 
-def input_from_user_save_thresh(on_thresh, derive_thresh_input, videoPath, path):
+def save_thresh_based_on_user_command(on_thresh, derive_thresh_input, videoPath, path):
     while True:
         
         if_save_thresh = input("Do you want to save the thresholds (y/[n])? \n")
@@ -449,7 +465,134 @@ def input_from_user_save_thresh(on_thresh, derive_thresh_input, videoPath, path)
             break
         else:
             print("Invalid input. Try again. If you are entering a path make sure the path exists. \n")
+            
+def save_on_thresh(on_thresh, videoPath, path, csv_path):
+    columns = ['Cue','R_pad','L_pad', 'laser', 'reward']
+    df = pd.DataFrame(on_thresh.reshape(1,5), columns = columns)
+    supp_df = pd.DataFrame([path], columns = ['videofile_reference'])
+    result = pd.concat([df, supp_df ], axis=1)
+    result.to_csv(csv_path, index = False)
+    
+def read_csv(path):
+    df = pd.read_csv(path)
+    df = df.drop(['videofile_reference'], axis = 1)
+    output = df.to_numpy()
+    return output
 
+
+def set_LED_circle_coords(cropped_image, videoPath, path):
+    while True:
+        user_input = input("Do you want to mark LED circles (Press Enter)  or read from previously saved .csv file (Enter the full path to the file)? \n")
+        if user_input == "": 
+            circles_cor = mark_circles(cropped_image)
+            break
+    
+        elif os.path.isfile(user_input): 
+            
+            circles_cor = read_csv(user_input)
+            break
+    print("\n The LED coordinates are as following: {} \n".format((circles_cor).astype(int)))
+    if user_input == "":
+        save_LED_circle_coords_based_on_user_command(circles_cor, videoPath, path)
+    return circles_cor
+
+
+def mark_circles(cropped_image):
+    while True:
+        circles_cor = get_circles(cropped_image) # specify circles on the frame
+        inp = input("Do you want to try marking the circles again ([n]/y)? \n")
+        if inp in ["n", "N", ""]:
+            break
+    return circles_cor
+
+def save_LED_coords(LED_coords, videoPath, path, csv_path):
+    columns = ['Center_X','Center_Y','Radius']
+    df = pd.DataFrame(LED_coords, columns = columns)
+    supp_df = pd.DataFrame([path], columns = ['videofile_reference'])
+    result = pd.concat([df, supp_df ], axis=1)
+    result.to_csv(csv_path,index=False)
+    
+def save_LED_circle_coords_based_on_user_command(LED_coords, videoPath, path):
+    while True:
+        if_save = input("Do you want to save the coordinates of the LED circles to a file (y/[n])? \n")
+        if if_save in ['y', 'Y']:
+            save_LED_coords(LED_coords, videoPath, path, os.path.join(path, 'LED_cirlce_coords.csv'))
+            break
+        elif if_save in ['n', 'N', '']:
+            print("Coords not saved.")
+            break
+        else:
+            print("invalid input. try again (y/[n]) \n")
+            
+    
+def analyze_list_of_videos(videoPath_list, x0, x1,y0,y1,on_thresh,pad_ends,lever):
+    for c, videoPath in enumerate(videoPath_list):
+        
+        csv_path = videoPath.split('.')[0]+'_LED.csv'
+        if os.path.isfile(csv_path):
+            print("File is already analyzed. Moving on ... \n")
+            continue
+        print("files left = ", len(videoPath_list)- c-1)
+        analyze_video(videoPath, x0,x1,y0,y1,on_thresh,pad_ends,lever)
+        
+def analyze_based_on_user_command(videoPath_list, x0, x1,y0,y1,on_thresh,pad_ends,lever):
+    
+    while True:
+        
+        if_analyse_all = input("Do you want to proceed with analysis of all video files ([y]/n)? \n")
+        
+        if if_analyse_all in ['y', "Y", ""]:
+                
+            analyze_list_of_videos(videoPath_list, x0, x1,y0,y1,on_thresh,pad_ends,lever)
+            break
+        
+        elif if_analyse_all in ["n", "N"]:
+            print("No analysis performed.. \n")
+            break
+        else:
+            print("\n \n Invalid input. Try again ([y]/n). \n")
+            
+def get_path_from_user():
+    while True:
+        path = input("Enter the full path under which the video file hierarchy resides: \n (There must not be any videos other than the ones you want analyzed in this directory tree.) \n")     
+        if os.path.exists(path):
+            break
+        else:
+            print("Path doesn't exist. Try entering the path again... \n")
+    return path
+
+def get_videofile_paths(path):
+    while True:
+        parent_folder_name = input("If you want to look under specific subfolders (e.g. Left/Right) enter the subfolder name, otherwise press enter to get all the videos. \n")
+        videoPath_list = build_videoPath_list(path, parent_folder_name = parent_folder_name) #get list of video paths
+        if len(videoPath_list) > 0:
+            break
+        else:
+            print("No videos in this subfolder. Try entering another subfoler name. \n")
+    return videoPath_list
+if __name__ == '__main__':
+    
+    global n_LED
+    n_LED = 5 #default number of LED lights
+    default_on_range = 25 #by default if each LED is lit by 25% of max intensity, it's considered switched on.
+    path =  get_path_from_user()
+    videoPath_list = get_videofile_paths(path)
+    image = get_one_frame_from_video(videoPath_list[0]) # get one frame to specify circle coordinates on
+    pad_ends,lever = get_pad_and_lever_from_user(image)
+    x0,x1,y0,y1 = crop(image) # get coordinates for cropping
+    cropped_image = image[y0:y1,x0:x1]
+    
+    circles_cor = set_LED_circle_coords(cropped_image, videoPath_list[0], path)
+        
+    #on_thresh = check_intensity_threshold(image,x0,x1,y0,y1) # to set the threshold manually
+    on_range = set_LED_on_range(n_LED, default_on_range)
+    on_thresh = set_LED_threshold(videoPath_list,x0,x1,y0,y1, on_range, path)
+    
+    analyze_based_on_user_command(videoPath_list, x0, x1,y0,y1,on_thresh,pad_ends,lever)
+            
+    cv2.destroyAllWindows()
+    cv2.waitKey(1)
+    
 def check_intensity_set_threshold(image,x0,x1,y0,y1):
     ''' when inted to set manually show the derived average intensities of LEDs for one 
         frame and get the on-theshold from the user as input'''
@@ -480,76 +623,7 @@ def check_intensity_set_threshold(image,x0,x1,y0,y1):
     cv2.waitKey(1)
     return on_thresh
 
-def read_on_thresh(path):
-    df = pd.read_csv(path)
-    on_thresh = df.iloc[0][:-1]
-    return on_thresh
 
-if __name__ == '__main__':
-    
-    global n_LED
-    n_LED = 5 #default number of LED lights
-    default_on_range = 25 #by default if each LED is lit by 25% of max intensity, it's considered switched on.
-    path = input("Enter the full path under which the video file hierarchy resides: \n (There must not be any videos other than the ones you want analyzed in this directory tree.) \n")     
-    parent_folder_name = input("If you want to look under specific subfolders (e.g. Left/Right) enter the subfolder name, otherwise press enter to get all the videos. \n")
-    videoPath_list = build_videoPath_list(path, parent_folder_name = parent_folder_name) #get list of video paths
-    image = get_one_frame_from_video(videoPath_list[0]) # get one frame to specify circle coordinates on
-    pad_ends,lever = get_pad_and_lever_from_user(image)
-    x0,x1,y0,y1 = crop(image) # get coordinates for cropping
-    cropped_image = image[y0:y1,x0:x1]
-    
-    while True:
-        circles_cor = get_circles(cropped_image) # specify circles on the frame
-        inp = input("Do you want to try marking the circles again ([n]/y)? \n")
-        if inp in ["n", "N", ""]:
-            break
-        
-    #on_thresh = check_intensity_threshold(image,x0,x1,y0,y1) # to set the threshold manually
-    while(True):
-        try:
-            on_range_str = []
-            on_range_str = input("Above what percentage of max intensity should be considered switched on? (Either press enter to set the default (25%) or input the percentage value for each LED seperated by spaces.) \n").split(' ')
-            if on_range_str[0] == '' or on_range_str[0] == 'exit':
-                print("\n default value is set. LEDs with >25% intensity are considered switched on. \n")
-                on_range = np.full((n_LED), default_on_range)
-                break
-            else:
-                on_range = np.array([int(x.strip()) for x in on_range_str])
-                if len(on_range) != n_LED:
-                    raise NameError
-                else:
-                    break
-        except NameError:
-            print(("\n \n The number of inputs must be equal to the number of LEDs (n={})!. Try again! \n ".format(n_LED)))
-        except ValueError:
-            print("\n \n Invalid input. Try again. Make sure there are no extra spaces in your entry... \n ")
-    
-    on_thresh = set_LED_threshold(videoPath_list,x0,x1,y0,y1, on_range, path)
-    
-    while(True):
-        
-        if_analyse_all = input("Do you want to proceed with analysis of all video files ([y]/n)? \n")
-        
-        if if_analyse_all in ['y', "Y", ""]:
-                
-            c = 0
-            for videoPath in videoPath_list:
-                c += 1
-                csv_path = videoPath.split('.')[0]+'_LED.csv'
-                if os.path.isfile(csv_path):
-                    print("File is already analyzed. Moving on ... \n")
-                    continue
-                print("files left = ", len(videoPath_list)-c+1)
-                analyze_video(videoPath, x0,x1,y0,y1,on_thresh,pad_ends,lever)
-            break
-        elif if_analyse_all in ["n", "N"]:
-            print("No analysis performed.. \n")
-            break
-        else:
-            print("\n \n Invalid input. Try again ([y]/n).")
-            
-    cv2.destroyAllWindows()
-    cv2.waitKey(1)
 #%%         Find circles with OpenCV and show
 #video=Video()
 #videoPath='/home/shiva/Desktop/Sophie/Left/Rat2_ArchT3_20mW_20190523_141130_C001H002S0001.avi'
