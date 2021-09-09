@@ -294,6 +294,8 @@ def write_to_csv(data,colnames, videoPath,pad_ends,lever):
     result.to_csv(csv_path,index=False)
     
 def build_videoPath_list(path, parent_folder_name = ""):
+    # path = "/media/shiva/Seagate Expansion Drive/DeepLabCut_Analysis/Rat_14/2019-05-02_D-6"
+    # parent_folder_name = "Left"
     '''go over the directory tree in path and find ll .avi files'''
     fname = []
     for (dirpath, dirnames, filenames) in walk(path):
@@ -509,23 +511,27 @@ def read_csv(path):
 
 
 def set_LED_circle_coords(cropped_image, videoPath, path, show_circles = True, bypass_user = False, path_to_ref = ""):
+    remark = False
     while True:
         if not bypass_user:
             user_input = input("Do you want to mark LED circles (Press Enter)  or read from previously saved .csv file (Enter the full path to the file)? \n")
         else:
             user_input = path_to_ref
-        if user_input == "": 
+        if user_input == "" or remark == True: 
             circles_cor = mark_circles(cropped_image)
             break
     
         elif os.path.isfile(user_input): 
             
             circles_cor = read_csv(user_input)
-            if show_circles:
-                draw_circles_on_img(circles_cor, cropped_image)
-            circles_acceptable = input("In case circles don't match, Do you want to mark them yourself (y/[n])?\n")
-            if circles_acceptable in ['n', 'N', ""]:
-                break
+        if show_circles:
+            draw_circles_on_img(circles_cor, cropped_image)
+        circles_acceptable = input("In case circles don't match, Do you want to mark them yourself (y/[n])?\n")
+        if circles_acceptable in ['n', 'N', ""]:
+            remark = False
+            break
+        else:
+            remark = True
                 
     print("\n The LED coordinates are as following: {} \n".format((circles_cor).astype(int)))
     if user_input == "":
@@ -606,7 +612,7 @@ def get_videofile_paths(path, bypass_user = False, parent_folder_name = ""):
         if not bypass_user:
             parent_folder_name = input("If you want to look under specific subfolders (e.g. Left/Right) enter the subfolder name, otherwise press enter to get all the videos. \n")
 
-        print(path)
+        print("looking under :", path)
         videoPath_list = build_videoPath_list(path, parent_folder_name = parent_folder_name) #get list of video paths
         if len(videoPath_list) > 0:
             break
@@ -641,10 +647,15 @@ def get_list_of_marks_all_exp_folders(dir_path):
     # circles_cor_csv_path= input("Enter the full path to the LED circle coord reference file.")
     on_thresh_csv_path = "/media/shiva/Seagate Expansion Drive/DeepLabCut_Analysis/Rat_14/2019-05-02_D-6/on_threshold.csv"
     circles_cor_csv_path= "/media/shiva/Seagate Expansion Drive/DeepLabCut_Analysis/Rat_14/2019-05-02_D-6/LED_cirlce_coords.csv"
-    
-    for i,path in enumerate(folders_path_list[:3]):
+    count = 0
+    folders_path_list_analyzed = []
+    for i, path in enumerate(folders_path_list[:10]):
+		
         videoPath_list = get_videofile_paths(path, bypass_user=True, parent_folder_name = parent_folder_name)
+        folders_path_list_analyzed.append(path)
+
         if len(videoPath_list) == 0:
+            print("folder: ", path , 'contains no video files')
             folders_path_list.remove(path)
             continue
         image = get_one_frame_from_video(videoPath_list[0]) # get one frame to specify circle coordinates on
@@ -660,10 +671,11 @@ def get_list_of_marks_all_exp_folders(dir_path):
         df_crop.loc[i] = [x0,x1,y0,y1]
         df_lever.loc[i] = lever.flatten()
         
-    df_files = pd.DataFrame(folders_path_list, columns= ['path'])
+    df_files = pd.DataFrame(folders_path_list_analyzed, columns= ['path'])
     df = pd.concat([df_crop, df_pad, df_lever, df_files], axis = 1)
     print(df.head())
     return  df, parent_folder_name, info_dict, on_thresh_csv_path, circles_cor
+
 def main_with_pre_aqui_marks(parent_folder_name, info_dict, on_thresh_csv_path, circles_cor):
 
     for path in list(info_dict.keys()):
@@ -685,16 +697,21 @@ def main_with_pre_aqui_marks(parent_folder_name, info_dict, on_thresh_csv_path, 
 
 if __name__ == '__main__':
     
+    
     global n_LED
     n_LED = 5 #default number of LED lights
     default_on_range = 25 #by default if each LED is lit by 25% of max intensity, it's considered switched on.
     analyze_in_bulk = input("Do you want to mark the pad, lever, and crop corners for all experiment folders and use templates for LED coordinates and thresholds (y/[n])? This way all the analysis will automatically be performed after you mark all folders.")
+    
     if analyze_in_bulk:
         # dir_path = input("Enter the full path for the directory that contains all the experiment folders")
         dir_path = "/media/shiva/Seagate Expansion Drive/DeepLabCut_Analysis/Rat_14"
         df, parent_folder_name, info_dict,on_thresh_csv_path, circles_cor = get_list_of_marks_all_exp_folders(dir_path)
+		
+        df.to_csv(os.path.join(dir_path, 'summary_of_files_analyzed.csv'), index= False)
         main_with_pre_aqui_marks(parent_folder_name, info_dict,on_thresh_csv_path, circles_cor)
     else:
+		
         path =  get_path_from_user()
         videoPath_list = get_videofile_paths(path)
         image = get_one_frame_from_video(videoPath_list[0]) # get one frame to specify circle coordinates on
