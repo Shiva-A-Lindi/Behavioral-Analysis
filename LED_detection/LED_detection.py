@@ -14,7 +14,7 @@ import os, sys
 import sys
 import subprocess 
 import timeit
-
+import pickle
 try:
     import cv2
 except ImportError or ModuleNotFoundError:
@@ -333,6 +333,7 @@ def analyze_video(circles_cor, videoPath,on_thresh,pad_ends,lever,x0,x1,y0,y1):
         write_to_csv(LED_on_off, columns, videoPath, pad_ends, lever)
         
 def find_on_threshold(circles_cor, videoPath_list,x0,x1,y0,y1,on_range):
+    
     print("Wait while the LED on-thresholds are set. This will take a few seconds.. \n ")
     video_corrupted = True
     count = 0
@@ -357,9 +358,11 @@ def find_on_threshold(circles_cor, videoPath_list,x0,x1,y0,y1,on_range):
     
     print("Thresholds are as following = ", on_threshold)
     print("make sure all the relevant LEDs are turned on at least once in the reference video")
+    
     return on_threshold, videoPath
 
 def analyze_frame(video,frame,LED, find_threshold = False):
+    
     global LED_intensity
     n = 0
     LED_on_off = np.zeros((video.nbFrames,len(LED.mask)),dtype= int) # stores the state of each LED for each frame
@@ -420,6 +423,7 @@ def analyze_frame(video,frame,LED, find_threshold = False):
     LED_on_off = np.delete(LED_on_off,np.arange(n-1,LED_on_off.shape[0]),axis = 0)
     stop = timeit.default_timer()
     print('runtime = ', int(stop - start)," sec")
+    
     # return the on threshold as the average of the max and min intensity
     max_intensity = np.amax(LED_intensity, axis = 0)
     min_intensity = np.amin(LED_intensity, axis = 0)    
@@ -428,17 +432,25 @@ def analyze_frame(video,frame,LED, find_threshold = False):
     if find_threshold:
         on_thresh = (max_intensity - min_intensity)*(LED.on_range/100) + min_intensity
     
-        ind_bad, = np.where(max_intensity - min_intensity < 20) # the LED never turned on which happens for Cue
+        # ind_bad, = np.where(max_intensity - min_intensity < 100) # the LED never turned on which happens for Cue
+        # #but we don't wanna miss that in the next videos so we set an average threshold of others
+        # if len(ind_bad) != 0:
+        #     ind_good_to_go, = np.where(max_intensity - min_intensity > 20)
+        #     # LED.on_thresh[ind_bad] = np.average(LED.on_thresh[ind_good_to_go]) 
+        #     on_thresh[ind_bad] = np.average(on_thresh[ind_good_to_go]) 
+        ########### Modification because LED was found always ON
+        ind_bad = np.logical_or(max_intensity - min_intensity < 80, min_intensity > 100) # the LED never turned on which happens for Cue or the LED was always on
         #but we don't wanna miss that in the next videos so we set an average threshold of others
         if len(ind_bad) != 0:
-            ind_good_to_go, = np.where(max_intensity - min_intensity > 20)
+            ind_good_to_go = ~ind_bad
             # LED.on_thresh[ind_bad] = np.average(LED.on_thresh[ind_good_to_go]) 
             on_thresh[ind_bad] = np.average(on_thresh[ind_good_to_go]) 
     else:
         on_thresh = np.nan
     print("max intensities = ", max_intensity.astype(int))
     print("min intensities = ", min_intensity.astype(int), "\n")
-    return LED_on_off,LED.mask.keys(), on_thresh, video_corrupted
+    
+    return LED_on_off, LED.mask.keys(), on_thresh, video_corrupted
 
 
 def set_LED_on_range(n_LED, default_on_range):
@@ -472,7 +484,7 @@ def set_LED_threshold(circles_cor, videoPath_list, path,x0,x1,y0,y1, bypass_user
             user_input = path_to_ref
         if user_input == "": 
             on_range = set_LED_on_range(n_LED, default_on_range)
-            on_thresh, videoPath = find_on_threshold(circles_cor, videoPath_list,x0,x1,y0,y1, on_range)
+            on_thresh, videoPath = find_on_threshold(circles_cor, videoPath_list, x0,x1,y0,y1, on_range)
             save_thresh_based_on_user_command(on_thresh, user_input, videoPath, path)  
             break
         
@@ -499,7 +511,7 @@ def save_thresh_based_on_user_command(on_thresh, derive_thresh_input, videoPath,
 def save_on_thresh(on_thresh, videoPath, path, csv_path):
     columns = ['Cue','R_pad','L_pad', 'laser', 'reward']
     df = pd.DataFrame(on_thresh.reshape(1,5), columns = columns)
-    supp_df = pd.DataFrame([path], columns = ['videofile_reference'])
+    supp_df = pd.DataFrame([videoPath], columns = ['videofile_reference'])
     result = pd.concat([df, supp_df ], axis=1)
     result.to_csv(csv_path, index = False)
     
@@ -526,7 +538,7 @@ def set_LED_circle_coords(cropped_image, videoPath, path, show_circles = True, b
             circles_cor = read_csv(user_input)
         if show_circles:
             draw_circles_on_img(circles_cor, cropped_image)
-        circles_acceptable = input("In case circles don't match, Do you want to mark them yourself (y/[n])?\n")
+        circles_acceptable = input("In case circles don't match, Do you want to mark them again (y/[n])?\n")
         if circles_acceptable in ['n', 'N', ""]:
             remark = False
             break
@@ -550,7 +562,7 @@ def mark_circles(cropped_image):
 def save_LED_coords(LED_coords, videoPath, path, csv_path):
     columns = ['Center_X','Center_Y','Radius']
     df = pd.DataFrame(LED_coords, columns = columns)
-    supp_df = pd.DataFrame([path], columns = ['videofile_reference'])
+    supp_df = pd.DataFrame([videoPath], columns = ['videofile_reference'])
     result = pd.concat([df, supp_df ], axis=1)
     result.to_csv(csv_path,index=False)
     
@@ -633,24 +645,24 @@ def read_list_of_files_from_txt(path_to_txt):
     file_list = open(path_to_txt, "r")
     return file_list
 
-def get_list_of_marks_all_exp_folders(dir_path):
-    
+def get_list_of_marks_all_exp_folders(dir_path, save_pkl = True, info_dict_path = None):
+    global info_dict
     folders  =  os.listdir(dir_path)
     folders_path_list = [os.path.join(dir_path, f) for f in folders if "." not in f]
     # parent_folder_name = input("If you want to look under specific subfolders (e.g. Left/Right) enter the subfolder name, otherwise press enter to get all the videos. \n")
-    parent_folder_name = "Left"
+    parent_folder_name = ""
     info_dict = {}
     df_pad = pd.DataFrame(columns = ['pad_left_x', 'pad_left_y', 'pad_right_x', 'pad_right_y'])
     df_lever = pd.DataFrame(columns = ['lever_x', 'lever_y'])
     df_crop = pd.DataFrame(columns = ['crop_left_x', 'crop_right_x', 'crop_left_y', 'crop_right_y'])
-    # on_thresh_csv_path= input("Enter the full path to the on_threshold reference file.")
-    # circles_cor_csv_path= input("Enter the full path to the LED circle coord reference file.")
-    on_thresh_csv_path = "/media/shiva/Seagate Expansion Drive/DeepLabCut_Analysis/Rat_14/2019-05-02_D-6/on_threshold.csv"
-    circles_cor_csv_path= "/media/shiva/Seagate Expansion Drive/DeepLabCut_Analysis/Rat_14/2019-05-02_D-6/LED_cirlce_coords.csv"
+    # on_thresh_csv_path= input("If you want to use pre-derived LED thresholds enter the full path to the on_threshold reference file. Otherwise if you want it to be set for each folder separetly press Enter.")
+    # circles_cor_csv_path= input("If you want to use pre-marked circle coordinates enter the full path to the LED circle coord reference file, otherwise press Enter.")
+    on_thresh_csv_path = "/media/shiva/LaCie/Video_TestDLC_Shiva_Nico/Rat_12/2019-05-22_D-8/on_threshold.csv"
+    circles_cor_csv_path= "/media/shiva/LaCie/Video_TestDLC_Shiva_Nico/Rat_12/2019-05-22_D-8/LED_cirlce_coords.csv"
     count = 0
     folders_path_list_analyzed = []
-    for i, path in enumerate(folders_path_list[:10]):
-		
+    for i, path in enumerate(folders_path_list[15:]):
+        print("folder {0} from {1} folders".format(i, len(folders_path_list)))
         videoPath_list = get_videofile_paths(path, bypass_user=True, parent_folder_name = parent_folder_name)
         folders_path_list_analyzed.append(path)
 
@@ -673,8 +685,18 @@ def get_list_of_marks_all_exp_folders(dir_path):
         
     df_files = pd.DataFrame(folders_path_list_analyzed, columns= ['path'])
     df = pd.concat([df_crop, df_pad, df_lever, df_files], axis = 1)
-    print(df.head())
+    if save_pkl:
+        pickle_obj(info_dict, info_dict_path)
     return  df, parent_folder_name, info_dict, on_thresh_csv_path, circles_cor
+def pickle_obj(obj, filepath):
+
+    with open(filepath, "wb") as file_:
+        pickle.dump(obj, file_)  # , -1)
+
+
+def load_pickle(filepath):
+
+    return pickle.load(open(filepath, "rb"))  # , -1)
 
 def main_with_pre_aqui_marks(parent_folder_name, info_dict, on_thresh_csv_path, circles_cor):
 
@@ -705,14 +727,15 @@ if __name__ == '__main__':
     
     if analyze_in_bulk:
         # dir_path = input("Enter the full path for the directory that contains all the experiment folders")
-        dir_path = "/media/shiva/Seagate Expansion Drive/DeepLabCut_Analysis/Rat_14"
-        df, parent_folder_name, info_dict,on_thresh_csv_path, circles_cor = get_list_of_marks_all_exp_folders(dir_path)
+        dir_path = "/media/shiva/LaCie/Video_TestDLC_Shiva_Nico/Rat_12"
+        df, parent_folder_name, info_dict, on_thresh_csv_path, circles_cor = get_list_of_marks_all_exp_folders(dir_path,save_pkl = True, 
+                                                                                                               info_dict_path=os.path.join(dir_path, 'dictionary_of_ent_marks.pkl'))
 		
-        df.to_csv(os.path.join(dir_path, 'summary_of_files_analyzed.csv'), index= False)
+        df.to_csv(os.path.join(dir_path, os.path.basename(os.path.normpath(dir_path)) + '_summary_of_files_analyzed.csv'), index= False)
         main_with_pre_aqui_marks(parent_folder_name, info_dict,on_thresh_csv_path, circles_cor)
     else:
-		
-        path =  get_path_from_user()
+        path = "/media/shiva/LaCie/Video_TestDLC_Shiva_Nico/Rat_12"
+        # path =  get_path_from_user()
         videoPath_list = get_videofile_paths(path)
         image = get_one_frame_from_video(videoPath_list[0]) # get one frame to specify circle coordinates on
         pad_ends,lever = get_pad_and_lever_from_user(image)

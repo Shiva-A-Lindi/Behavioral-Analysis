@@ -166,6 +166,7 @@ def list_video_files(path, move_files = False,remove_emp_files = False):
     videofile_path = [ fi for fi in fname if (fi.endswith(".avi") or 
                                               fi.endswith(".mp4") or 
                                               fi.endswith(".mkv") or
+                                              fi.endswith(".wmv") or
                                               fi.endswith(".mpeg"))]
     return videofile_path      
 

@@ -17,15 +17,15 @@ import subprocess
 # implement pip as a subprocess:
 try:
     import neo
-except ImportError:
+except ImportError or ModuleNotFoundError:
     subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'neo'])
 try:
     import sonpy
-except ImportError:
+except ImportError or ModuleNotFoundError:
     subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'sonpy'])
 try:
     import scipy
-except ImportError:
+except ImportError or ModuleNotFoundError:
     subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'scipy'])
 
 
