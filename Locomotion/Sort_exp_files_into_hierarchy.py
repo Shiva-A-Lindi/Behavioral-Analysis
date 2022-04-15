@@ -56,6 +56,7 @@ class Directory :
         for path in self.all_filepath_list:
             
             file = File(path)
+            file.check_filename_type(no_specifier = '#')
             file.remove_spaces_in_name()
             file.replace_txt('.', '-')
             file.replace_txt('alone', '')
@@ -71,7 +72,6 @@ class Directory :
                     
                     file = File(f)
                     
-                    print(file.name)
                     if not if_any_substr_in_str( stim_type_list, file.name_elements[1]):
                     
                         file.add_to_name_elements('SquarePulse', 1)
@@ -147,6 +147,15 @@ class File :
         
         self.rename(new_name + self.extension)
         
+    def check_filename_type(self, no_specifier = '#'):
+        
+        if self.extension == '.avi':
+            mouse =  self.name_base.split('_') [0]
+            
+            if no_specifier not in mouse:
+                print(self.path)
+                raise("Attention file name is not stereosypical!")
+            
 class Experiment():
     
     def __init__(self, video_filepath):
@@ -163,9 +172,12 @@ class Experiment():
         self.laser = None
         self.treadmil_velocity = None
                 
+
+            
     def get_mouse_no_and_line(self, no_specifier = '#'):
         
         mouse =  self.video.name_base.split('_') [0]
+
         self.mouse_no = mouse.split( no_specifier ) [1]
         self.mouse_line = mouse.split( no_specifier ) [0]
         
@@ -205,12 +217,13 @@ def if_any_substr_in_str( substr_list, string):
 
 
 
-path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Mouse_71/STN-STR'
+path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted'
 stim_type_list = ['Square', 'Beta', 'beta', 'square']
 directory = Directory(path)
 print('file extensions in this directory: ', directory.extensions)
 
 directory.refine_file_names()
+directory = Directory(path)
 directory.add_stim_type_to_name(stim_type_list = stim_type_list,
                                 extensions = ['.avi', '.h5', '.pickle', '.csv'])
 
@@ -220,6 +233,7 @@ videos = directory.filepath_list['.avi']
 for f in videos:
     
     exp = Experiment(f)
+    print(f)
     exp.extract_info_from_video_filename()
     exp.show_specs()
         
