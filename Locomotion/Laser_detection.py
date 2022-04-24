@@ -24,7 +24,8 @@ if sys.version_info >= (3, 0):
 else:
 	from Queue import Queue
     
-
+from scipy.signal import butter, sosfilt, sosfreqz, spectrogram, sosfiltfilt, find_peaks
+from scipy.ndimage import gaussian_filter1d
         
 class VideoStream:
     
@@ -35,6 +36,9 @@ class VideoStream:
     def __init__(self, filepath, queueSize = 300, nb_frames = None):
         # initialize the file video stream along with the boolean
         # used to indicate if the thread should be stopped or not
+        
+        (grabbed, frame) = cv2.VideoCapture(filepath).read()
+        self.treadmil_length_in_pix = frame.shape[1]  
         
         self.streaming_video = cv2.VideoCapture(filepath)
         self.stopped = False
@@ -85,6 +89,7 @@ class VideoStream:
                 (grabbed, frame) = self.streaming_video.read() # read the next frame from the file
                 
                 self.current_frame_no = self.get_current_frame_no()
+                
                 if not grabbed: # if the `grabbed` boolean is `False`, then we have
                 				# reached the end of the video file
                     self.stop()
@@ -92,7 +97,9 @@ class VideoStream:
                     return
             
                 self.Q.put(frame) # add the frame to the queue
-                
+
+        
+        
     def read(self):
         
         ''' return the next frame in the queue
@@ -114,28 +121,64 @@ class VideoStream:
     
 class Analyze :
     
-    def __init__ (self, video_path_list):
+    def __init__ (self, video_path_list, DLC_path_list):
         
         self.video_path_list = video_path_list
-        print(self.video_path_list)
+        self.DLC_path_list = DLC_path_list
         
-    def one_video(self, file_no = 0,   
+        
+        
+    def set_laser_boundaries(self, file_no = 0, 
+                             p_cutoff = 0.995, 
+                             treadmil_length_in_cm = 33, 
+                             treadmil_length_in_pix = 1000):
+        
+        DLC_filepath= self.DLC_path_list [file_no]
+        video_filepath = self.video_path_list [file_no]
+        
+        mloc_lower = MouseLocation( DLC_filepath , 'lower', p_cutoff = p_cutoff,
+                                    treadmil_length_in_cm = treadmil_length_in_cm, 
+                                    treadmil_length_in_pix = treadmil_length_in_pix)
+        
+        mloc_upper = MouseLocation( DLC_filepath , 'upper', p_cutoff = p_cutoff, 
+                                    treadmil_length_in_cm = treadmil_length_in_cm, 
+                                    treadmil_length_in_pix = treadmil_length_in_pix)
+        
+        ax = mloc_lower.plot_y(p_cutoff = p_cutoff)
+        ax = mloc_upper.plot_y(p_cutoff = p_cutoff, ax = ax)
+        
+        x_range = { mloc.pos_in_vid : 
+                   mloc.x_range for mloc in [mloc_lower, mloc_upper] }
+        
+        y_range = { mloc.pos_in_vid : 
+                   mloc.y_range for mloc in [mloc_lower, mloc_upper] }
+
+        return x_range, y_range 
+    
+    
+    
+    def one_video(self, 
+                  file_no = 0,   
                   low_hsv_thresh = (150, 50, 100), 
                   high_hsv_thresh = (190, 255, 255),
                   low_RGB_thresh = (150, 10,60), 
                   high_RGB_thresh = (255, 120, 140),
-                  laser_area_thresh = 40, 
                   nb_frames = None,
-                  x_range = None,
-                  y_range = None):
+                  treadmil_length_in_cm = 33,
+                  p_cutoff_ranges = 0.995):
         
         vidstr = VideoStream( self.video_path_list[ file_no ] , nb_frames = nb_frames). start()
-        laser = LaserDetector (  low_RGB_thresh, high_RGB_thresh)
+        x_range, y_range = self.set_laser_boundaries(file_no = file_no, 
+                                                     p_cutoff = p_cutoff_ranges, 
+                                                     treadmil_length_in_cm = treadmil_length_in_cm, 
+                                                     treadmil_length_in_pix = vidstr.treadmil_length_in_pix)
+        
+        laser = LaserDetector ( low_RGB_thresh, high_RGB_thresh )
                     
-        laser.detect_laser_starts(vidstr, laser_area_thresh = laser_area_thresh, nb_frames = nb_frames,
+        laser.detect_laser_starts(vidstr, nb_frames = nb_frames,
                                   x_range = x_range, y_range = y_range)
             
-        return laser.area_list, laser.laser_start
+        return laser.area_list
     
     def all_video(self):
         
@@ -170,7 +213,7 @@ class Frame :
     
     def whether_constrain_frame(self):
         
-        if x_range == None:
+        if self.x_range == None:
             
             return False
             
@@ -235,9 +278,7 @@ class LaserDetector :
         self.high_RGB_thresh = high_RGB_thresh
         self.low_hsv_thresh = low_hsv_thresh
         self.high_hsv_thresh = high_hsv_thresh
-        self.laser_start = []
-        self.laser_end = []
-        self. ON = False 
+
         
     def plot_contour(self, mask, frame_no, image, contours = None):
         
@@ -255,7 +296,6 @@ class LaserDetector :
         
         
     def detect_laser_starts(self, vidstr, 
-                            laser_area_thresh = 40, 
                             nb_frames = None, 
                             x_range = None, 
                             y_range = None):
@@ -280,14 +320,13 @@ class LaserDetector :
             # self.area_list [frame.no - 1] = countour_max_area
             
             mask = frame.in_range_RGB(self.low_RGB_thresh, 
-                                      self.high_RGB_thresh, 
-)
+                                      self.high_RGB_thresh)
             
             self.area_list [frame.no - 1] =  frame.n_pix_in_range
             
-            # if frame.no == 904 :#or frame.no == 908:
+            if frame.no == 2414 :#or frame.no == 908:
                 
-            #     self. plot_contour(mask, frame.no, frame.image)
+                self. plot_contour(mask, frame.no, frame.image)
                 # print('frame :', frame.no, 'max area = ',  self.area_list [frame.no - 1] )
            
     @staticmethod                
@@ -300,27 +339,124 @@ class LaserDetector :
         return (z1-z2)[(n-1):-1]/n
                     
             
-    # def detect_if_ON (self, frame_no, laser_area_thresh = 40):
         
-    #     if len(self.area_list) > 1 : 
-            
-    #         if  (self.area_list[-1] > self.area_list[-2] * 1.5 and 
-    #             self.area_list[-1] > laser_area_thresh and 
-    #             self.ON == False ) :
-                
-    #             self.ON = True
-    #             self.laser_start.append( frame_no )
-    #             # self.first_laser_found = True
-    #             print(frame_no," - light ON")
-                
-    #     else:
-            
-    #         self.ON = False
+class Pulse :
+    
+    def __init__( self, sig, fs = 250, low_f = 1, high_f = 50):
         
+        self.signal = sig
+        self.low_f = low_f
+        self.high_f = high_f
+        self.fs = fs
+        self.filtered_signal = None
+        self.events = []
+        self.centers = []
+        
+    @staticmethod
+    def butter_bandpass(lowcut, highcut, fs, order=5):
+        
+        nyq = 0.5 * fs
+        low = lowcut / nyq
+        high = highcut / nyq
+        sos = butter(order, [low, high], analog=False, btype='band', output='sos')
+        
+        return sos
+    
+    @staticmethod
+    def butter_bandpass_filter(sig, lowcut, highcut, fs, order=5):
+        
+        ''' filtfilt is the forward-backward filter. It applies the filter twice, 
+            once forward and once backward, resulting in zero phase delay.
+        '''
+        sos = Pulse.butter_bandpass(lowcut, highcut, fs, order=order)
+        y = sosfiltfilt(sos, sig)
+        return y
+    
+    def gauss_filter(self, gauss_window = 5):
+        
+        self.signal = gaussian_filter1d(self.signal, gauss_window)
+        
+    def low_pass_filter(self, low_f=1, high_f =50, fs = 250, filt_order= 10):
+        
+        self.signal = Pulse.butter_bandpass_filter(self.signal, low_f, high_f , fs, order= filt_order)
+        
+    def find_peaks(self, height = 40):
+        
+        ''' signal should be low pass filtered so that the peaks are negative values'''
+        
+        self.events, _ = find_peaks( -self.signal, height = 40)
+        
+    def plot_events(self, ax = None):
+        
+        ax = ax or plt.subplots()[1]
+
+        ax.plot( self.events, self.signal [self.events] , 'x', ms = 10, c = 'k')
+
+        return ax
+    
+    def plot_centers(self, ax = None):
+           
+        ax = ax or plt.subplots()[1]
+
+        ax.plot(self.centers, np.full(len(self.centers), -150) , 'x', ms = 10, c = 'g')
+
+        return ax
+    
+    def find_centers(self):
+        
+        self.centers = np.average( np.column_stack((self.events[::2], self.events[1::2])), axis = 1 )
+        
+    def plot( self, signal = None, label = 'true signal', ax = None ) :
+        
+        signal = signal or self.signal
+        ax = ax or plt.subplots()[1]
+        
+        ax.plot(signal,'-o', ms = 3, label = label)
+        ax.set_ylabel('# blue pixels in frame', fontsize = 15)
+        ax.set_xlabel('# frame', fontsize = 15)
+        ax.legend(frameon = False, fontsize = 10)
+        
+        return ax
+    
+    def compare_methods(self, gauss_window = 5, 
+                        low_f = 1, high_f = 50, 
+                        filt_order = 10,
+                        peak_heights = 40):
+        
+        sig_copy = self.signal.copy()
+        ax = self.plot( label = 'true signal', ax = None )
+        
+        self.low_pass_filter(low_f = low_f, high_f = high_f, fs = self.fs, filt_order = filt_order)
+        ax = self.plot(label = 'low pass filtered signal', ax = ax)
+
+        self.signal = sig_copy
+        self.gauss_filter(gauss_window = gauss_window)
+        ax = self.plot(label = 'gaussian filtered signal', ax = ax)
+        
+        self.low_pass_filter(low_f = low_f, high_f = high_f , fs = self.fs, filt_order= filt_order)
+        ax = self.plot(label = 'low pass filtered smoothed signal', ax = ax)
+        
+        self.find_peaks(height = peak_heights)
+        ax = self.plot_events(ax = ax)
+        
+        
+        self.find_centers()
+        self.plot_centers(ax = ax)
+
+        self.signal = sig_copy
+
+    # self.gauss_filter(gauss_window = gauss_window)
+    # self.low_pass_filter(low_f = low_f, high_f = high_f, fs = self.fs, filt_order = filt_order)
+    # self.find_peaks(height = peak_heights)
+    # self.find_centers()
+
+
 class MouseLocation:
     
 
-    def __init__( self, DLC_filepath, pos_in_vid = 'upper', p_cutoff = 0.995):
+    def __init__( self, DLC_filepath, pos_in_vid = 'upper', p_cutoff = 0.995, 
+                 treadmil_length_in_cm = 33, treadmil_length_in_pix = 1000,
+                 max_dev_in_cm = 2):
         
         
         self.DLC_filepath = DLC_filepath
@@ -333,7 +469,19 @@ class MouseLocation:
         self.pos_in_vid = pos_in_vid
         self._set_side_from_pos(pos_in_vid)
         self.get_location()
+        self.max_dist_nose_to_laser = self.cal_max_deviat_nose_to_laser(treadmil_length_in_cm, 
+                                                                        treadmil_length_in_pix, 
+                                                                        max_dev_in_cm = max_dev_in_cm)
         self.get_cor_range( p_cutoff = p_cutoff )
+        
+    def cal_max_deviat_nose_to_laser(self, 
+                                     treadmil_length_in_cm, 
+                                     treadmil_length_in_pix, 
+                                     max_dev_in_cm = 2):
+        
+        return max_dev_in_cm * treadmil_length_in_pix / treadmil_length_in_cm
+
+        
         
     def _set_side_from_pos (self, pos_in_vid):
         
@@ -369,7 +517,7 @@ class MouseLocation:
         self.x_range = np.array([ np.min( self.x[ high_likelohood_ind ]),
                          np.max( self.x[ high_likelohood_ind ])]).astype(int)
         
-        self.y_range = np.array([ np.min( self.y[ high_likelohood_ind ]),
+        self.y_range = np.array([ np.min( self.y[ high_likelohood_ind ]) - self.max_dist_nose_to_laser,
                          np.max( self.y[ high_likelohood_ind ])]).astype(int)  
         
     def plot_coordinate(self, ax = None, cor = 'x', p_cutoff = 0):
@@ -389,6 +537,7 @@ class MouseLocation:
         ax.set_xlabel('time (frame)', fontsize = 15)
         ax.set_ylabel( cor + ' (pix)', fontsize = 15)
         ax.fill_between( np.arange( len(param)), *cor_range, alpha = 0.1)
+        
         return ax
     
     def plot_x(self, ax = None,p_cutoff = 0):
@@ -412,102 +561,76 @@ class MouseLocation:
 
 plt.close( 'all' )
 filepath_list  = ['/home/shiva/Desktop/test/Vglut2D2Cre#55_SquarePulse_STR_0-35mW_15cm-s_Stacked_f17.avi' ,
-                     '/media/shiva/LaCie/Data_INCIA_Shiva/2021_02_25_newTrain2_ok/Vglut2D2Cre#58_STRalone_0.35mW_15cm-s_Stacked_f08.avi']
+                     '/media/shiva/LaCie/Data_INCIA_Shiva/2021_02_25_newTrain2_ok/Vglut2D2Cre#58_STRalone_0.35mW_15cm-s_Stacked_f08.avi',
+                     '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_70/STR/squarepulse_0-35mW/Video/Vglut2D2Cre#70_SquarePulse_STR_0-35mW_15cm-s_Stacked_f14.avi',
+                     '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/squarepulse_0-35mW/Video/Vglut2D2Cre#59_SquarePulse_STR_0-35mW_15cm-s_Stacked_f05.avi',
+                     '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/squarepulse_0-5mW/Video/Vglut2D2Cre#59_SquarePulse_STR_0-5mW_15cm-s_q11_Stacked.avi']
 
 filepath_list_DLC = ['/home/shiva/Desktop/test/Vglut2D2Cre#55_STNalone_0.5mW_15cm-s_Stacked_f15DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
-                '/media/shiva/LaCie/Data_INCIA_Shiva/2021_02_25_newTrain2_ok/Vglut2D2Cre#58_STRalone_0.35mW_15cm-s_Stacked_f08DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv']
+                '/media/shiva/LaCie/Data_INCIA_Shiva/2021_02_25_newTrain2_ok/Vglut2D2Cre#58_STRalone_0.35mW_15cm-s_Stacked_f08DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
+                '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_70/STR/squarepulse_0-35mW/DLC/Vglut2D2Cre#70_SquarePulse_STR_0-35mW_15cm-s_Stacked_f14_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
+                '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/squarepulse_0-35mW/DLC/Vglut2D2Cre#59_SquarePulse_STR_0-35mW_15cm-s_Stacked_f05_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
+                '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/squarepulse_0-5mW/DLC/Vglut2D2Cre#59_SquarePulse_STR_0-5mW_15cm-s_q11_Stacked_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv']
 
-n = 1
+n = 3
 filepath_DLC = filepath_list_DLC [ n ]
 filepath = filepath_list [ n ]
 
-mloc_lower = MouseLocation(filepath_DLC , 'lower', p_cutoff = 0.995)
-mloc_upper = MouseLocation(filepath_DLC , 'upper', p_cutoff = 0.995)
 
-# ax = mloc_lower.plot_y(p_cutoff = 0.995)
-# mloc_upper.plot_y(p_cutoff = 0.995, ax = ax)
 
-x_range = { obj.pos_in_vid : obj.x_range for obj in [mloc_lower, mloc_upper] }
-y_range = { obj.pos_in_vid : obj.y_range for obj in [mloc_lower, mloc_upper] }
+analysis = Analyze (filepath_list, filepath_list_DLC)
 
-# x_range = None ; y_range = None
-
-analysis = Analyze (filepath_list)
 RGB_blueLower = (150, 10,60)
 RGB_blueUpper = (255, 120, 140)
-areas, laser_start = analysis.one_video( file_no = n, 
-                                        low_RGB_thresh = RGB_blueLower, 
-                                        high_RGB_thresh = RGB_blueUpper, 
-                                        laser_area_thresh = 20, 
-                                        nb_frames = 5000,
-                                        x_range = x_range,
-                                        y_range = y_range)
-
-# n_breaks = 10
-# import ruptures as rpt
-# model = rpt.Dynp(model="l1")
-# model.fit( areas)
-# breaks = model.predict(n_bkps=n_breaks-1)
+areas = analysis.one_video( file_no = n, 
+                           low_RGB_thresh = RGB_blueLower, 
+                           high_RGB_thresh = RGB_blueUpper, 
+                           treadmil_length_in_cm = 33,
+                           p_cutoff_ranges = 0.995,
+                           nb_frames = 5000)
 
 
-# fig, ax = plt.subplots()
-# ax.plot(areas, '-o', markersize = 5)
-# ax.plot( breaks, areas[breaks], 'x', 'r', markersize = 10)
+Analyze.pickle_obj({'area' : areas}, filepath.replace('avi', 'pkl') )
 
+# data = Analyze.load_pickle(filepath.replace('avi', 'pkl') )
+# plt.plot(data['area'])
+
+pulse = Pulse(areas, fs = 250)
     
-Analyze.pickle_obj({'area' : areas}, filepath.replace('avi', '.pkl') )
-
-# # # area_list_shift = np.roll(area_list.copy(), -3)
-# # # laser_start = np.logical_and(area_list_shift > area_list * 1.3 , area_list > 100 )
-
-# # # ax.plot( np.where( laser_start )[0] , area_list[laser_start], 'x', c = 'r',  markersize = 10)
-# # # ax.plot(LaserDetector.moving_average_array( data['area'], 5), '-o', markersize = 5)
-# # # ax.plot(np.diff(data['area']))
+pulse.compare_methods(gauss_window = 5, low_f = 1, high_f = 50, 
+                      filt_order = 10,
+                      peak_heights = 40)
 
 
 
 
 
 
+def recons_by_direct_reversion():
 
-
-
-
-
-
-
-
-
-
-
-
-# x = np.linspace(-2, 2, 1000)
-# a = 0.5
-# yl = np.ones_like(x[x < a]) * -0.4 + np.random.normal(0, 0.05, x[x < a].shape[0])
-# yr = np.ones_like(x[x >= a]) * 0.4 + np.random.normal(0, 0.05, x[x >= a].shape[0])
-# y = np.concatenate((yl, yr))
-
-
-# model = StepModel() + ConstantModel()
-# params = model.make_params(center=0, sigma=1, amplitude=1., c=-0.5)
-
-# result = model.fit(y, params, x=x)
-
-# print(result.fit_report())
-
-# fig, ax = plt.subplots()
-
-# plt.scatter(x, y, label='data')
-# plt.plot(x, result.best_fit, marker='o', color='r', label='fit')
-# plt.show()
-
-
-
-
-
-
-
-
+    from numpy.fft import fft, ifft 
+    from scipy import signal as sig
+    from scipy import stats, real
+    
+    N = 2000
+    a =- 0.97
+    L = 50
+    spos  = stats.bernoulli.rvs(loc = 0, p = 0.6, size = int(N / L))
+    s = np.kron(spos, np.ones(L))
+    d = np.zeros(N)
+    d[0] = 1
+    
+    h = sig.lfilter( [1, 0.5, 0.95] , [1, a] , d)
+    
+    H = fft(h, N)
+    X = fft (s) * H
+    x = real (ifft (X))
+    fig, ax = plt.subplots()
+    ax.plot(x)
+    
+    x_rec = real( ifft (X / H))
+    ax.plot(x_rec)
+    
 
 
 
