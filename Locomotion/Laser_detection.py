@@ -15,6 +15,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os, sys
 import pickle
+import timeit
 from threading import Thread
 # import the Queue class from Python 3
 if sys.version_info >= (3, 0):
@@ -26,7 +27,119 @@ else:
     
 from scipy.signal import butter, sosfilt, sosfreqz, spectrogram, sosfiltfilt, find_peaks
 from scipy.ndimage import gaussian_filter1d
+   
+class MouseLocation:
+    
+
+    def __init__( self, DLC_filepath, pos_in_vid = 'upper', p_cutoff = 0.995, 
+                 treadmil_length_in_cm = 33, treadmil_length_in_pix = 1000,
+                 max_dev_in_cm = 2):
         
+        
+        self.DLC_filepath = DLC_filepath
+        self.x = None
+        self.y = None
+        self.p = None
+        self.side = None
+        self.x_range = None
+        self.y_range = None
+        self.pos_in_vid = pos_in_vid
+        self._set_side_from_pos(pos_in_vid)
+        self.get_location()
+        self.max_dist_nose_to_laser = self.cal_max_deviat_nose_to_laser(treadmil_length_in_cm, 
+                                                                        treadmil_length_in_pix, 
+                                                                        max_dev_in_cm = max_dev_in_cm)
+        self.get_cor_range( p_cutoff = p_cutoff )
+        
+    def cal_max_deviat_nose_to_laser(self, 
+                                     treadmil_length_in_cm, 
+                                     treadmil_length_in_pix, 
+                                     max_dev_in_cm = 2):
+        
+        return max_dev_in_cm * treadmil_length_in_pix / treadmil_length_in_cm
+
+        
+        
+    def _set_side_from_pos (self, pos_in_vid):
+        
+        if pos_in_vid == 'upper':
+            
+            self.side = 'r'
+            
+        else:
+            
+            self.side = 'l'
+            
+    def read_DLC(self):
+
+        '''Read DeepLabCut Data.'''
+
+        df = pd.read_csv( self.DLC_filepath, header=[1,2], skiprows=0)
+    
+        return df
+    
+    def get_location( self, body_part = 'Nose'):
+        
+        df = self. read_DLC()
+        col = self.side + body_part
+        
+        self.x = df[ ( col, 'x') ]
+        self.y = df[ ( col, 'y') ]
+        self.p = df[ ( col, 'likelihood') ]
+
+    def get_cor_range(self, p_cutoff = 0.8):
+        
+        high_likelohood_ind = self. p > p_cutoff
+        
+        self.x_range = np.array([ 
+                            max( np.min( self.x[ high_likelohood_ind ]) -self.max_dist_nose_to_laser , 0),
+                            np.max( self.x[ high_likelohood_ind ])]).astype(int)
+        
+        self.y_range = np.array([ max(np.min( self.y[ high_likelohood_ind ]) - self.max_dist_nose_to_laser, 0),
+                                 np.max( self.y[ high_likelohood_ind ]) - self.max_dist_nose_to_laser /5 ]).astype(int)  
+        
+        print( ' x range bounds = ', self.x_range, 
+               ' y range bounds = ', self.y_range)
+        
+    def plot_coordinate(self, ax = None, cor = 'x', p_cutoff = 0):
+        
+        if cor == 'x' : 
+            
+            param = self.x; 
+            cor_range = self.x_range
+            
+        elif cor == 'y' : 
+            
+            param = self.y
+            cor_range = self.y_range
+            
+        ax = ax or plt.subplots() [1]
+        ax.plot(param [self.p > p_cutoff])
+        ax.set_xlabel('time (frame)', fontsize = 15)
+        ax.set_ylabel( cor + ' (pix)', fontsize = 15)
+        ax.fill_between( np.arange( len(param)), *cor_range, alpha = 0.1)
+        
+        return ax
+    
+    def plot_x(self, ax = None,p_cutoff = 0):
+        
+        ax = self.plot_coordinate(cor = 'x', ax = ax,  p_cutoff = p_cutoff)
+
+        return ax
+    
+    def plot_y(self, ax = None, p_cutoff = 0):
+        
+        ax = self.plot_coordinate(cor = 'y', ax = ax ,p_cutoff = p_cutoff)
+        
+        return ax
+    
+    def plot_likelihood(self, ax = None):
+        
+        ax = ax or plt.subplots() [1]
+        ax.plot( self.p )
+        ax.set_xlabel('time (frame)', fontsize = 15)
+        ax.set_ylabel(' tracking likelihood', fontsize = 15)
+     
 class VideoStream:
     
     """
@@ -179,6 +292,8 @@ class Analyze :
                   constrain_frame = True,
                   max_dev_in_cm = 2):
         
+        start = timeit.default_timer()
+        
         vidstr = VideoStream( self.video_path_list[ file_no ] , nb_frames = nb_frames). start()
         
         x_range, y_range = None, None
@@ -198,6 +313,9 @@ class Analyze :
                      area_cal_method = self.area_cal_method,
                      thresh_method = self.thresh_method,
                      image_parts = self.image_parts)
+        
+        stop = timeit.default_timer()
+        print('t =', round(stop - start, 2))
             
         return laser.area_list
     
@@ -316,9 +434,6 @@ class LaserDetector :
                  high_img_thresh : tuple) :
          
         self.area_list = []
-        self.color = None
-        self.location_list = None
-        self.first_laser_found = False
         self.low_img_thresh = low_img_thresh
         self.high_img_thresh = high_img_thresh
         
@@ -391,13 +506,16 @@ class Pulse :
     def __init__( self, sig, fs = 250, low_f = 1, high_f = 50):
         
         self.signal = sig
+        self.raw_signal = sig
         self.low_f = low_f
         self.high_f = high_f
         self.fs = fs
         self.events = []
         self.centers = []
-        self.laser_starts = []
-        self.laser_ends = []
+        self.starts = []
+        self.ends = []
+        self.smoothed_sig = []
+        self.center_vicinities = []
         
     @staticmethod
     def butter_bandpass(lowcut, highcut, fs, order=5):
@@ -449,7 +567,12 @@ class Pulse :
 
         return ax
     
-    def find_laser_centers(self,
+    def find_centers(self):
+        
+        self.centers = np.average( np.column_stack( (self.starts, 
+                                                     self.ends)) , 
+                                  axis = 1)
+    def find_events(self,
                            gauss_window = 5, 
                            low_f = 1, high_f = 50, 
                            filt_order = 10,
@@ -468,9 +591,10 @@ class Pulse :
         except (ValueError, ZeroDivisionError): 
             print("couldn't find centers")
         
-    def plot( self, signal = None, label = 'true signal', ax = None ) :
+    def plot( self, signal = [], label = 'true signal', ax = None ) :
         
-        signal = signal or self.signal
+        if len(signal) == 0:
+            signal = self.signal
         ax = ax or plt.subplots()[1]
         
         ax.plot(signal, '-o', ms = 1, label = label)
@@ -480,20 +604,29 @@ class Pulse :
         
         return ax
     
+    def determine_start_ends(self):
+        
+        self.smoothed_sig = gaussian_filter1d( self.raw_signal, 100)
+        self.center_vicinities,_ = find_peaks(self.smoothed_sig/ max( self.smoothed_sig), height = 0.25)
+
+        derivative_at_events = np.diff( self.smoothed_sig ) [self.events]
+        self.starts = self.events[ derivative_at_events > 0]
+        self.ends = self.events[ derivative_at_events < 0]
+        
+        
 
     def thresh(self, laser_area_thresh = 180):
         
-        
         return np.where(self.signal > laser_area_thresh) [0]
     
-    def detect_laser_start (self, ind_thr_pass, jump_by = 5):
+    def detect_start_by_thresh (self, ind_thr_pass, jump_by = 5):
         
         signal_shift_fwd = Pulse.shift( self.signal, 1, 0)
         ind_start_jump = np.where( self.signal  > jump_by * signal_shift_fwd ) [0]
         
         self.laser_starts = np.intersect1d (ind_thr_pass, ind_start_jump) - 1
         
-    def detect_laser_ends (self, ind_thr_pass, jump_by = 5):
+    def detect_ends_by_thresh (self, ind_thr_pass, jump_by = 5):
         
         signal_shift_bck = Pulse.shift( self.signal, -1, 0)
         ind_end_jump = np.where( self.signal  > jump_by * signal_shift_bck ) [0]
@@ -504,26 +637,31 @@ class Pulse :
         
         ind_thr_pass = self.thresh( laser_area_thresh = laser_area_thresh )
         
-        self.detect_laser_start ( ind_thr_pass, jump_by = jump_by)
-        self.detect_laser_ends (ind_thr_pass, jump_by = jump_by)
+        self.detect_start_by_thresh ( ind_thr_pass, jump_by = jump_by)
+        self.detect_ends_by_thresh (ind_thr_pass, jump_by = jump_by)
         
 
-    def plot_start_ends(self):
+    def plot_start_ends(self, ax = None):
         
-        ax = self.plot()
-        ax.plot( self.laser_starts, self.signal[ self.laser_starts], 'x', c = 'magenta')
-        ax.plot( self.laser_ends, self.signal[ self.laser_ends], 'x', c = 'r')
+        ax = ax or plt.subplots() [1]
 
+        ax = self.plot(ax = ax)
+        ax.plot( self.starts, self.signal[ self.starts], 'x', c = 'magenta')
+        ax.plot( self.ends, self.signal[ self.ends], 'x', c = 'r')
+
+        return ax
+    
     def compare_methods(self, gauss_window = 5, 
                         low_f = 1, high_f = 50, 
                         filt_order = 10,
                         peak_heights = 40):
         
         sig_copy = self.signal.copy()
-        ax = self.plot( label = 'true signal', ax = None )
+        ax = self.plot( signal = self.raw_signal, label = 'true signal', ax = None )
         
         # self.low_pass_filter(low_f = low_f, high_f = high_f, fs = self.fs, filt_order = filt_order)
         # ax = self.plot(label = 'low pass filtered signal', ax = ax)
+        # self.signal = sig_copy.copy()
 
         self.gauss_filter(gauss_window = gauss_window)
         ax = self.plot(label = 'gaussian filtered signal', ax = ax)
@@ -578,119 +716,52 @@ class Pulse :
         fig.savefig(figname + '.pdf', dpi = 500, facecolor='w', edgecolor='w',
                         orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
-
-class MouseLocation:
+    def remove_problematic_detections(self):
+        
+        ''' remove detected laser start and ends where there are more than one detected for one peak'''
+        
+        between_pulses = np.average( np.column_stack( (self.center_vicinities, 
+                                                     np.roll(self.center_vicinities, -1))),
+                                    axis = 1) [:-1]
     
-
-    def __init__( self, DLC_filepath, pos_in_vid = 'upper', p_cutoff = 0.995, 
-                 treadmil_length_in_cm = 33, treadmil_length_in_pix = 1000,
-                 max_dev_in_cm = 2):
-        
-        
-        self.DLC_filepath = DLC_filepath
-        self.x = None
-        self.y = None
-        self.p = None
-        self.side = None
-        self.x_range = None
-        self.y_range = None
-        self.pos_in_vid = pos_in_vid
-        self._set_side_from_pos(pos_in_vid)
-        self.get_location()
-        self.max_dist_nose_to_laser = self.cal_max_deviat_nose_to_laser(treadmil_length_in_cm, 
-                                                                        treadmil_length_in_pix, 
-                                                                        max_dev_in_cm = max_dev_in_cm)
-        self.get_cor_range( p_cutoff = p_cutoff )
-        
-    def cal_max_deviat_nose_to_laser(self, 
-                                     treadmil_length_in_cm, 
-                                     treadmil_length_in_pix, 
-                                     max_dev_in_cm = 2):
-        
-        return max_dev_in_cm * treadmil_length_in_pix / treadmil_length_in_cm
-
-        
-        
-    def _set_side_from_pos (self, pos_in_vid):
-        
-        if pos_in_vid == 'upper':
-            
-            self.side = 'r'
-            
-        else:
-            
-            self.side = 'l'
-            
-    def read_DLC(self):
-
-        '''Read DeepLabCut Data.'''
-
-        df = pd.read_csv( self.DLC_filepath, header=[1,2], skiprows=0)
+        pulse_boundaries = np.zeros( len(between_pulses) + 2)
+        pulse_boundaries[ 1:-1] = between_pulses
+        pulse_boundaries [-1] = len(self.raw_signal)
     
-        return df
-    
-    def get_location( self, body_part = 'Nose'):
-        
-        df = self. read_DLC()
-        col = self.side + body_part
-        
-        self.x = df[ ( col, 'x') ]
-        self.y = df[ ( col, 'y') ]
-        self.p = df[ ( col, 'likelihood') ]
-
-    def get_cor_range(self, p_cutoff = 0.8):
-        
-        high_likelohood_ind = self. p > p_cutoff
-        
-        self.x_range = np.array([ 
-                            max( np.min( self.x[ high_likelohood_ind ]) -self.max_dist_nose_to_laser , 0),
-                            np.max( self.x[ high_likelohood_ind ])]).astype(int)
-        
-        self.y_range = np.array([ max(np.min( self.y[ high_likelohood_ind ]) - self.max_dist_nose_to_laser, 0),
-                                 np.max( self.y[ high_likelohood_ind ]) - self.max_dist_nose_to_laser /5 ]).astype(int)  
-        
-        print( ' x range bounds = ', self.x_range, 
-               ' y range bounds = ', self.y_range)
-    def plot_coordinate(self, ax = None, cor = 'x', p_cutoff = 0):
-        
-        if cor == 'x' : 
+        for i, (left, right) in enumerate( zip(pulse_boundaries, pulse_boundaries[1:])):
             
-            param = self.x; 
-            cor_range = self.x_range
             
-        elif cor == 'y' : 
-            
-            param = self.y
-            cor_range = self.y_range
-            
-        ax = ax or plt.subplots() [1]
-        ax.plot(param [self.p > p_cutoff])
-        ax.set_xlabel('time (frame)', fontsize = 15)
-        ax.set_ylabel( cor + ' (pix)', fontsize = 15)
-        ax.fill_between( np.arange( len(param)), *cor_range, alpha = 0.1)
-        
-        return ax
+            this_starts = np.logical_and ( self.starts > left, self.starts < right)
+            this_ends = np.logical_and ( self.ends > left, self.ends < right)
     
-    def plot_x(self, ax = None,p_cutoff = 0):
-        
-        ax = self.plot_coordinate(cor = 'x', ax = ax,  p_cutoff = p_cutoff)
-
-        return ax
-    
-    def plot_y(self, ax = None, p_cutoff = 0):
-        
-        ax = self.plot_coordinate(cor = 'y', ax = ax ,p_cutoff = p_cutoff)
-        
-        return ax
-    
-    def plot_likelihood(self, ax = None):
-        
-        ax = ax or plt.subplots() [1]
-        ax.plot( self.p )
-        ax.set_xlabel('time (frame)', fontsize = 15)
-        ax.set_ylabel(' tracking likelihood', fontsize = 15)
+            if sum(this_starts ) > 1 or sum( this_ends ) > 1 :
+                
+                print (i, sum(this_starts ), sum( this_ends ))
+                self.starts = np.delete( self.starts, this_starts)
+                self.ends = np.delete( self.ends, this_ends)
+           
 
 
+class AnalogPulse : 
+    
+    def __init__(self, filepath):
+        
+        self.starts = []
+        self.ends = []
+        self.centers = []
+        self.read_smr_detections(filepath)
+        
+    def read_smr_detections(self, filepath):
+        
+        df = pd.read_csv(filepath, skiprows = 4, header = [0])
+        print(df.head())
+        
+        self.starts = df['ON']
+        self.ends = df['OFF']
+        self.centers = np.average( np.column_stack( (self.starts, 
+                                                     self.ends) ), 
+                                  axis = 1)
+        
 plt.close( 'all' )
 filepath_list  = [
     '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_55/STR/squarepulse_0-35mW/Video/Vglut2D2Cre#55_SquarePulse_STR_0-35mW_15cm-s_Stacked_f17.avi' ,
@@ -698,7 +769,9 @@ filepath_list  = [
     '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_70/STR/squarepulse_0-35mW/Video/Vglut2D2Cre#70_SquarePulse_STR_0-35mW_15cm-s_Stacked_f14.avi',
     '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/squarepulse_0-35mW/Video/Vglut2D2Cre#59_SquarePulse_STR_0-35mW_15cm-s_Stacked_f05.avi',
     '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/squarepulse_0-5mW/Video/Vglut2D2Cre#59_SquarePulse_STR_0-5mW_15cm-s_q11_Stacked.avi',
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/betapulse_0-5mW/Video/Vglut2D2Cre#59_betapulse_STR_0-5mW_15cm-s_q12_Stacked.avi']
+    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/betapulse_0-5mW/Video/Vglut2D2Cre#59_betapulse_STR_0-5mW_15cm-s_q12_Stacked.avi',
+    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/betapulse_2-5mW/Video/Vglut2D2Cre#59_betapulse_STR_2-5mW_15cm-s_p12_Stacked.avi',
+    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STN-STR/squarepulse_0-35-0-5mW/Video/Vglut2D2Cre#59_SquarePulse_STR+STN_0-35-0-5mW_15cm-s_Stacked_f04.avi']
 
 filepath_list_DLC = [
     '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_55/STR/squarepulse_0-35mW/DLC/Vglut2D2Cre#55_SquarePulse_STR_0-35mW_15cm-s_Stacked_f17_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
@@ -706,12 +779,19 @@ filepath_list_DLC = [
     '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_70/STR/squarepulse_0-35mW/DLC/Vglut2D2Cre#70_SquarePulse_STR_0-35mW_15cm-s_Stacked_f14_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
     '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/squarepulse_0-35mW/DLC/Vglut2D2Cre#59_SquarePulse_STR_0-35mW_15cm-s_Stacked_f05_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
     '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/squarepulse_0-5mW/DLC/Vglut2D2Cre#59_SquarePulse_STR_0-5mW_15cm-s_q11_Stacked_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/betapulse_0-5mW/DLC/Vglut2D2Cre#59_betapulse_STR_0-5mW_15cm-s_q12_Stacked_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv']
+    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/betapulse_0-5mW/DLC/Vglut2D2Cre#59_betapulse_STR_0-5mW_15cm-s_q12_Stacked_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
+    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/betapulse_2-5mW/DLC/Vglut2D2Cre#59_betapulse_STR_2-5mW_15cm-s_p12_Stacked_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
+    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STN-STR/squarepulse_0-35-0-5mW/DLC/Vglut2D2Cre#59_SquarePulse_STR+STN_0-35-0-5mW_15cm-s_Stacked_f04_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv']
 
-n = 5
+filepath_list_smr = [
+    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_55/STR/squarepulse_0-35mW/Laser/Squarepulse_STR_f17.csv' ,
+
+    ]
+n = 0
 
 filepath_DLC = filepath_list_DLC [ n ]
 filepath = filepath_list [ n ]
+filepath_smr = filepath_list_smr [ n ]
 
 # area_cal_method = 'contour'
 area_cal_method = 'pix_count'
@@ -736,29 +816,37 @@ areas = analysis.one_video( file_no = n,
                             low_img_thresh = RGB_blueLower, 
                             high_img_thresh = RGB_blueUpper, 
                             p_cutoff_ranges = 0.995,
-                            nb_frames = 5000,
+                            nb_frames = None,
                             constrain_frame= constrain_frame,
                             max_dev_in_cm = 1.5)
 
 pulse = Pulse(areas, fs = 250)
-# pulse.detect_laser_start_end(laser_area_thresh = 180, jump_by = 4)
-# pulse.plot_start_ends()
+
+pulse.find_events(gauss_window = 5, 
+                  low_f = 1, high_f = 50, 
+                  filt_order = 10,
+                  peak_heights = 0.4)
+
+pulse.determine_start_ends()
+# ax = pulse.plot_events()
+# ax = pulse.plot_start_ends()
+# ax = plt.plot(   pulse.smoothed_sig/ max(pulse.smoothed_sig))
+
+pulse.remove_problematic_detections()
+pulse.find_centers()
+print(pulse.centers)
+
+smr = AnalogPulse(filepath_smr)
+print(smr.centers/4)
+
+print(pulse.centers - (smr.centers/4)[:-1])
 # ax = pulse.compare_methods(gauss_window = 5, 
 #                             low_f = 1, high_f = 30, 
-#                             filt_order = 10,
+#                             filt_order = 15,
 #                             peak_heights = 40)
 
-ax = pulse.plot()
-pulse.find_laser_centers(
-                       gauss_window = 5, 
-                       low_f = 1, high_f = 50, 
-                       filt_order = 10,
-                       peak_heights = 0.4)
+# pulse.save_pdf( ax.get_figure(), os.path.basename(filepath).replace('.avi', '_constrained_'  + str(constrain_frame)) )
 
-ax = pulse.plot()
-pulse.plot_centers(ax = ax)
-pulse.plot_events(ax = ax)
-pulse.save_pdf( ax.get_figure(), os.path.basename(filepath).replace('.avi', '_constrained_'  + str(constrain_frame)) )
 
 
 # Analyze.pickle_obj({'area' : areas}, filepath.replace('avi', 'pkl') )\
@@ -769,23 +857,3 @@ pulse.save_pdf( ax.get_figure(), os.path.basename(filepath).replace('.avi', '_co
 
 
 
-
-# image = cv2.imread('/home/shiva/Desktop/test/frames_f17/output_00785.png')
-# image = cv2.GaussianBlur(image, (3, 3), 0)
-# mask = cv2.inRange(image, RGB_blueLower, RGB_blueUpper)
-# print(np.count_nonzero(mask))
-# # print(np.nonzero(mask))
-# while True:
- 	
-#     cv2.imshow('785', image)
-#     cv2.imshow('785', mask)
-#     if cv2.waitKey(1) == 27 :
-#         break
-    
-# cv2.destroyAllWindows()
-# cv2.waitKey(1)
-
-
-# s = pd.Series(areas)
-# fig, ax = plt.subplots()
-# ax.plot(s.rolling(20).std())
