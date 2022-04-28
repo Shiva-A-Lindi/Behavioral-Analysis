@@ -8,7 +8,7 @@ Created on Mon Apr 11 13:11:14 2022
 
 
    
-import cv2
+# import cv2
 import csv
 import numpy as np
 import pandas as pd
@@ -27,8 +27,8 @@ else:
     
 from scipy.signal import butter, sosfilt, sosfreqz, spectrogram, sosfiltfilt, find_peaks
 from scipy.ndimage import gaussian_filter1d
-   
-from Sort_exp_files_into_hierarchy.py import Experiment
+from Sort_exp_files_into_hierarchy import *
+
 
 class MouseLocation:
     
@@ -770,7 +770,7 @@ class Pulse :
         
         all_shifts = self.centers - smr.centers
         all_shifts_without_misses = all_shifts[ all_shifts > 0]
-        self.shift_rel_to_smr = np.average( all_shifts_without_misses )
+        self.shift_rel_to_smr = int( np.average( all_shifts_without_misses ) )
         
         print('average shift between laser and smr is (in frames): \n', int(self.shift_rel_to_smr))
         print('std  shift between laser and smr is (in frames): \n', round(np.std( all_shifts_without_misses )))
@@ -784,7 +784,7 @@ class AnalogPulse :
         self.ends = []
         self.centers = []
         self.read_smr_detections(filepath)
-
+        print(self.starts)
         
     def read_smr_detections(self, filepath):
         
@@ -799,19 +799,93 @@ class AnalogPulse :
         
 
         
-            
-
+    def align_to_video(self, shift_rel_to_smr):
+        
+        self.starts += shift_rel_to_smr
+        self.ends += shift_rel_to_smr
         
         
 class ExpeimentFiles :
     
     def __init__(self, video_filepath):
         
-        self.smr = None
+        self.smrf = None
+        self.DLCf = None
         self.exp = Experiment(video_filepath)
         self.exp.extract_info_from_video_filename()
+        self.find_smr_csv()
+        self.exp_dir = os.path.dirname( self.exp.video.dirpath )
         
-    def find_smr_file(self):
+    def find_smr_csv(self):
+        
+        
+        directory = Directory( os.path.join( self.exp_dir, 'Laser'))
+        
+        corres_smr_files = []
+        # print(directory.smr_filepath_list)
+        
+        for smr_path in directory.filepath_list['.csv']:
+        
+            smr_file = File (smr_path)
+            if (self.exp.day_tag in smr_file.name_base and 
+                smr_file.extension == '.csv' and 
+                smr_file.name_base != self.exp.video.name_base + '_Laser') :
+                
+                corres_smr_files.append(smr_file.path)
+            
+        if len( corres_smr_files ) > 1:
+            
+            print(corres_smr_files )
+            raise ValueError(" multiple files with the same day tag!")
+        
+        else:
+            print(corres_smr_files [0])
+            self.smrf = File(corres_smr_files [0])
+           
+    def find_DLC_csv() :
+        
+        directory = Directory( os.path.join( self.exp_dir, 'DLC'))
+        corres_DLC_files = []
+        
+        for DLC_path in directory.DLC_filepath_list:
+        
+            DLC_file = File (DLC_path)
+            if DLC_file.extension == '.csv' :
+                
+                corres_DLC_files.append(DLC_file)
+            
+        if len( corres_DLC_files ) > 1:
+            
+            print(corres_DLC_files )
+            raise ValueError(" multiple files with the same day tag!")
+        
+        else:
+            print(corres_DLC_files [0])
+            self.DLCf = corres_DLC_files [0]
+           
+
+    def save_laser_detections (self, smr):
+
+        metadatas=[
+            [self.exp.video.path],
+            [self.smrf.path]
+           ]
+    
+        df = pd.DataFrame( np.column_stack((smr.starts, smr.ends)),
+                           columns = ['ON', 'OFF'])
+    
+        resultFilePath = os.path.join( self.smrf.dirpath, 
+                                      self.exp.video.name_base +
+                                      '_Laser.csv')
+        
+        with open(resultFilePath, 'w') as resultfile:
+    
+            csvResult=csv.writer(resultfile,delimiter=',', lineterminator='\n')
+            csvResult.writerows(metadatas)
+            
+        df.to_csv(resultFilePath,  mode = 'a', index = False)
+    
+                
         
         
         
@@ -846,34 +920,36 @@ n = 0
 
 filepath_DLC = filepath_list_DLC [ n ]
 filepath = filepath_list [ n ]
-filepath_smr = filepath_list_smr [ n ]
 
-# area_cal_method = 'contour'
-area_cal_method = 'pix_count'
+root = '/Users/apple/Downloads/test'
+filepath = os.path.join( root, 'Video', 'Vglut2D2Cre#55_SquarePulse_STR_0-35mW_15cm-s_Stacked_f17.avi')
 
-treadmil_length_in_cm = 33
-constrain_frame= True
+# # area_cal_method = 'contour'
+# area_cal_method = 'pix_count'
 
-RGB_blueLower = (150, 10,60)
-RGB_blueUpper = (255, 120, 140)
+# treadmil_length_in_cm = 33
+# constrain_frame= True
+
+# RGB_blueLower = (150, 10,60)
+# RGB_blueUpper = (255, 120, 140)
 
 # RGB_blueLower = (50, 80, 60) ## HSV
 # RGB_blueUpper = (150, 255, 255)
 
-analysis = Analyze (filepath_list, filepath_list_DLC,                   
-                    thresh_method = 'rgb',
-                    area_cal_method = area_cal_method,
-                    image_parts = ['upper', 'lower'],
-                    treadmil_length_in_cm = treadmil_length_in_cm)
+# analysis = Analyze (filepath_list, filepath_list_DLC,                   
+#                     thresh_method = 'rgb',
+#                     area_cal_method = area_cal_method,
+#                     image_parts = ['upper', 'lower'],
+#                     treadmil_length_in_cm = treadmil_length_in_cm)
 
 
-areas = analysis.one_video( file_no = n, 
-                            low_img_thresh = RGB_blueLower, 
-                            high_img_thresh = RGB_blueUpper, 
-                            p_cutoff_ranges = 0.995,
-                            nb_frames = None,
-                            constrain_frame= constrain_frame,
-                            max_dev_in_cm = 1.5)
+# areas = analysis.one_video( file_no = n, 
+#                             low_img_thresh = RGB_blueLower, 
+#                             high_img_thresh = RGB_blueUpper, 
+#                             p_cutoff_ranges = 0.995,
+#                             nb_frames = None,
+#                             constrain_frame= constrain_frame,
+#                             max_dev_in_cm = 1.5)
 
 pulse = Pulse(areas, fs = 250)
 
@@ -883,18 +959,23 @@ pulse.find_events(gauss_window = 4,
                   peak_heights = 0.4)
 
 pulse.determine_start_ends()
+pulse.remove_problematic_detections()
+pulse.find_centers()
+
+ep = ExpeimentFiles(filepath)
+smr = AnalogPulse(ep.smrf.path)
+
+
+pulse.align_to_smr(smr, plot = False, report = True)
+pulse.cal_shift_rel_to_smr( smr)
+
+smr.align_to_video(pulse.shift_rel_to_smr)
+ep.save_laser_detections (smr)
+
+
 # ax = pulse.plot_events()
 # ax = pulse.plot_start_ends()
 # ax = plt.plot(   pulse.smoothed_sig/ max(pulse.smoothed_sig))
-
-pulse.remove_problematic_detections()
-pulse.find_centers()
-smr = AnalogPulse(filepath_smr)
-
-pulse.align_to_smr(smr, plot = False)
-pulse.cal_shift_rel_to_smr( smr)
-
-    
 
 # ax = pulse.compare_methods(gauss_window = 5, 
 #                             low_f = 1, high_f = 30, 
@@ -905,9 +986,10 @@ pulse.cal_shift_rel_to_smr( smr)
 
 
 
-Analyze.pickle_obj({'area' : areas}, filepath.replace('avi', 'pkl') )
-data = Analyze.load_pickle(filepath.replace('avi', 'pkl') )
-# plt.plot(data['area'])
+# Analyze.pickle_obj({'area' : areas}, filepath.replace('avi', 'pkl') )
+# data = Analyze.load_pickle(filepath.replace('avi', 'pkl') )
+# areas = data['area']
+# plt.plot(areas)
 
 
 

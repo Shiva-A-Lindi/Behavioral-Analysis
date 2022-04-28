@@ -367,33 +367,33 @@ def if_any_substr_in_str( substr_list, string):
     return any(map(string.__contains__, substr_list))
 
 
-root = '/media/shiva/LaCie/Data_INCIA_Shiva'
+# root = '/media/shiva/LaCie/Data_INCIA_Shiva'
 
-path_list = [os.path.join( root, name) for name in os.listdir(root) if os.path.isdir(os.path.join( root, name)) and name.startswith('2021')]
+# path_list = [os.path.join( root, name) for name in os.listdir(root) if os.path.isdir(os.path.join( root, name)) and name.startswith('2021')]
 
-path = path_list[5]
-print( os.path.basename(path))
+# path = path_list[5]
+# print( os.path.basename(path))
 
 
 
-directory = Directory(path)
-stim_type_list = ['Square', 'Beta', 'beta', 'square']
-print('file extensions in this directory: ', directory.extensions)
+# directory = Directory(path)
+# stim_type_list = ['Square', 'Beta', 'beta', 'square']
+# print('file extensions in this directory: ', directory.extensions)
 
-directory.refine_file_names()
-directory.add_stim_type_to_name(stim_type_list = stim_type_list,
-                                extensions = ['.avi', '.h5', '.pickle', '.csv'])
+# directory.refine_file_names()
+# directory.add_stim_type_to_name(stim_type_list = stim_type_list,
+#                                 extensions = ['.avi', '.h5', '.pickle', '.csv'])
 
-videos = directory.filepath_list['.avi']
+# videos = directory.filepath_list['.avi']
 
-for f in videos:
+# for f in videos:
     
-    exp = Experiment(f)
-    exp.extract_info_from_video_filename()
-    exp.show_specs()
-    exp.find_matching_smr_file( directory.smr_filepath_list)
-    exp.find_matching_DLC_files(directory.DLC_filepath_list)
-    exp.move_files_into_hirerarchy(new_path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted')
+#     exp = Experiment(f)
+#     exp.extract_info_from_video_filename()
+#     exp.show_specs()
+#     exp.find_matching_smr_file( directory.smr_filepath_list)
+#     exp.find_matching_DLC_files(directory.DLC_filepath_list)
+#     exp.move_files_into_hirerarchy(new_path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted')
         
 
 
