@@ -905,8 +905,8 @@ pulse.cal_shift_rel_to_smr( smr)
 
 
 
-# Analyze.pickle_obj({'area' : areas}, filepath.replace('avi', 'pkl') )\
-# data = Analyze.load_pickle(filepath.replace('avi', 'pkl') )
+Analyze.pickle_obj({'area' : areas}, filepath.replace('avi', 'pkl') )
+data = Analyze.load_pickle(filepath.replace('avi', 'pkl') )
 # plt.plot(data['area'])
 
 
