@@ -28,6 +28,8 @@ else:
 from scipy.signal import butter, sosfilt, sosfreqz, spectrogram, sosfiltfilt, find_peaks
 from scipy.ndimage import gaussian_filter1d
    
+from Sort_exp_files_into_hierarchy.py import Experiment
+
 class MouseLocation:
     
 
@@ -516,6 +518,7 @@ class Pulse :
         self.ends = []
         self.smoothed_sig = []
         self.center_vicinities = []
+        self.shift_rel_to_smr = None
         
     @staticmethod
     def butter_bandpass(lowcut, highcut, fs, order=5):
@@ -740,8 +743,39 @@ class Pulse :
                 self.starts = np.delete( self.starts, this_starts)
                 self.ends = np.delete( self.ends, this_ends)
            
+    def align_to_smr(self, smr, plot = False, report = False):
+        
+        n_missing = len( smr.centers) - len( self.centers) # number of missing laser detections
+        diff_laser_smr = self.centers - smr.centers[: -n_missing]
+       
+        
+        t_bet_stim = np.average( np.diff (smr.centers)) # estimated time difference between two pulses
+        
+        
+        ind_bef_missed = np.where( np.diff(diff_laser_smr) > t_bet_stim) [0]
+        self.centers  = np.insert( self.centers, ind_bef_missed + 1, np.zeros_like(ind_bef_missed)) ## add zeros instead of missing values
+        
+        if report:
+            
+            print("original differences between laser detection and smr", diff_laser_smr)
+            print(" estimated time difference between two pulses :\n", t_bet_stim )
+            print("differences after alignment :\n", self.centers - smr.centers)
+            
+        if plot:
+            
+            fig, ax = plt.subplots()
+            ax.plot(diff_laser_smr, '-o')
 
-
+    def cal_shift_rel_to_smr(self, smr):
+        
+        all_shifts = self.centers - smr.centers
+        all_shifts_without_misses = all_shifts[ all_shifts > 0]
+        self.shift_rel_to_smr = np.average( all_shifts_without_misses )
+        
+        print('average shift between laser and smr is (in frames): \n', int(self.shift_rel_to_smr))
+        print('std  shift between laser and smr is (in frames): \n', round(np.std( all_shifts_without_misses )))
+        
+        
 class AnalogPulse : 
     
     def __init__(self, filepath):
@@ -750,6 +784,7 @@ class AnalogPulse :
         self.ends = []
         self.centers = []
         self.read_smr_detections(filepath)
+
         
     def read_smr_detections(self, filepath):
         
@@ -760,7 +795,27 @@ class AnalogPulse :
         self.ends = df['OFF']
         self.centers = np.average( np.column_stack( (self.starts, 
                                                      self.ends) ), 
-                                  axis = 1)
+                                  axis = 1) / 4
+        
+
+        
+            
+
+        
+        
+class ExpeimentFiles :
+    
+    def __init__(self, video_filepath):
+        
+        self.smr = None
+        self.exp = Experiment(video_filepath)
+        self.exp.extract_info_from_video_filename()
+        
+    def find_smr_file(self):
+        
+        
+        
+        
         
 plt.close( 'all' )
 filepath_list  = [
@@ -822,7 +877,7 @@ areas = analysis.one_video( file_no = n,
 
 pulse = Pulse(areas, fs = 250)
 
-pulse.find_events(gauss_window = 5, 
+pulse.find_events(gauss_window = 4, 
                   low_f = 1, high_f = 50, 
                   filt_order = 10,
                   peak_heights = 0.4)
@@ -834,12 +889,13 @@ pulse.determine_start_ends()
 
 pulse.remove_problematic_detections()
 pulse.find_centers()
-print(pulse.centers)
-
 smr = AnalogPulse(filepath_smr)
-print(smr.centers/4)
 
-print(pulse.centers - (smr.centers/4)[:-1])
+pulse.align_to_smr(smr, plot = False)
+pulse.cal_shift_rel_to_smr( smr)
+
+    
+
 # ax = pulse.compare_methods(gauss_window = 5, 
 #                             low_f = 1, high_f = 30, 
 #                             filt_order = 15,
