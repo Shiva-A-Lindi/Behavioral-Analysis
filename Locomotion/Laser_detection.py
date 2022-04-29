@@ -8,14 +8,14 @@ Created on Mon Apr 11 13:11:14 2022
 
 
    
-# import cv2
+import cv2
 import csv
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import os, sys
 import pickle
-import timeit
+import timeit, time
 from threading import Thread
 # import the Queue class from Python 3
 if sys.version_info >= (3, 0):
@@ -29,6 +29,11 @@ from scipy.signal import butter, sosfilt, sosfreqz, spectrogram, sosfiltfilt, fi
 from scipy.ndimage import gaussian_filter1d
 from Sort_exp_files_into_hierarchy import *
 
+class test(Experiment):
+    
+    def __init__(self):
+        
+        self.b = 5
 
 class MouseLocation:
     
@@ -100,8 +105,8 @@ class MouseLocation:
         self.y_range = np.array([ max(np.min( self.y[ high_likelohood_ind ]) - self.max_dist_nose_to_laser, 0),
                                  np.max( self.y[ high_likelohood_ind ]) - self.max_dist_nose_to_laser /5 ]).astype(int)  
         
-        print( ' x range bounds = ', self.x_range, 
-               ' y range bounds = ', self.y_range)
+        print( ' x range = ', self.x_range, 
+               ' y range = ', self.y_range)
         
     def plot_coordinate(self, ax = None, cor = 'x', p_cutoff = 0):
         
@@ -234,38 +239,35 @@ class VideoStream:
         self.stopped = True     
     
     
-class Analyze :
+class LaserDetector :
     
     def __init__ (self, 
-                  video_path_list, 
-                  DLC_path_list,
+                  video_filepath, 
+                  DLC_filepath,
                   thresh_method = 'rgb',
                   area_cal_method = 'pix_count',
                   image_parts = ['upper', 'lower'],
                   treadmil_length_in_cm = 33):
         
-        self.video_path_list = video_path_list
-        self.DLC_path_list = DLC_path_list
+        self.video_filepath = video_filepath
+        self.DLC_filepath = DLC_filepath
         self.thresh_method = thresh_method
         self.area_cal_method = area_cal_method
         self.image_parts = image_parts
         self.treadmil_length_in_cm = treadmil_length_in_cm 
         
-    def set_laser_boundaries(self, file_no = 0, 
+    def set_laser_boundaries(self, 
                              p_cutoff = 0.995, 
                              treadmil_length_in_pix = 1000,
                              max_dev_in_cm = 2, 
                              plot_bounds = False):
         
-        DLC_filepath= self.DLC_path_list [file_no]
-        video_filepath = self.video_path_list [file_no]
-        
-        mloc_lower = MouseLocation( DLC_filepath , 'lower', p_cutoff = p_cutoff,
+        mloc_lower = MouseLocation( self.DLC_filepath , 'lower', p_cutoff = p_cutoff,
                                     treadmil_length_in_cm = self.treadmil_length_in_cm, 
                                     treadmil_length_in_pix = treadmil_length_in_pix,
                                     max_dev_in_cm = max_dev_in_cm )
         
-        mloc_upper = MouseLocation( DLC_filepath , 'upper', p_cutoff = p_cutoff, 
+        mloc_upper = MouseLocation( self.DLC_filepath , 'upper', p_cutoff = p_cutoff, 
                                     treadmil_length_in_cm = self.treadmil_length_in_cm, 
                                     treadmil_length_in_pix = treadmil_length_in_pix,
                                     max_dev_in_cm = max_dev_in_cm )
@@ -285,8 +287,7 @@ class Analyze :
     
     
     
-    def one_video(self, 
-                  file_no = 0,   
+    def detect(self, 
                   low_img_thresh = (150, 10,60), 
                   high_img_thresh = (255, 120, 140),
                   nb_frames = None,
@@ -296,17 +297,16 @@ class Analyze :
         
         start = timeit.default_timer()
         
-        vidstr = VideoStream( self.video_path_list[ file_no ] , nb_frames = nb_frames). start()
+        vidstr = VideoStream( self.video_filepath , nb_frames = nb_frames). start()
         
         x_range, y_range = None, None
         
         if constrain_frame:
-            x_range, y_range = self.set_laser_boundaries(file_no = file_no, 
-                                                         p_cutoff = p_cutoff_ranges, 
+            x_range, y_range = self.set_laser_boundaries( p_cutoff = p_cutoff_ranges, 
                                                          treadmil_length_in_pix = vidstr.treadmil_length_in_pix,
                                                          max_dev_in_cm = max_dev_in_cm )
             
-        laser = LaserDetector ( low_img_thresh, high_img_thresh )
+        laser = Laser ( low_img_thresh, high_img_thresh )
                     
         laser.detect(vidstr, 
                      nb_frames = nb_frames,
@@ -317,8 +317,10 @@ class Analyze :
                      image_parts = self.image_parts)
         
         stop = timeit.default_timer()
-        print('t =', round(stop - start, 2))
-            
+        try:
+            print('runtime =', time.strftime("%M:%S", time.gmtime(round(stop - start, 2))[1:])) 
+        except:
+            pass
         return laser.area_list
     
     def all_video(self):
@@ -397,6 +399,7 @@ class Frame :
             laser_area = cv2.contourArea(contour_max) 
         
         return laser_area
+    
     def count_threshold_passed_pix(self, masked, image_parts = ['upper', 'lower']):
         
         if self.constrain_frame:
@@ -429,7 +432,7 @@ class Frame :
 
         return masked, laser_area
     
-class LaserDetector :
+class Laser :
     
     def __init__(self, 
                  low_img_thresh : tuple, 
@@ -476,8 +479,8 @@ class LaserDetector :
             n += 1
             frame.no = n
             
-            if int(frame.no) % 250 == 0:
-                print('frame :', frame.no)
+            # if int(frame.no) % 1000 == 0:
+            #     print('frame :', frame.no)
                 
             
             masked, self.area_list [frame.no - 1] = frame.detect_laser( self.low_img_thresh, 
@@ -508,7 +511,7 @@ class Pulse :
     def __init__( self, sig, fs = 250, low_f = 1, high_f = 50):
         
         self.signal = sig
-        self.raw_signal = sig
+        self.raw_signal = sig.copy()
         self.low_f = low_f
         self.high_f = high_f
         self.fs = fs
@@ -519,6 +522,7 @@ class Pulse :
         self.smoothed_sig = []
         self.center_vicinities = []
         self.shift_rel_to_smr = None
+        self.method = None
         
     @staticmethod
     def butter_bandpass(lowcut, highcut, fs, order=5):
@@ -553,30 +557,14 @@ class Pulse :
         ''' signal should be low pass filtered so that the peaks are negative values'''
         
         self.events, _ = find_peaks( -self.signal, height = height)
-        
-    def plot_events(self, ax = None):
-        
-        ax = ax or plt.subplots()[1]
-
-        ax.plot( self.events, self.signal [self.events] , 'x', ms = 10, c = 'k')
-
-        return ax
     
-    def plot_centers(self, ax = None):
-           
-        ax = ax or plt.subplots()[1]
-
-        ax.plot(self.centers, np.full(len(self.centers), -0.1) , 'x', ms = 10, c = 'r')
-
-        return ax
     
     def find_centers(self):
         
         self.centers = np.average( np.column_stack( (self.starts, 
                                                      self.ends)) , 
                                   axis = 1)
-    def find_events(self,
-                           gauss_window = 5, 
+    def find_events(self, gauss_window = 5, 
                            low_f = 1, high_f = 50, 
                            filt_order = 10,
                            peak_heights = 40):
@@ -586,31 +574,11 @@ class Pulse :
                         filt_order = filt_order)
         
         self.find_peaks(height = peak_heights)
-
-        try:
-
-            self.centers = np.average( np.column_stack((self.events[::2], self.events[1::2])), axis = 1 )
-
-        except (ValueError, ZeroDivisionError): 
-            print("couldn't find centers")
         
-    def plot( self, signal = [], label = 'true signal', ax = None ) :
+    def determine_start_ends(self, center_vicinity_h_thresh = 0.4):
         
-        if len(signal) == 0:
-            signal = self.signal
-        ax = ax or plt.subplots()[1]
-        
-        ax.plot(signal, '-o', ms = 1, label = label)
-        ax.set_ylabel('# blue pixels in frame', fontsize = 15)
-        ax.set_xlabel('# frame', fontsize = 15)
-        ax.legend(frameon = False, fontsize = 10)
-        
-        return ax
-    
-    def determine_start_ends(self):
-        
-        self.smoothed_sig = gaussian_filter1d( self.raw_signal, 100)
-        self.center_vicinities,_ = find_peaks(self.smoothed_sig/ max( self.smoothed_sig), height = 0.25)
+        self.smoothed_sig = gaussian_filter1d( self.raw_signal.copy(), 100)
+        self.center_vicinities,_ = find_peaks(self.normalize(self.smoothed_sig), height = center_vicinity_h_thresh)
 
         derivative_at_events = np.diff( self.smoothed_sig ) [self.events]
         self.starts = self.events[ derivative_at_events > 0]
@@ -643,17 +611,127 @@ class Pulse :
         self.detect_start_by_thresh ( ind_thr_pass, jump_by = jump_by)
         self.detect_ends_by_thresh (ind_thr_pass, jump_by = jump_by)
         
-
-    def plot_start_ends(self, ax = None):
+    def pre_process(self,
+                    gauss_window = 5, 
+                    low_f = 1, high_f = 50, 
+                    filt_order = 10,
+                    peak_heights = 40):
         
-        ax = ax or plt.subplots() [1]
-
-        ax = self.plot(ax = ax)
-        ax.plot( self.starts, self.signal[ self.starts], 'x', c = 'magenta')
-        ax.plot( self.ends, self.signal[ self.ends], 'x', c = 'r')
-
-        return ax
+        self.gauss_filter(gauss_window = gauss_window)
+        self.low_pass_filter(low_f = low_f, high_f = high_f, fs = self.fs, filt_order = filt_order)
+        self.normalize_filtered_sig()
+        
     
+    
+    def remove_problematic_detections(self):
+        
+        ''' remove detected laser start and ends where there are more than one detected for one peak'''
+        
+        between_pulses = np.average( np.column_stack( (self.center_vicinities, 
+                                                     np.roll(self.center_vicinities, -1))),
+                                    axis = 1) [:-1]
+        
+        pulse_boundaries = np.zeros( len(between_pulses) + 2)
+        pulse_boundaries[ 1:-1] = between_pulses
+        pulse_boundaries [-1] = len(self.raw_signal)
+        
+        n_to_remove = 0
+        for i, (left, right) in enumerate( zip(pulse_boundaries, pulse_boundaries[1:])):
+            
+            
+            this_starts = np.logical_and ( self.starts > left, self.starts < right)
+            this_ends = np.logical_and ( self.ends > left, self.ends < right)
+    
+            if sum(this_starts ) !=  1 or sum( this_ends ) != 1 :
+                
+                self.starts = np.delete( self.starts, this_starts)
+                self.ends = np.delete( self.ends, this_ends)
+                n_to_remove +=1 
+        
+        print(' {} pulses flagged as problematic'.format( n_to_remove) )
+
+    def use_laser_detection_only(self, smr):
+        
+        base_on_laser_only = False
+        
+        if len(self.centers_aligned) == len (smr.centers):
+            
+            self.method = 'Method: smr file with all-pulses alignement'            
+            self.centers = self.centers_aligned
+            self.cal_shift_rel_to_smr_all_pulses( smr )
+        
+        elif len(self.center_vicinities) == len( smr.centers ): # first peak is found but there are more than one 
+                                                            # consequtive pulses missed in laser detection
+                                                            
+            self.method = 'Method: smr file with first-pulse alignement'                                      
+            self.cal_shift_rel_to_smr_first_pulse_only( smr)
+        
+        else: # all methods fail, only include the definitive laser detections instead of alignment
+            
+            self.method = 'Method: laser detections only'
+            self.cal_exact_start_ends(smr)
+            base_on_laser_only = True
+            
+        print(self.method)
+        return base_on_laser_only
+            
+    def cal_exact_start_ends(self, smr):
+        
+        laser_duration = int( np.average( smr.ends - smr.starts) )
+        
+        self.start = (self.centers - laser_duration / 2 ).astype(int)
+        self.ends = (self.centers + laser_duration / 2 ).astype(int)
+        
+    def cal_shift_rel_to_smr_first_pulse_only(self, smr):
+        
+        '''  calculate shift from the first pulse only '''
+        
+        self.shift_rel_to_smr = self.centers[0] - smr.centers [0]
+        
+    def cal_shift_rel_to_smr_all_pulses(self, smr):
+        
+            
+        all_shifts = self.centers - smr.centers
+        all_shifts_without_misses = all_shifts[ all_shifts > 0]
+        self.shift_rel_to_smr = int( np.average( all_shifts_without_misses ) )
+
+
+
+        print('shift between laser and smr: \n', 
+              int(self.shift_rel_to_smr), u"\u00B1",
+              round(np.std( all_shifts_without_misses )),
+              ' frames')
+
+    def fill_missing_pulses(self, smr, plot = False, report = False):
+        
+        
+        n_missing = len( smr.centers) - len( self.centers) # number of missing laser detections
+        
+        if n_missing > 0 :
+            diff_laser_smr = self.centers - smr.centers[: -n_missing]
+            
+                
+            
+            t_bet_stim = np.average( np.diff (smr.centers)) # estimated time difference between two pulses
+            
+            
+            ind_bef_missed = np.where( np.diff(diff_laser_smr) > t_bet_stim) [0]
+            self.centers_aligned  = np.insert( self.centers, ind_bef_missed + 1, np.zeros_like(ind_bef_missed)) ## add zeros instead of missing values
+    
+            print(' {} pulses missing in video detection'.format(n_missing))
+            
+            if report:
+                
+                print("original differences between laser detection and smr", diff_laser_smr)
+                print(" estimated time difference between two pulses :\n", t_bet_stim )
+                # print("differences after alignment :\n", self.centers - smr.centers)
+                
+            if plot:
+                
+                fig, ax = plt.subplots()
+                ax.plot(diff_laser_smr, '-o')
+        else:
+            self.centers_aligned = self.centers.copy()
     def compare_methods(self, gauss_window = 5, 
                         low_f = 1, high_f = 50, 
                         filt_order = 10,
@@ -674,28 +752,79 @@ class Pulse :
         
         self.find_peaks(height = peak_heights)
         ax = self.plot_events(ax = ax)
-        
 
         self.signal = sig_copy
 
         return ax
     
-    def pre_process(self,
-                    gauss_window = 5, 
-                    low_f = 1, high_f = 50, 
-                    filt_order = 10,
-                    peak_heights = 40):
-        
-        self.gauss_filter(gauss_window = gauss_window)
-        self.low_pass_filter(low_f = low_f, high_f = high_f, fs = self.fs, filt_order = filt_order)
-        self.normalize_filtered_sig()
-        
+
     
     def normalize_filtered_sig(self):
         
         
         max_sig = max( abs ( self.signal[ self.signal < 0]) )
         self.signal = self.signal / max_sig
+
+    def normalize(self, sig):
+        
+        max_sig = max( abs ( sig) )
+        return sig / max_sig
+        
+    
+    def plot( self, signal = [], label = 'true signal', ax = None , c = 'darkgrey') :
+        
+        if len(signal) == 0:
+            signal = self.signal
+            
+        ax = ax or plt.subplots()[1]
+        
+        ax.plot(signal, '-o', ms = 1, label = label, c = c)
+        ax.set_ylabel('# blue pixels in frame', fontsize = 15)
+        ax.set_xlabel('# frame', fontsize = 15)
+        ax.legend(frameon = False, loc = 'lower right', fontsize = 12, bbox_to_anchor=(1.25, 0.15))
+        
+        return ax
+    
+    def plot_events(self, ax = None):
+        
+        ax = ax or plt.subplots()[1]
+        
+        ax = self.plot(ax = ax, label = 'filtered')
+        ax.plot( self.normalize(self.smoothed_sig), label = 'smoothed' , c = 'orange')
+        ax.plot( self.events, self.signal [self.events] , 'x', ms = 10, c = 'k', label = 'events')
+        ax.legend(frameon = False, loc = 'lower right', fontsize = 12, bbox_to_anchor=(1.25, 0.15))
+        
+        return ax
+    
+    def plot_start_ends(self, ax = None):
+        
+        ax = ax or plt.subplots() [1]
+        
+        ax = self.plot(ax = ax, label = 'filtered')
+        ax = self.plot(signal = self.normalize(self.raw_signal), ax = ax, c = 'teal')
+
+        ax.plot( self.normalize(self.smoothed_sig), label = 'smoothed' , c = 'orange')
+        ax.plot( self.center_vicinities, self.normalize(self.smoothed_sig)[self.center_vicinities], 'o', c = 'y', ms = 7,
+                label = 'center appx' )
+        ax.plot( self.starts, self.signal[ self.starts], 'o', c = 'blue', label = 'det start')
+        ax.plot( self.ends, self.signal[ self.ends], 'o', c = 'r', label = 'det end')
+        ax.legend(frameon = False, loc = 'lower right', fontsize = 12, bbox_to_anchor=(1.25, 0.15))
+        ax.set_ylabel('normalized # blue pixels in frame', fontsize = 15)
+
+        return ax
+    
+    def plot_centers(self, ax = None):
+           
+        ax = ax or plt.subplots()[1]
+
+        ax = self.plot_start_ends( ax = ax)
+        ax.scatter(self.centers, self.normalize(self.smoothed_sig)[ self.centers.astype(int) ] , s=120, 
+                   facecolor = 'none', ec = 'k', lw = 3, label = 'center exact')
+        ax.legend(frameon = False, loc = 'lower right', fontsize = 12, bbox_to_anchor=(1.25, 0.15))
+
+        return ax
+
+
 
     @staticmethod
     def shift(arr, num, fill_value=np.nan):
@@ -713,68 +842,12 @@ class Pulse :
         return result
     
     @staticmethod
-    def save_pdf(fig, figname, size = (8,6)):
+    def save_pdf(fig, figname, size = (10,4)):
         
         fig.set_size_inches(size, forward=False)
         fig.savefig(figname + '.pdf', dpi = 500, facecolor='w', edgecolor='w',
                         orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
-    def remove_problematic_detections(self):
-        
-        ''' remove detected laser start and ends where there are more than one detected for one peak'''
-        
-        between_pulses = np.average( np.column_stack( (self.center_vicinities, 
-                                                     np.roll(self.center_vicinities, -1))),
-                                    axis = 1) [:-1]
-    
-        pulse_boundaries = np.zeros( len(between_pulses) + 2)
-        pulse_boundaries[ 1:-1] = between_pulses
-        pulse_boundaries [-1] = len(self.raw_signal)
-    
-        for i, (left, right) in enumerate( zip(pulse_boundaries, pulse_boundaries[1:])):
-            
-            
-            this_starts = np.logical_and ( self.starts > left, self.starts < right)
-            this_ends = np.logical_and ( self.ends > left, self.ends < right)
-    
-            if sum(this_starts ) > 1 or sum( this_ends ) > 1 :
-                
-                print (i, sum(this_starts ), sum( this_ends ))
-                self.starts = np.delete( self.starts, this_starts)
-                self.ends = np.delete( self.ends, this_ends)
-           
-    def align_to_smr(self, smr, plot = False, report = False):
-        
-        n_missing = len( smr.centers) - len( self.centers) # number of missing laser detections
-        diff_laser_smr = self.centers - smr.centers[: -n_missing]
-       
-        
-        t_bet_stim = np.average( np.diff (smr.centers)) # estimated time difference between two pulses
-        
-        
-        ind_bef_missed = np.where( np.diff(diff_laser_smr) > t_bet_stim) [0]
-        self.centers  = np.insert( self.centers, ind_bef_missed + 1, np.zeros_like(ind_bef_missed)) ## add zeros instead of missing values
-        
-        if report:
-            
-            print("original differences between laser detection and smr", diff_laser_smr)
-            print(" estimated time difference between two pulses :\n", t_bet_stim )
-            print("differences after alignment :\n", self.centers - smr.centers)
-            
-        if plot:
-            
-            fig, ax = plt.subplots()
-            ax.plot(diff_laser_smr, '-o')
-
-    def cal_shift_rel_to_smr(self, smr):
-        
-        all_shifts = self.centers - smr.centers
-        all_shifts_without_misses = all_shifts[ all_shifts > 0]
-        self.shift_rel_to_smr = int( np.average( all_shifts_without_misses ) )
-        
-        print('average shift between laser and smr is (in frames): \n', int(self.shift_rel_to_smr))
-        print('std  shift between laser and smr is (in frames): \n', round(np.std( all_shifts_without_misses )))
-        
         
 class AnalogPulse : 
     
@@ -784,18 +857,17 @@ class AnalogPulse :
         self.ends = []
         self.centers = []
         self.read_smr_detections(filepath)
-        print(self.starts)
+
         
     def read_smr_detections(self, filepath):
         
         df = pd.read_csv(filepath, skiprows = 4, header = [0])
-        print(df.head())
         
-        self.starts = df['ON']
-        self.ends = df['OFF']
+        self.starts = df['ON'] / 4
+        self.ends = df['OFF'] / 4
         self.centers = np.average( np.column_stack( (self.starts, 
                                                      self.ends) ), 
-                                  axis = 1) / 4
+                                  axis = 1) 
         
 
         
@@ -805,77 +877,79 @@ class AnalogPulse :
         self.ends += shift_rel_to_smr
         
         
-class ExpeimentFiles :
+class SortedExpeiment(Experiment) :
     
     def __init__(self, video_filepath):
         
-        self.smrf = None
-        self.DLCf = None
-        self.exp = Experiment(video_filepath)
-        self.exp.extract_info_from_video_filename()
-        self.find_smr_csv()
-        self.exp_dir = os.path.dirname( self.exp.video.dirpath )
+        Experiment.__init__(self, video_filepath)
         
-    def find_smr_csv(self):
-        
-        
-        directory = Directory( os.path.join( self.exp_dir, 'Laser'))
-        
-        corres_smr_files = []
-        # print(directory.smr_filepath_list)
-        
-        for smr_path in directory.filepath_list['.csv']:
-        
-            smr_file = File (smr_path)
-            if (self.exp.day_tag in smr_file.name_base and 
-                smr_file.extension == '.csv' and 
-                smr_file.name_base != self.exp.video.name_base + '_Laser') :
-                
-                corres_smr_files.append(smr_file.path)
-            
-        if len( corres_smr_files ) > 1:
-            
-            print(corres_smr_files )
-            raise ValueError(" multiple files with the same day tag!")
-        
-        else:
-            print(corres_smr_files [0])
-            self.smrf = File(corres_smr_files [0])
-           
-    def find_DLC_csv() :
-        
-        directory = Directory( os.path.join( self.exp_dir, 'DLC'))
-        corres_DLC_files = []
-        
-        for DLC_path in directory.DLC_filepath_list:
-        
-            DLC_file = File (DLC_path)
-            if DLC_file.extension == '.csv' :
-                
-                corres_DLC_files.append(DLC_file)
-            
-        if len( corres_DLC_files ) > 1:
-            
-            print(corres_DLC_files )
-            raise ValueError(" multiple files with the same day tag!")
-        
-        else:
-            print(corres_DLC_files [0])
-            self.DLCf = corres_DLC_files [0]
-           
+        self.files = {}
+        self.check_func = {'DLC': self.right_DLC, 
+                           'smr': self.right_smr}
+    
 
-    def save_laser_detections (self, smr):
+        self.extract_info_from_video_filename()
+        self.exp_dir = os.path.dirname( self.video.dirpath )
+        
+        self.find_smr_DLC_csv()
+        print('Video: ', self.video.name)
+        print( 'DLC  : ', self.files['DLC'].name )
+        print( 'smr  : ', self.files['smr'].name )
+        
+    def right_smr (self, file):
+        
+        condition_1 = self.day_tag in file.name_base
+        condition_2 = file.name_base != self.video.name_base + '_Laser'
+    
+        return condition_1 and condition_2 
+    
+    def right_DLC (self, file):
+
+        condition_1 = self.day_tag in file.name_base
+        condition_2 = ('modif' not in file.name_base)
+        
+        return condition_1 and condition_2 
+    
+            
+    def find_csv_file(self, folder = 'Laser', d_type = 'smr') :
+        
+        directory = Directory( os.path.join( self.exp_dir, folder))
+        corres_files = []
+        
+        for path in directory.filepath_list['.csv']:
+        
+            file = File ( path )
+            
+            if self.check_func[ d_type] (file):
+                
+                corres_files.append(file)
+            
+        if len( corres_files ) > 1:
+            
+            [ print(f.path) for f in corres_files]
+            raise ValueError(" multiple files with the same day tag!")
+        
+        else:
+
+            self.files[d_type] = corres_files [0]
+           
+    def find_smr_DLC_csv(self):
+        
+        self.find_csv_file( folder = 'Laser', d_type = 'smr')
+        self.find_csv_file( folder = 'DLC', d_type = 'DLC')
+        
+    def save_laser_detections (self, starts, ends):
 
         metadatas=[
-            [self.exp.video.path],
-            [self.smrf.path]
+            [self.video.path],
+            [self.files['smr'].path]
            ]
     
-        df = pd.DataFrame( np.column_stack((smr.starts, smr.ends)),
+        df = pd.DataFrame( np.column_stack(( starts, ends)),
                            columns = ['ON', 'OFF'])
     
-        resultFilePath = os.path.join( self.smrf.dirpath, 
-                                      self.exp.video.name_base +
+        resultFilePath = os.path.join( self.files['smr'].dirpath, 
+                                      self.video.name_base +
                                       '_Laser.csv')
         
         with open(resultFilePath, 'w') as resultfile:
@@ -885,111 +959,107 @@ class ExpeimentFiles :
             
         df.to_csv(resultFilePath,  mode = 'a', index = False)
     
-                
+    def plot_laser_detections(self, ax, centers, y_plot, title = None):
         
+        for center, y in zip( centers[:-1], y_plot[:-1]) :
+            
+            ax.axvline( x = center, ymin = y, ymax = 1, ls = '--', c = 'limegreen', zorder= 0)
+        
+        ax.axvline( x = centers[-1], ymin = y_plot[-1], ymax = 1, ls = '--', c = 'limegreen', zorder= 0, label = 'output')
+
+        ax.set_title(title, fontsize = 12)      
+        ax.legend(frameon = False, loc = 'lower right', fontsize = 12, bbox_to_anchor=(1.25, 0.15))
+
         
         
         
         
 plt.close( 'all' )
-filepath_list  = [
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_55/STR/squarepulse_0-35mW/Video/Vglut2D2Cre#55_SquarePulse_STR_0-35mW_15cm-s_Stacked_f17.avi' ,
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_58/STR/squarepulse_0-35mW/Video/Vglut2D2Cre#58_SquarePulse_STR_0-35mW_15cm-s_Stacked_f08.avi',
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_70/STR/squarepulse_0-35mW/Video/Vglut2D2Cre#70_SquarePulse_STR_0-35mW_15cm-s_Stacked_f14.avi',
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/squarepulse_0-35mW/Video/Vglut2D2Cre#59_SquarePulse_STR_0-35mW_15cm-s_Stacked_f05.avi',
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/squarepulse_0-5mW/Video/Vglut2D2Cre#59_SquarePulse_STR_0-5mW_15cm-s_q11_Stacked.avi',
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/betapulse_0-5mW/Video/Vglut2D2Cre#59_betapulse_STR_0-5mW_15cm-s_q12_Stacked.avi',
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/betapulse_2-5mW/Video/Vglut2D2Cre#59_betapulse_STR_2-5mW_15cm-s_p12_Stacked.avi',
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STN-STR/squarepulse_0-35-0-5mW/Video/Vglut2D2Cre#59_SquarePulse_STR+STN_0-35-0-5mW_15cm-s_Stacked_f04.avi']
 
-filepath_list_DLC = [
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_55/STR/squarepulse_0-35mW/DLC/Vglut2D2Cre#55_SquarePulse_STR_0-35mW_15cm-s_Stacked_f17_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_58/STR/squarepulse_0-35mW/DLC/Vglut2D2Cre#58_SquarePulse_STR_0-35mW_15cm-s_Stacked_f08_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_70/STR/squarepulse_0-35mW/DLC/Vglut2D2Cre#70_SquarePulse_STR_0-35mW_15cm-s_Stacked_f14_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/squarepulse_0-35mW/DLC/Vglut2D2Cre#59_SquarePulse_STR_0-35mW_15cm-s_Stacked_f05_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/squarepulse_0-5mW/DLC/Vglut2D2Cre#59_SquarePulse_STR_0-5mW_15cm-s_q11_Stacked_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/betapulse_0-5mW/DLC/Vglut2D2Cre#59_betapulse_STR_0-5mW_15cm-s_q12_Stacked_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/betapulse_2-5mW/DLC/Vglut2D2Cre#59_betapulse_STR_2-5mW_15cm-s_p12_Stacked_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv',
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STN-STR/squarepulse_0-35-0-5mW/DLC/Vglut2D2Cre#59_SquarePulse_STR+STN_0-35-0-5mW_15cm-s_Stacked_f04_DLC_resnet_50_treadmillOptoJun3shuffle1_1030000.csv']
+# area_cal_method = 'contour'
+area_cal_method = 'pix_count'
 
-filepath_list_smr = [
-    '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_55/STR/squarepulse_0-35mW/Laser/Squarepulse_STR_f17.csv' ,
-
-    ]
-n = 0
-
-filepath_DLC = filepath_list_DLC [ n ]
-filepath = filepath_list [ n ]
-
-root = '/Users/apple/Downloads/test'
-filepath = os.path.join( root, 'Video', 'Vglut2D2Cre#55_SquarePulse_STR_0-35mW_15cm-s_Stacked_f17.avi')
-
-# # area_cal_method = 'contour'
-# area_cal_method = 'pix_count'
-
-# treadmil_length_in_cm = 33
-# constrain_frame= True
-
-# RGB_blueLower = (150, 10,60)
-# RGB_blueUpper = (255, 120, 140)
-
-# RGB_blueLower = (50, 80, 60) ## HSV
-# RGB_blueUpper = (150, 255, 255)
-
-# analysis = Analyze (filepath_list, filepath_list_DLC,                   
-#                     thresh_method = 'rgb',
-#                     area_cal_method = area_cal_method,
-#                     image_parts = ['upper', 'lower'],
-#                     treadmil_length_in_cm = treadmil_length_in_cm)
+treadmil_length_in_cm = 33
+constrain_frame= True
 
 
-# areas = analysis.one_video( file_no = n, 
-#                             low_img_thresh = RGB_blueLower, 
-#                             high_img_thresh = RGB_blueUpper, 
-#                             p_cutoff_ranges = 0.995,
-#                             nb_frames = None,
-#                             constrain_frame= constrain_frame,
-#                             max_dev_in_cm = 1.5)
+# # RGB_blueLower = (50, 80, 60) ## HSV
+# # RGB_blueUpper = (150, 255, 255)
 
-pulse = Pulse(areas, fs = 250)
-
-pulse.find_events(gauss_window = 4, 
-                  low_f = 1, high_f = 50, 
-                  filt_order = 10,
-                  peak_heights = 0.4)
-
-pulse.determine_start_ends()
-pulse.remove_problematic_detections()
-pulse.find_centers()
-
-ep = ExpeimentFiles(filepath)
-smr = AnalogPulse(ep.smrf.path)
+RGB_blueLower = (150, 10,60)
+RGB_blueUpper = (255, 120, 140)
 
 
-pulse.align_to_smr(smr, plot = False, report = True)
-pulse.cal_shift_rel_to_smr( smr)
+path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_55'
+laser_detection_path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/LASER_DETECTION'
 
-smr.align_to_video(pulse.shift_rel_to_smr)
-ep.save_laser_detections (smr)
+directory = Directory(path)
+video_filepath_list = directory.get_spec_files( extensions= ['.avi', '.mp4', '.mov'])
+print( '{} experiment files found.'.format(len(video_filepath_list)) )
 
-
-# ax = pulse.plot_events()
-# ax = pulse.plot_start_ends()
-# ax = plt.plot(   pulse.smoothed_sig/ max(pulse.smoothed_sig))
-
-# ax = pulse.compare_methods(gauss_window = 5, 
-#                             low_f = 1, high_f = 30, 
-#                             filt_order = 15,
-#                             peak_heights = 40)
-
-# pulse.save_pdf( ax.get_figure(), os.path.basename(filepath).replace('.avi', '_constrained_'  + str(constrain_frame)) )
+for filepath in video_filepath_list:
 
 
 
-# Analyze.pickle_obj({'area' : areas}, filepath.replace('avi', 'pkl') )
-# data = Analyze.load_pickle(filepath.replace('avi', 'pkl') )
-# areas = data['area']
-# plt.plot(areas)
+
+
+    sorted_exp = SortedExpeiment(filepath)
+    laser_detector = LaserDetector( sorted_exp.video.path,  
+                                    sorted_exp.files['DLC'].path,
+                                    thresh_method = 'rgb',
+                                    area_cal_method = area_cal_method,
+                                    image_parts = ['upper', 'lower'],
+                                    treadmil_length_in_cm = treadmil_length_in_cm)
+    
+    areas = laser_detector.detect ( low_img_thresh = RGB_blueLower, 
+                                    high_img_thresh = RGB_blueUpper, 
+                                    p_cutoff_ranges = 0.995,
+                                    nb_frames = None,
+                                    constrain_frame= constrain_frame,
+                                    max_dev_in_cm = 1.5)
+    
+    pulse = Pulse(areas, fs = 250)
+    pulse.find_events(gauss_window = 10, 
+                      low_f = 1, high_f = 50, 
+                      filt_order = 10,
+                      peak_heights = 0.4)
+    
+    pulse.determine_start_ends()
+    pulse.remove_problematic_detections()
+    pulse.find_centers()
+    
+    smr = AnalogPulse( sorted_exp.files['smr'].path )
+    
+    
+    pulse.fill_missing_pulses(smr, plot = False, report = False)
+    
+    if pulse.use_laser_detection_only( smr ) :
+        
+        starts, ends = pulse.starts, pulse.ends
+        
+    else:
+        
+        smr.align_to_video(pulse.shift_rel_to_smr)
+        starts, ends = smr.starts, smr.ends
+        
+    sorted_exp.save_laser_detections (starts, ends)
+    
+    centers = np.average( np.column_stack( (starts, ends)), axis = 1).astype(int)
+    ax = pulse.plot_centers()
+    sorted_exp.plot_laser_detections( ax, 
+                                     centers, 
+                                     pulse.normalize(pulse.smoothed_sig)[centers],
+                                     title = pulse.method)
+    
+    # ax = pulse.compare_methods(gauss_window = 5, 
+    #                             low_f = 1, high_f = 30, 
+    #                             filt_order = 15,
+    #                             peak_heights = 40)
+    
+    filename = os.path.basename(filepath).replace('.avi', '_constrained_'  + str(constrain_frame)) 
+    pulse.save_pdf( ax.get_figure(), os.path.join(laser_detection_path, filename) )
+    pulse.save_pdf( ax.get_figure(), os.path.join(sorted_exp.files['smr'].dirpath, filename) )
+    
 
 
 

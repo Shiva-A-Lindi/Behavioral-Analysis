@@ -22,7 +22,7 @@ class Directory :
         self.build_filePath_list()
         self.build_filepath_dict()
         self.DLC_filepath_list = self.filter_paths_based_on_existing_str( 'DLC')
-        self.smr_filepath_list = self.get_smr_files(extensions = ['.smrx', '.smr', '.s2rx'])
+        self.smr_filepath_list = self.get_spec_files(extensions = ['.smrx', '.smr', '.s2rx'])
         
     def build_filePath_list(self):
         
@@ -40,7 +40,7 @@ class Directory :
                 
         self.extensions = np.unique(extensions)
         
-    def get_smr_files(self, extensions = ['.smrx', '.smr', '.s2rx']):
+    def get_spec_files(self, extensions = ['.smrx', '.smr', '.s2rx']):
         
         return [ fi for fi in self.all_filepath_list 
                 if (fi.endswith( tuple(extensions) ))]
