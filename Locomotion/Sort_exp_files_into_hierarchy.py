@@ -19,6 +19,7 @@ class Directory :
         self.all_filepath_list = None
         self.filepath_list = {}
         self.extensions = None
+        self.filenames = []
         self.build_filePath_list()
         self.build_filepath_dict()
         self.DLC_filepath_list = self.filter_paths_based_on_existing_str( 'DLC')
@@ -39,6 +40,10 @@ class Directory :
                 extensions.append( os.path.splitext(f) [1])
                 
         self.extensions = np.unique(extensions)
+        
+    def get_filenames(self):
+        
+        self.filenames = [os.path.basename(f) for f in self.all_filepath_list]
         
     def get_spec_files(self, extensions = ['.smrx', '.smr', '.s2rx']):
         
@@ -111,6 +116,11 @@ class Directory :
             
             os.makedirs( directory)
             
+    def remove_files(filepath_list):
+        
+        for file in filepath_list:
+            os.remove(file)
+
     
 class File :
     
@@ -205,6 +215,14 @@ class File :
             
             print(new_filepath, 'already moved')
         
+    @staticmethod
+    def rm_if_exist(parent_folder, filename):
+        d = Directory(parent_folder)
+        d.get_filenames()
+        if filename in d.filenames:
+            print(d.all_filepath_list, d.all_filepath_list[d.filenames == filename])
+            os.remove(d.all_filepath_list[d.filenames == filename])
+            
 class Experiment():
     
     def __init__(self, video_filepath):
