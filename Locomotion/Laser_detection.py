@@ -581,11 +581,12 @@ class Pulse :
         
         self.find_peaks(height = peak_heights)
         
-    def determine_start_ends(self, center_vicinity_h_thresh = 0.3):
+    def find_center_vicinities(self, center_vicinity_h_thresh):
         
-        self.center_vicinity_h_thresh = center_vicinity_h_thresh
         self.smoothed_sig = gaussian_filter1d( self.raw_signal.copy(), 100)
         self.center_vicinities,_ = find_peaks(self.normalize(self.smoothed_sig), height = center_vicinity_h_thresh)
+
+    def determine_start_ends(self):
 
         derivative_at_events = np.diff( self.smoothed_sig ) [self.events]
         self.starts = self.events[ derivative_at_events > 0]
@@ -719,68 +720,84 @@ class Pulse :
               self.shift_rel_to_smr_sd,
               ' frames')
 
-    def check_detected_nb(self, smr, video_filename, path):
+    def check_detected_nb(self, smr, h_thresh, 
+                          video_filename, path, 
+                          change_coef = 0.2,
+                          max_iteration = 20):
         
-        raise_err = False
+        raise_err = True
+        h_thresh_1_before = h_thresh
+        h_thresh_2_before = 1
         
-        if len(self.center_vicinities) > len(smr.centers):
+        it = 0
+        while it < max_iteration:
             
-            message = "Extra pulses are detected"
-            raise_err = True
+            self.find_center_vicinities(h_thresh)
+
             
-        elif len(self.center_vicinities) < len(smr.centers):
+            if len(self.center_vicinities) > len(smr.centers):
+                
+                message = "Extra pulses are detected"
+                h_thresh = h_thresh_1_before + change_coef * abs(h_thresh_2_before - h_thresh_1_before)
+
+            elif len(self.center_vicinities) < len(smr.centers):
+                
+                message = "Not all pulses are detected"
+                 
+                h_thresh = h_thresh_1_before - change_coef * abs(h_thresh_1_before - h_thresh_2_before)
+
+
+            else:
+                
+                raise_err = False
+                print('working threshold = {} found in {} iterations'.format(h_thresh, it))
+                print(os.path.join(path, 'JPEG', 'Problematic'),
+                      video_filename + '_unsuccessful.jpg')
+                File.rm_if_exist(os.path.join(path, 'JPEG', 'Problematic'), video_filename + '_unsuccessful.jpg')
+                
+                break
             
-            message = "Not all pulses are detected"
-            raise_err = True
+            print(message, 'new threshold = ', h_thresh)
+
+            h_thresh_2_before = h_thresh_1_before
+            h_thresh_1_before = h_thresh
+            it += 1
+
             
         if raise_err:
-            
-            ax = self.plot_start_ends()
-            ax.plot(smr.centers, np.ones_like(smr.centers), 'o', c = 'k', label = 'smr centers')
-            ax.axhline(y = self.center_vicinity_h_thresh, 
-                       xmin = 0, xmax = len(self.raw_signal), 
-                       ls = '--', c = 'k', label = 'peak thresh')
-            ax.legend(frameon = False, loc = 'lower right', fontsize = 12, bbox_to_anchor=(1.25, 0.15))
-            ax.set_title(message, fontsize = 12)
-            fig = ax.get_figure()
-            fig.set_size_inches((10,4), forward=False)
-            path_to_save = os.path.join(path, 'JPEG', 'Problematic', message.replace(' ', '_'))
-            Directory.create_dir_if_not_exist(path_to_save)
-            fig.savefig(os.path.join(path_to_save, video_filename + '_unsuccessful.jpg'), 
-                        dpi = 250, facecolor='w', edgecolor='w',
-                        orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
-            
-            raise ValueError (message)
-            
+            self. _raise_err_out_plot(smr, message, video_filename, path, h_thresh)
+
+    def _raise_err_out_plot(self, smr, message, video_filename, path, h_thresh):
+        
+        ax = self.plot_start_ends()
+        ax.plot(smr.centers, np.ones_like(smr.centers), 'o', c = 'k', label = 'smr centers')
+        ax.axhline(y = h_thresh, 
+                   xmin = 0, xmax = len(self.raw_signal), 
+                   ls = '--', c = 'k', label = 'peak thresh')
+        ax.legend(frameon = False, loc = 'lower right', fontsize = 12, bbox_to_anchor=(1.25, 0.15))
+        ax.set_title(message, fontsize = 12)
+        fig = ax.get_figure()
+        fig.set_size_inches((10,4), forward=False)
+        path_to_save = os.path.join(path, 'JPEG', 'Problematic', message.replace(' ', '_'))
+        Directory.create_dir_if_not_exist(path_to_save)
+        fig.savefig(os.path.join(path_to_save, video_filename + '_unsuccessful.jpg'), 
+                    dpi = 250, facecolor='w', edgecolor='w',
+                    orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+        
+        raise ValueError ("Did not manage to analyze.")
+        
     def fill_missing_pulses(self, smr, plot = False, report = False):
             
         n_missing = len( smr.centers) - len( self.centers) # number of missing laser detections
         
         if n_missing > 0 :
-            
-            # first method, not very accurate
-            # diff_laser_smr = self.centers - smr.centers[: -n_missing]
-            # t_bet_stim = np.average( np.diff (smr.centers)) # estimated time difference between two pulses
-            # ind_bef_missed = np.where( np.diff(diff_laser_smr) > t_bet_stim) [0]
-            # self.centers_aligned  = np.insert( self.centers, ind_bef_missed + 1, np.zeros_like(ind_bef_missed)) ## add zeros instead of missing values
-            
+
             # second method counting on the fact that all pulse center vicinites are detected
             self.centers_aligned = np.zeros_like(smr.centers)
             self.centers_aligned[self.missing_start_end] = 0
             self.centers_aligned[~ self.missing_start_end] = self.centers
-            print(self.centers_aligned)
             print(' {} pulses missing in video detection'.format(n_missing))
             
-            # if report:
-                
-            #     print("original differences between laser detection and smr", diff_laser_smr)
-            #     print(" estimated time difference between two pulses :\n", t_bet_stim )
-            #     # print("differences after alignment :\n", self.centers - smr.centers)
-                
-            # if plot:
-                
-            #     fig, ax = plt.subplots()
-            #     ax.plot(diff_laser_smr, '-o')
         else:
             
             self.centers_aligned = self.centers.copy()
@@ -1126,6 +1143,23 @@ class SortedExpeiment(Experiment) :
         with file:    
             write = csv.writer(file)
             write.writerows([data])
+
+    @staticmethod 
+    def read_summary_csv(csv_filepath):
+        
+        df = pd.read_csv(csv_filepath, header = [0])
+        filepath_list = df['path']
+    
+        return filepath_list        
+    
+    @staticmethod
+    def remove_resolved_file_from_csv(csv_filepath, filepath):
+        
+        df = pd.read_csv(csv_filepath, header = [0])
+        if filepath in df['path'].values :
+            
+            df = df.drop( np.where(df['path'] == filepath)[0])
+            df.to_csv(csv_filepath, index = False)
             
     @staticmethod
     def create_problematic_csv(filepath):
@@ -1168,8 +1202,42 @@ class SortedExpeiment(Experiment) :
                 images[0].save(jpg_path , 'JPEG')
     
 
+class ProblematicFileAnalysis:
+    
+    def __init__(self, csv_filepath, center_vicinity_h_thresh):
+        
+        self.csv_filepath = csv_filepath
+        self.filepath_dict = {}
+        self.issues = None
+        self.read_prob_csv()
+        self.filepath_list = []
+        self.df = None
+        self.organize_files(csv_filepath)
+        self.new_thresh = {}
+        self.set_new_thresh(center_vicinity_h_thresh)
+        
+    def set_new_thresh(self, original_thresh):
+        
+        self.new_thresh['Not all pulses are detected'] = original_thresh * 0.8 
+        self.new_thresh['Extra pulses are detected'] = original_thresh * 1.2
+
+    def read_prob_csv(self):
+        
+        self.df = pd.read_csv(self.csv_filepath, header = [0])
+        self.filepath_list = df['path']
+        return self.filepath_list
+        
+    
+    def organize_files(self):
+        
+
+        self.issues = list( set(df['Problem']))
+
+        self.filepath_dict = {issue:  df['path'][ df['Problem'] == issue] 
+                                  for issue in self.issues}
 
 
+        
 #%% RUN 
         
         
@@ -1189,26 +1257,22 @@ RGB_blueUpper = (255, 120, 140)
 center_vicinity_h_thresh = 0.3
 
 path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre'
-
-
 laser_detection_path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/LASER_DETECTION'
 
 directory = Directory(path)
+# video_filepath_list = directory.get_spec_files( extensions= ['.avi', '.mp4', '.mov'])
 
-# to_delete = directory.get_spec_files( extensions= ['True.pdf'])
-# Directory.remove_files(to_delete)
-
-video_filepath_list = directory.get_spec_files( extensions= ['.avi', '.mp4', '.mov'])
-
-video_filepath_list = [v for v in video_filepath_list if ('k08' in v) or ('k09' in v)]
+# video_filepath_list = [v for v in video_filepath_list if ('k08' in v) or ('k09' in v)]
 # video_filepath_list = ['/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/ChR2/Mouse_73/STR/betapulse_0-75mW/Video/Vglut2D2Cre#73_betapulse_STR_0-75mW_15cm-s_r03_Stacked.avi']
 
+video_filepath_list = SortedExpeiment.read_summary_csv(os.path.join(laser_detection_path, 'Problematic_files.csv'))
 print( '{} experiment files found.'.format(len(video_filepath_list)) )
 
 SortedExpeiment.create_problematic_csv(os.path.join(laser_detection_path, 'Problematic_files.csv'))
 SortedExpeiment.create_summary_csv(os.path.join(laser_detection_path, 'Analysis_summary.csv'))
 
-for i, filepath in enumerate(video_filepath_list[1:2]):
+
+for i, filepath in enumerate(video_filepath_list[3:]):
 
     plt.close( 'all' )
     print('{} from {} files.'.format(i, len (video_filepath_list)))
@@ -1230,10 +1294,8 @@ for i, filepath in enumerate(video_filepath_list[1:2]):
                                         nb_frames = None,
                                         constrain_frame= constrain_frame,
                                         max_dev_in_cm = 1.7)
-        
         print('video file read.')
         smr = AnalogPulse( sorted_exp.files['smr'].path )
-
         pulse = Pulse(areas, fs = 250)
 
         pulse.find_events(gauss_window = 10, 
@@ -1241,16 +1303,19 @@ for i, filepath in enumerate(video_filepath_list[1:2]):
                           filt_order = 10,
                           peak_heights = 0.4)
         
-        pulse.determine_start_ends(center_vicinity_h_thresh = center_vicinity_h_thresh)
         pulse.check_detected_nb(smr, 
+                                center_vicinity_h_thresh,
                                 sorted_exp.video.name_base,
                                 laser_detection_path)
+        
+        pulse.determine_start_ends()
         pulse.remove_problematic_detections()
         pulse.find_centers()
         pulse.fill_missing_pulses(smr, plot = False, report = False)
         ax = pulse.plot_centers()
         
         starts, ends, centers = sorted_exp.get_laser_start_end( pulse, smr)
+        
         ax_superimp = pulse.plot_superimposed(centers, smr.true_duration)
         
         sorted_exp.save_laser_detections (starts, ends, 
@@ -1274,6 +1339,9 @@ for i, filepath in enumerate(video_filepath_list[1:2]):
                                     i, pulse.shift_rel_to_smr, 
                                     pulse.shift_rel_to_smr_sd)
         
+        sorted_exp.remove_resolved_file_from_csv(os.path.join(laser_detection_path, 
+                                                      'Problematic_files.csv'), filepath)
+        
     except Exception as error:
         
         sorted_exp.add_file_to_csv(os.path.join(laser_detection_path, 
@@ -1282,134 +1350,3 @@ for i, filepath in enumerate(video_filepath_list[1:2]):
         continue
     
 
-# SortedExpeiment.pdf_saveas_jpg(path =  '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/LASER_DETECTION')
-
-#%% DEBUG
-
-# area_cal_method = 'contour'
-area_cal_method = 'pix_count'
-
-treadmil_length_in_cm = 37.6
-constrain_frame= True
-
-
-# # RGB_blueLower = (50, 80, 60) ## HSV
-# # RGB_blueUpper = (150, 255, 255)
-
-RGB_blueLower = (150, 10,60)
-RGB_blueUpper = (255, 120, 140)
-center_vicinity_h_thresh = 0.3
-
-path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre'
-
-
-laser_detection_path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/LASER_DETECTION'
-
-class ProblematicFileAnalysis:
-    
-    def __init__(self, csv_filepath, center_vicinity_h_thresh):
-        
-        self.filepath_list = {}
-        self.issues = None
-        self.organize_files(csv_filepath)
-        self.new_thresh = {}
-        self.set_new_thresh(center_vicinity_h_thresh)
-        
-    def set_new_thresh(self, original_thresh):
-        
-        self.new_thresh['Not all pulses are detected'] = original_thresh * 0.8 
-        self.new_thresh['Extra pulses are detected'] = original_thresh * 1.2
-
-            
-    def organize_files(self, csv_filepath):
-        
-        df = pd.read_csv(csv_filepath, header = [0])
-        self.issues = list( set(df['Problem']))
-
-        self.filepath_list = {issue:  df['path'][ df['Problem'] == issue] 
-                                  for issue in self.issues}
-        
-  
-prob_analysis = ProblematicFileAnalysis (os.path.join(laser_detection_path, 
-                                              'Problematic_files.csv'),
-                                         center_vicinity_h_thresh)
-
-SortedExpeiment.create_problematic_csv(os.path.join(laser_detection_path, 'RE_analysis_Problematic_files.csv'))
-
-for issue, new_thresh in prob_analysis.new_thresh.items():
-    
-    center_vicinity_h_thresh = new_thresh
-    video_filepath_list = prob_analysis.filepath_list[issue]
-    
-    for i, filepath in enumerate(video_filepath_list):
-    
-        plt.close( 'all' )
-        print('{} from {} files.'.format(i, len (video_filepath_list)))
-        
-    
-        try: 
-            sorted_exp = SortedExpeiment(filepath)
-            
-            laser_detector = LaserDetector( sorted_exp.video.path,  
-                                            sorted_exp.files['DLC'].path,
-                                            thresh_method = 'rgb',
-                                            area_cal_method = area_cal_method,
-                                            image_parts = ['upper', 'lower'],
-                                            treadmil_length_in_cm = treadmil_length_in_cm)
-            
-            areas = laser_detector.detect ( low_img_thresh = RGB_blueLower, 
-                                            high_img_thresh = RGB_blueUpper, 
-                                            p_cutoff_ranges = 0.995,
-                                            nb_frames = None,
-                                            constrain_frame= constrain_frame,
-                                            max_dev_in_cm = 1.7)
-            
-            print('video file read.')
-            smr = AnalogPulse( sorted_exp.files['smr'].path )
-    
-            pulse = Pulse(areas, fs = 250)
-    
-            pulse.find_events(gauss_window = 10, 
-                              low_f = 1, high_f = 50, 
-                              filt_order = 10,
-                              peak_heights = 0.4)
-            
-            pulse.determine_start_ends(center_vicinity_h_thresh = center_vicinity_h_thresh)
-            pulse.check_detected_nb(smr, 
-                                    sorted_exp.video.name_base,
-                                    laser_detection_path)
-            pulse.remove_problematic_detections()
-            pulse.find_centers()
-            pulse.fill_missing_pulses(smr, plot = False, report = False)
-            ax = pulse.plot_centers()
-            
-            starts, ends, centers = sorted_exp.get_laser_start_end( pulse, smr)
-            ax_superimp = pulse.plot_superimposed(centers, smr.true_duration)
-            
-            sorted_exp.save_laser_detections (starts, ends, 
-                                              pulse.method, 
-                                              pulse.shift_rel_to_smr, 
-                                              pulse.shift_rel_to_smr_sd)
-            sorted_exp.plot_laser_detections( ax, 
-                                             centers, 
-                                             pulse.normalize(pulse.smoothed_sig)[centers],
-                                             title = pulse.method)
-            
-            
-            filename = sorted_exp.video.name_base + '_constrained_'  + str(constrain_frame)
-            pulse.save_figs( ax, ax_superimp, 
-                            [laser_detection_path, sorted_exp.files['smr'].dirpath], 
-                            filename) 
-            
-            sorted_exp.add_file_to_csv(os.path.join(laser_detection_path, 
-                                                          'Analysis_summary.csv'),
-                                        pulse.method, 
-                                        i, pulse.shift_rel_to_smr, 
-                                        pulse.shift_rel_to_smr_sd)
-            
-        except Exception as error:
-            
-            sorted_exp.add_file_to_csv(os.path.join(laser_detection_path, 
-                                                          'RE_analysis_Problematic_files.csv'),
-                                            error, i)
-            continue
