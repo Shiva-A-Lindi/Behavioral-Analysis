@@ -20,7 +20,7 @@ from scipy.signal import find_peaks
 #from colour import Color
 from pathlib import Path
 import csv
-from Sort_exp_files_into_hierarchy import *
+from File_hierarchy import *
 
 font = FontProperties()
 font.set_family('sans-serif')
@@ -33,7 +33,7 @@ font_label = FontProperties()
 font_label.set_family('serif')
 font_label.set_name('Times New Roman')
 # font_label.set_style('italic')
-font_label.set_size('15')
+font_label.set_size('17')
 # font_label.set_weight('bold')
 
 
@@ -138,7 +138,7 @@ def check_DLC_corresponds_to_laser(filepath_laser, filepath_DLC):
     filename_DLC = os.path.basename(filepath_DLC)
     filename_laser = os.path.basename(filepath_laser)
     print('DLC:', filename_DLC)
-    print('Laser:', filename_DLC)
+    print('Laser:', filename_laser)
     
     if not '_'.join( filename_DLC.split('_')[:-1])== '_'.join(filename_DLC.split('_')[:-1]):
 
@@ -210,14 +210,18 @@ def read_laser_beta_stim(laser_file_name):
 
 
 def list_all_files(path, extensions = ['.xlsx', '.csv']):
+    
     '''List all the files with this extention in this directory'''
+    
     if os.path.exists(path):
+        
         files = [x for x in os.listdir(path) if not x.startswith('.')]
         files.sort()
     
         return [ fi for fi in files 
                     if (fi.endswith( tuple(extensions) ))]
     else:
+        
         return []
 
 def convert_csv_to_xlsx(path):
@@ -1043,6 +1047,7 @@ def plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, 
 
         # calculate the two sided confidence interval for every timestep
         for i in range(epochs.shape[1]):
+            
             m = [sms.DescrStatsW(epochs[:, i]).tconfint_mean(
                 alpha=0.05, alternative='two-sided')]
             confidence_inter = np.append(
@@ -1059,38 +1064,43 @@ def plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, 
         epochs_mean_spont = epochs_spont
         confidence_inter = np.zeros(((epochs_mean.shape[0]), 2))
         confidence_inter_spont = np.zeros((epochs_mean.shape[0], 2))
+        
     time_series = np.arange(-pre_interval, interval+post_interval+1)/fps
 
-    plt1, = plt.plot(time_series, epochs_mean, color=c_laser, label=body_part,
+    line_1, = plt.plot(time_series, epochs_mean, color=c_laser, label=', '.join(body_part),
                      linestyle='-', linewidth=2)  # , marker='o',markersize=1)
-    plt.fill_between(
+    ax.fill_between(
         time_series, confidence_inter[:, 0],  confidence_inter[:, 1], color=c_laser, alpha=0.2)
 
-    plt2, = plt.plot(time_series, epochs_mean_spont,
+    line_2, = plt.plot(time_series, epochs_mean_spont,
                      color=c_spont, label="Spontaeous")
-    plt.fill_between(
+    ax.fill_between(
         time_series, confidence_inter_spont[:, 0],  confidence_inter_spont[:, 1], color=c_spont, alpha=0.2)
-    plt.axvspan(0, interval/fps, alpha=0.2, color='lightskyblue')
+    ax.axvspan(0, interval/fps, alpha=0.2, color='lightskyblue')
 
-#     plt.fill_between(time_series, epochs_mean - epochs_sem,  epochs_mean+ epochs_sem,
+#     ax.fill_between(time_series, epochs_mean - epochs_sem,  epochs_mean+ epochs_sem,
 #                     color='gray', alpha=0.2)
-#     plt.fill_between(time_series, epochs_mean_spont - epochs_sem_spont,  epochs_mean_spont+ epochs_sem_spont,
+#     ax.fill_between(time_series, epochs_mean_spont - epochs_sem_spont,  epochs_mean_spont+ epochs_sem_spont,
 #                    color='b', alpha=0.2)
-
+    ax.annotate( 'n = {}'.format(epochs.shape[0]),
+                xy=(0.3,0.85),xycoords='axes fraction', fontsize = 17)
     if plot_param == 'velocity':
-        plt.ylabel(" Velocity (cm/s)").set_fontproperties(font_label)
+        
+        ax.set_ylabel(" Velocity (cm/s)").set_fontproperties(font_label)
+        
     elif plot_param == 'position':
-        plt.ylabel(" Position (cm)").set_fontproperties(font_label)
+        
+        ax.set_ylabel(" Position (cm)").set_fontproperties(font_label)
+        
     else:
-        plt.ylabel(" Acceleration (cm/s**2)").set_fontproperties(font_label)
-    plt.axhline(y=treadmil_velocity, ls='--', c='red')
-
-    plt.xlabel("Time(s)").set_fontproperties(font_label)
-    plt.ylim(ylim[0], ylim[1])  # set limits
-    plt.legend(fontsize=10)
-#     plt.xlim(-.5,2) #set limits
-    s = '_'
-    s = s.join(body_part)
+        
+        ax.set_ylabel(" Acceleration (cm/s**2)").set_fontproperties(font_label)
+        
+    ax.axhline(y=treadmil_velocity, ls='--', c='red')
+    ax.set_xlabel("Time(s)").set_fontproperties(font_label)
+    ax.set_ylim(ylim[0], ylim[1])  # set limits
+    ax.legend(fontsize=12, frameon = False, loc = 'upper right')
+    remove_frame(ax)
     
     if average == 'n':
         
@@ -1098,14 +1108,14 @@ def plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, 
         ax.xaxis.set_ticks_position('bottom')
         ax.get_yaxis().set_tick_params(direction='out', labelsize=20, length=6)
         ax.yaxis.set_ticks_position('left')
-        plt.title(plot_param
+        ax.set_title(plot_param
                   + opto_par 
                   + " " + str(mouse_no) 
                   + "(" + mouse_type 
                   + ") #" 
                   + "\n").set_fontproperties(font)
         
-        plt.savefig(os.path.join(pre_direct, 
+        fig.savefig(os.path.join(pre_direct, 
                                  'Compare', 
                                  'Mouse' + str(mouse_no)
                                  + '_' + stim_type
@@ -1113,7 +1123,7 @@ def plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, 
                                  + '_' + mouse_type
                                  + '_' + cor
                                  + '_' + plot_param 
-                                 + '_' + s
+                                 + '_' + '_'.join(body_part)
                                  + '_timebin_' + str(int(n_timebin*1000/fps))
                                  + '_window_pos_' + str(int(window_pos*1000/fps)) 
                                  + '_window_veloc_' + str(int(window_veloc*1000/fps)) 
@@ -1122,7 +1132,7 @@ def plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, 
         
     elif average == 'Averg_trials':  # one one mouse
     
-        plt.title("# " + str(mouse_no) 
+        ax.set_title("# " + str(mouse_no) 
                   + "(" + mouse_type 
                   + " " + opto_par + ")" 
                   + "\n" + stim_loc 
@@ -1134,12 +1144,12 @@ def plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, 
         ax.xaxis.set_ticks_position('bottom')
         ax.get_yaxis().set_tick_params(direction='out', labelsize=20, length=6)
         ax.yaxis.set_ticks_position('left')
-        plt.legend(handles=[plt1, plt2], labels=[
+        ax.legend(handles=[line_1, line_2], labels=[
                    'Laser Stimulation', 'Spontaneous'], loc='lower right', fontsize=20)
-        plt.title(mouse_type+"\n"+" Average of all " +
+        ax.set_title(mouse_type+"\n"+" Average of all " +
                   opto_par).set_fontproperties(font)
 
-        plt.savefig(os.path.join(pre_direct, 
+        fig.savefig(os.path.join(pre_direct, 
                                  'Average'
                                  + '_' + stim_type 
                                  + '_' + opto_par
@@ -1152,8 +1162,8 @@ def plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, 
                                  + '_window_veloc_' +str(int(window_veloc*1000/fps))
                                  + '_pre_post_stim' +save_as_format),
                     bbox_inches='tight', orientation='landscape', dpi=300)
-
-
+        
+    
 # def epochs_single_file(file_name_pos, file_name_spont, file_name_laser):
 #     '''Read a single file for a mouse and return the epochs.'''
 
@@ -1180,6 +1190,9 @@ def plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, 
 #         bins, velocity_spont, *accep_interval_range, **intervals_dict, trial_time )
 #     return epochs, epochs_spont
 
+def remove_frame(ax):
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
 
 def extract_pre_laser_x_epochs_over_trials(files_list, files_list_laser,
                                            pre_direct, stim_loc, stim_type, scale_pix_to_cm, window_pos, misdetection_dict,
@@ -1267,6 +1280,7 @@ def extract_pre_laser_x_epochs_over_trials(files_list, files_list_laser,
                                     duration > smallest_accep_inter, 
                                     duration < largest_accep_inter
                                     )
+        
         print(len(acceptable) - sum(acceptable),
              ' trials discarded')
 
@@ -2172,13 +2186,16 @@ def extract_epochs(bins, x, smallest_accep_inter, largest_accep_inter, pre_inter
     
     n_trials = len(bins_in) - 1
     
-    
+
     # make an array with indices of laser ON timebins
     take = np.hstack([np.arange(i[0], i[1] + 1) for i in bins_in[:-1]])
     epochs = x[take].reshape(n_trials, 
                              pre_interval + post_interval + interval + 1)
-
+    
     return epochs, n_trials, take
+
+        
+        
 
 def remove_epochs_with_unaccep_pre_post_interval(bins, pre_interval, post_interval, session_length):
     
@@ -2258,7 +2275,8 @@ def extract_epochs_over_trials(files_list, files_list_laser, direct, stim_loc, s
             with shape (n_trials, 3)
 
     """
-
+    accep_interval_range = correct_accep_interval_range_for_beta(accep_interval_range, stim_type)
+    
     if pre_interval > pre_stim_inter:
 
         pre_era = pre_interval
@@ -2281,7 +2299,7 @@ def extract_epochs_over_trials(files_list, files_list_laser, direct, stim_loc, s
         
         file_path_DLC = os.path.join(direct, stim_loc, stim_type, 'DLC', files_list[i])
         df = read_DLC(file_path_DLC, scale_pix_to_cm)
-        
+        print(file_path_DLC)
         position = average_position_r_l(
             df, window_pos, misdetection_dict, **study_param_dict)
         session_length = len(position)
@@ -2339,7 +2357,19 @@ def extract_epochs_over_trials(files_list, files_list_laser, direct, stim_loc, s
     else:
         return epochs, pre_info
 
-
+def correct_accep_interval_range_for_beta(accep_interval_range, stim_type):
+    """ beta stimulation doesn't include the last half cycle so 
+    it's shorter. Therefore the acceptable range is coorected to be
+    smaller 
+    """
+    if 'beta' in stim_type and 'square' not in stim_type:
+        
+        return tuple([i * (118/125) for i in accep_interval_range])
+    
+    else:
+        
+        return accep_interval_range
+    
 def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_list, stim_loc, stim_type, opto_par, treadmil_velocity,
                                 ylim, spont_trial_dict, misdetection_dict, intervals_dict, t_window_dict, accep_interval_range, study_param_dict,
                                 max_distance, min_distance, n_trials_spont):
@@ -2417,6 +2447,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_l
 
         loop_list = mouse_list[0]
 
+    exist_count = 0
     for count, n in enumerate(loop_list):  # Run over all the mice
 
         start = timeit.default_timer()
@@ -2455,7 +2486,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_l
             continue
 
         else:
-
+            exist_count += 1
             epochs, pre_info = extract_epochs_over_trials(files_list_DLC,
                                                           files_list_Laser,
                                                           direct, stim_loc, 
@@ -2546,48 +2577,55 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_l
             print('runtime = ', int(stop-start), " s")
 
             ax.axhline(y=17, ls='--', c='g')
-
+    
+    print(exist_count)
+    print(len(loop_list))
+    
+    if exist_count < len(loop_list):
+        
+        ax = fig.add_subplot(3, 4, len(loop_list)+1)
+        ax.axis('off')
+        
     plt.tight_layout()
+    
+    if exist_count > 1:
 
-#     fig.suptitle(cor+ "-Velocity ("+mouse_type+") "+opto_par+"\n"+" interval = "+ str(n_timebin) , fontproperties=font)
-
-          
-    Directory.create_dir_if_not_exist(os.path.join(pre_direct, 'Subplots', stim_loc, stim_type ))
-    fig.savefig(os.path.join(pre_direct, 'Subplots', stim_loc, stim_type,
-                             'All_together_' 
-                             + opto_par 
-                             + '_' + mouse_type 
-                             + '_' + study_param_dict['cor']
-                             + '_' + study_param_dict['body_part'][0] 
-                             + '_timebin=' + str(t_window_dict['n_timebin']) 
-                             + "_moving_aver_win=" + str(t_window_dict['window_pos']) 
-                             + '_spont_sampl=' + str(no_sample) 
-                             + '_pre_post_stim.pdf'), bbox_inches='tight', orientation='landscape', dpi=200)
-
-    fig.savefig(os.path.join(pre_direct, 'Subplots', stim_loc, stim_type,
-                             'All_together_' 
-                             + opto_par 
-                             + '_' + mouse_type 
-                             + '_' + study_param_dict['cor']
-                             + '_' + study_param_dict['body_part'][0] 
-                             + '_timebin=' + str(t_window_dict['n_timebin']) 
-                             + "_moving_aver_win=" + str(t_window_dict['window_pos']) 
-                             + '_spont_sampl=' + str(no_sample) 
-                             + '_pre_post_stim.png'), bbox_inches='tight', orientation='landscape', dpi=200)
-    save_npz(pre_direct, 
-             mouse_type, 
-             opto_par, 
-             stim_loc, 
-             stim_type, 
-             stim_type.split('_')[-1],
-             t_window_dict['fps'], 
-             t_window_dict['window_pos'], 
-             t_window_dict['n_timebin'], "",
-             epochs_all_mice, 
-             epochs_mean_each_mouse, 
-             epochs_spont_all_mice, 
-             all_pre_info, 
-             **study_param_dict)
+        Directory.create_dir_if_not_exist(os.path.join(pre_direct, 'Subplots', stim_loc, stim_type ))
+        fig.savefig(os.path.join(pre_direct, 'Subplots', stim_loc, stim_type,
+                                 'All_together_' 
+                                 + opto_par 
+                                 + '_' + mouse_type 
+                                 + '_' + study_param_dict['cor']
+                                 + '_' + study_param_dict['body_part'][0] 
+                                 + '_timebin=' + str(t_window_dict['n_timebin']) 
+                                 + "_moving_aver_win=" + str(t_window_dict['window_pos']) 
+                                 + '_spont_sampl=' + str(no_sample) 
+                                 + '_pre_post_stim.pdf'), bbox_inches='tight', orientation='landscape', dpi=200)
+    
+        fig.savefig(os.path.join(pre_direct, 'Subplots', stim_loc, stim_type,
+                                 'All_together_' 
+                                 + opto_par 
+                                 + '_' + mouse_type 
+                                 + '_' + study_param_dict['cor']
+                                 + '_' + study_param_dict['body_part'][0] 
+                                 + '_timebin=' + str(t_window_dict['n_timebin']) 
+                                 + "_moving_aver_win=" + str(t_window_dict['window_pos']) 
+                                 + '_spont_sampl=' + str(no_sample) 
+                                 + '_pre_post_stim.png'), bbox_inches='tight', orientation='landscape', dpi=200)
+        save_npz(pre_direct, 
+                 mouse_type, 
+                 opto_par, 
+                 stim_loc, 
+                 stim_type, 
+                 stim_type.split('_')[-1],
+                 t_window_dict['fps'], 
+                 t_window_dict['window_pos'], 
+                 t_window_dict['n_timebin'], "",
+                 epochs_all_mice, 
+                 epochs_mean_each_mouse, 
+                 epochs_spont_all_mice, 
+                 all_pre_info, 
+                 **study_param_dict)
 
 
 def save_npz_limb_and_tail(pre_direct, scale_pix_to_cm, mouse_type, mouse_list, stim_loc, stim_type, opto_par,

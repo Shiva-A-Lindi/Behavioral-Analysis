@@ -30,7 +30,7 @@ from scipy.signal import butter, sosfilt, sosfreqz, spectrogram, sosfiltfilt, fi
 from scipy.ndimage import gaussian_filter1d
 from pdf2image import convert_from_path
 
-from Sort_exp_files_into_hierarchy import *
+from File_hierarchy import *
 
 class MouseLocation:
     
@@ -54,7 +54,7 @@ class MouseLocation:
                                                                         treadmil_length_in_pix, 
                                                                         max_dev_in_cm = max_dev_in_cm)
         self.get_cor_range( p_cutoff = p_cutoff )
-        self.shift_rel_to_smr_sd = None
+        self.shift_rel_to_analogpulse_sd = None
         
     def cal_max_deviat_nose_to_laser(self, 
                                      treadmil_length_in_cm, 
@@ -507,7 +507,9 @@ class Laser :
 class Pulse :
     
     def __init__( self, sig, fs = 250, low_f = 1, high_f = 50, 
-                 enforce_use_laser_detection_only = False, true_duration = None):
+                 enforce_use_laser_detection_only = False, 
+                 use_laser_detection_if_no_analogpulse = False,
+                 true_duration = None):
         
         self.signal = sig
         self.raw_signal = sig.copy()
@@ -520,12 +522,13 @@ class Pulse :
         self.ends = []
         self.smoothed_sig = []
         self.center_vicinities = []
-        self.shift_rel_to_smr = None
+        self.shift_rel_to_analogpulse = None
         self.method = None
         self.missing_start_end = [] # indices of lasers that the center vicinity is detected but either of start end stamps are not
         self.output_centers = None
         self.center_vicinity_h_thresh = None
         self.enforce_use_laser_detection_only = enforce_use_laser_detection_only
+        self.use_laser_detection_if_no_analogpulse = use_laser_detection_if_no_analogpulse
         self.true_duration = true_duration
         
     @staticmethod
@@ -571,7 +574,7 @@ class Pulse :
     def find_events(self, gauss_window = 5, 
                            low_f = 1, high_f = 50, 
                            filt_order = 10,
-                           peak_heights = 40):
+                           peak_heights = 0.3):
         
         self.pre_process( gauss_window = gauss_window, 
                         low_f = low_f, high_f = high_f, 
@@ -579,11 +582,13 @@ class Pulse :
         
         self.find_peaks(height = peak_heights)
         
-    def smooth_sig(self):
-        self.smoothed_sig = gaussian_filter1d( self.raw_signal.copy(), 100)
+    def smooth_sig(self, crude_smooth_wind):
+        
+        self.smoothed_sig = gaussian_filter1d( self.raw_signal.copy(), crude_smooth_wind)
 
-    def find_center_vicinities(self, center_vicinity_h_thresh):
-        self.smooth_sig()
+    def find_center_vicinities(self, center_vicinity_h_thresh, crude_smooth_wind = 100):
+        
+        self.smooth_sig(crude_smooth_wind)
         self.center_vicinities,_ = find_peaks(self.normalize(self.smoothed_sig), height = center_vicinity_h_thresh)
 
     def determine_start_ends(self):
@@ -667,20 +672,20 @@ class Pulse :
                 
         print(' {} pulses flagged as problematic'.format( n_to_remove) )
         
-    def use_laser_detection_only(self, smr):
+    def use_laser_detection_only(self, analogpulse):
         
         base_on_laser_only = False
         run_values, _, run_lengths = Pulse.find_runs(self.missing_start_end)
         
         if not self.enforce_use_laser_detection_only:
             
-            if len(self.centers_aligned) == len (smr.centers) \
-                and (len(self.center_vicinities) == len( smr.centers ) # or if single pulses are missed
+            if len(self.centers_aligned) == len (analogpulse.centers) \
+                and (len(self.center_vicinities) == len( analogpulse.centers ) # or if single pulses are missed
                       and np.sum(run_lengths[run_values] > 1) == 0 ): # if all pulses detected
     
                 self.method = 'smr file with all-pulse alignement'            
                 self.centers = self.centers_aligned
-                self.cal_shift_rel_to_smr_all_pulses( smr )
+                self.cal_shift_rel_to_analogpulse_all_pulses( analogpulse )
                         
     
             elif (np.sum(run_lengths[run_values] > 1) > 0 
@@ -688,108 +693,176 @@ class Pulse :
                                                                                             # but first laser detected
     
                 self.method = 'smr file with first-pulse alignement'                                      
-                self.cal_shift_rel_to_smr_first_pulse_only( smr)
+                self.cal_shift_rel_to_analogpulse_first_pulse_only( analogpulse)
             
             else: # all methods fail, only include the definitive laser detections instead of alignment
                 
                 self.method = 'laser detections only'
-                self.cal_exact_start_ends(smr.true_duration)
+                self.cal_exact_start_ends(analogpulse.true_duration)
                 base_on_laser_only = True
-                self.shift_rel_to_smr = np.nan
-                self.shift_rel_to_smr_sd = np.nan
+                self.shift_rel_to_analogpulse = np.nan
+                self.shift_rel_to_analogpulse_sd = np.nan
+                
         else:
             
             self.method = 'laser detections only'
             self.cal_exact_start_ends(self.true_duration)
             base_on_laser_only = True
-            self.shift_rel_to_smr = np.nan
-            self.shift_rel_to_smr_sd = np.nan
+            self.shift_rel_to_analogpulse = np.nan
+            self.shift_rel_to_analogpulse_sd = np.nan
+            
         print('Method:', self.method)
         return base_on_laser_only
             
     def cal_exact_start_ends(self, true_duration):
         
-        print('smr laser durations:', true_duration)
+        print('analogpulse laser durations:', true_duration)
         
         self.starts = (self.centers - true_duration / 2 ).astype(int)
         self.ends = (self.centers + true_duration / 2 ).astype(int)
         
-    def cal_shift_rel_to_smr_first_pulse_only(self, smr):
+    def cal_shift_rel_to_analogpulse_first_pulse_only(self, analogpulse):
         
         '''  calculate shift from the first pulse only '''
         
-        self.shift_rel_to_smr = self.centers[0] - smr.centers [0]
-        print('shift between laser and smr: \n', 
-              int(self.shift_rel_to_smr))
+        self.shift_rel_to_analogpulse = self.centers[0] - analogpulse.centers [0]
+        print('shift between laser and analogpulse: \n', 
+              int(self.shift_rel_to_analogpulse))
         
-    def cal_shift_rel_to_smr_all_pulses(self, smr):
+    def cal_shift_rel_to_analogpulse_all_pulses(self, analogpulse):
         
             
-        all_shifts = self.centers_aligned - smr.centers
+        all_shifts = self.centers_aligned - analogpulse.centers
         all_shifts_without_misses = all_shifts[ self.centers_aligned != 0]
-        self.shift_rel_to_smr = int( np.average( all_shifts_without_misses ) )
-        self.shift_rel_to_smr_sd = round(np.std( all_shifts_without_misses ))
+        self.shift_rel_to_analogpulse = int( np.average( all_shifts_without_misses ) )
+        self.shift_rel_to_analogpulse_sd = round(np.std( all_shifts_without_misses ))
         
-        print('shift between laser and smr: \n', 
-              int(self.shift_rel_to_smr), u"\u00B1",
-              self.shift_rel_to_smr_sd,
+        print('shift between laser and analogpulse: \n', 
+              int(self.shift_rel_to_analogpulse), u"\u00B1",
+              self.shift_rel_to_analogpulse_sd,
               ' frames')
 
-    def check_detected_nb(self, smr, h_thresh, 
-                          video_filename, path, 
-                          change_coef = 0.2,
-                          max_iteration = 20):
+    def verify_nb_with_analog(self, h_thresh, 
+                              video_filename, path, 
+                              analogpulse,
+                              change_coef = 0.2,
+                              max_iteration = 20,
+                              crude_smooth_wind = 100):
         
+        self.enf_if_no_analpulse(analogpulse)        
+
+        if not self.enforce_use_laser_detection_only:
+            
+            self.find_center_through_recursion(h_thresh, 
+                                               video_filename, path,
+                                               analogpulse,
+                                               change_coef = change_coef,
+                                               max_iteration = max_iteration,
+                                               crude_smooth_wind = crude_smooth_wind)
+                
+            
+        else:
+            
+            self.find_center_vicinities(h_thresh, crude_smooth_wind = crude_smooth_wind)
+            
+    def find_center_through_recursion(self, h_thresh, 
+                                     video_filename, path,
+                                     analogpulse,
+                                     change_coef = 0.2,
+                                     max_iteration = 20,
+                                     crude_smooth_wind = 100):
+        
+        it = 0
         raise_err = True
         h_thresh_1_before = h_thresh
         h_thresh_2_before = 1
+        message = 'zero iterations for threshold adjustment'
+        while it < max_iteration:
+            
+            self.find_center_vicinities(h_thresh, crude_smooth_wind = crude_smooth_wind)
+
+            
+            if len(self.center_vicinities) > len(analogpulse.centers):
+                
+                message = "Extra pulses are detected"
+                h_thresh = h_thresh_1_before + change_coef * abs(h_thresh_2_before - h_thresh_1_before)
+
+            elif len(self.center_vicinities) < len(analogpulse.centers):
+                
+                message = "Not all pulses are detected"
+                 
+                h_thresh = h_thresh_1_before - change_coef * abs(h_thresh_1_before - h_thresh_2_before)
+
+
+            else:
+                
+                raise_err = False
+                print('working threshold = {} found in {} iterations'.format(h_thresh, it))
+                print(os.path.join(path, 'JPEG', 'Problematic'),
+                      video_filename + '_unsuccessful.jpg')
+                File.rm_if_exist(os.path.join(path, 'JPEG', 'Problematic'), video_filename + '_unsuccessful.jpg')
+                
+                break
+            
+            print(message, 'new threshold = ', h_thresh)
+
+            h_thresh_2_before = h_thresh_1_before
+            h_thresh_1_before = h_thresh
+            it += 1
         
-        it = 0
-        if not self.enforce_use_laser_detection_only:
+        if raise_err:
+            self.find_center_vicinities(h_thresh, crude_smooth_wind = crude_smooth_wind)
+            self. _raise_err_out_plot(analogpulse, message, video_filename, path, h_thresh)
             
-            while it < max_iteration:
-                
-                self.find_center_vicinities(h_thresh)
+        return 
     
-                
-                if len(self.center_vicinities) > len(smr.centers):
-                    
-                    message = "Extra pulses are detected"
-                    h_thresh = h_thresh_1_before + change_coef * abs(h_thresh_2_before - h_thresh_1_before)
+    # def find_center_without_recursion(self,h_thresh, 
+    #                                  video_filename, path,
+    #                                  analogpulse,
+    #                                  change_coef = 0.2,
+    #                                  max_iteration = 20,
+    #                                  crude_smooth_wind = 100)
     
-                elif len(self.center_vicinities) < len(smr.centers):
-                    
-                    message = "Not all pulses are detected"
-                     
-                    h_thresh = h_thresh_1_before - change_coef * abs(h_thresh_1_before - h_thresh_2_before)
+    #     self.find_center_vicinities(h_thresh, crude_smooth_wind = crude_smooth_wind)
     
-    
-                else:
-                    
-                    raise_err = False
-                    print('working threshold = {} found in {} iterations'.format(h_thresh, it))
-                    print(os.path.join(path, 'JPEG', 'Problematic'),
-                          video_filename + '_unsuccessful.jpg')
-                    File.rm_if_exist(os.path.join(path, 'JPEG', 'Problematic'), video_filename + '_unsuccessful.jpg')
-                    
-                    break
-                
-                print(message, 'new threshold = ', h_thresh)
-    
-                h_thresh_2_before = h_thresh_1_before
-                h_thresh_1_before = h_thresh
-                it += 1
-    
-                
-            if raise_err:
-                self. _raise_err_out_plot(smr, message, video_filename, path, h_thresh)
-        else:
+        
+    #     if len(self.center_vicinities) > len(analogpulse.centers):
             
-            self.find_center_vicinities(h_thresh)
-    def _raise_err_out_plot(self, smr, message, video_filename, path, h_thresh):
+    #         message = "Extra pulses are detected"
+    #         h_thresh = h_thresh_1_before + change_coef * abs(h_thresh_2_before - h_thresh_1_before)
+    
+    #     elif len(self.center_vicinities) < len(analogpulse.centers):
+            
+    #         message = "Not all pulses are detected"
+             
+    #         h_thresh = h_thresh_1_before - change_coef * abs(h_thresh_1_before - h_thresh_2_before)
+    
+    
+    #     else:
+            
+    #         raise_err = False
+    #         print('working threshold = {} found in {} iterations'.format(h_thresh, it))
+    #         print(os.path.join(path, 'JPEG', 'Problematic'),
+    #               video_filename + '_unsuccessful.jpg')
+    #         File.rm_if_exist(os.path.join(path, 'JPEG', 'Problematic'), video_filename + '_unsuccessful.jpg')
+            
+                
+    def enf_if_no_analpulse(self, analogpulse):
+        
+        if analogpulse.value == None:
+            
+            if  not self.use_laser_detection_if_no_analogpulse:
+                
+                raise ValueError("Analogpulse file does not exist. \n \
+                                 Either provide, or set 'use_laser_detection_if_no_analogpulse' to True.")
+            else:
+                
+                self.enforce_use_laser_detection_only = True
+                
+    def _raise_err_out_plot(self, analogpulse, message, video_filename, path, h_thresh):
         
         ax = self.plot_start_ends()
-        ax.plot(smr.centers, np.ones_like(smr.centers), 'o', c = 'k', label = 'smr centers')
+        ax.plot(analogpulse.centers, np.ones_like(analogpulse.centers), 'o', c = 'k', label = 'analogpulse centers')
         ax.axhline(y = h_thresh, 
                    xmin = 0, xmax = len(self.raw_signal), 
                    ls = '--', c = 'k', label = 'peak thresh')
@@ -805,14 +878,14 @@ class Pulse :
         
         raise ValueError ("Did not manage to analyze.")
         
-    def fill_missing_pulses(self, smr, plot = False, report = False):
+    def fill_missing_pulses(self, analogpulse, plot = False, report = False):
             
-        n_missing = len( smr.centers) - len( self.centers) # number of missing laser detections
+        n_missing = len( analogpulse.centers) - len( self.centers) # number of missing laser detections
         
         if n_missing > 0 :
 
             # second method counting on the fact that all pulse center vicinites are detected
-            self.centers_aligned = np.zeros_like(smr.centers)
+            self.centers_aligned = np.zeros_like(analogpulse.centers)
             self.centers_aligned[self.missing_start_end] = 0
             self.centers_aligned[~ self.missing_start_end] = self.centers
             print(' {} pulses missing in video detection'.format(n_missing))
@@ -821,7 +894,19 @@ class Pulse :
             
             self.centers_aligned = self.centers.copy()
         
-
+    def find_duration(self, analogpulse):
+        
+        if not self.enforce_use_laser_detection_only:
+            
+            self.fill_missing_pulses(analogpulse, plot = False, report = False)
+            true_duration = analogpulse.true_duration
+            
+        else:
+            
+            true_duration = self.true_duration
+            
+        return true_duration
+    
     def check_first_missing(self):
         
         if self.centers[0] - self.center_vicinities[0] > 100 :
@@ -1010,36 +1095,48 @@ class Pulse :
 
 class AnalogPulse : 
     
-    def __init__(self, filepath):
+    def __init__(self, file, stim_type):
         
-        self.starts = []
-        self.ends = []
-        self.centers = []
-        self.true_duration = None
-        self.read_smr_detections(filepath)
+        self.stim_type = stim_type
         
+        if isinstance(file, File):
+            
+            self.starts = []
+            self.ends = []
+            self.centers = []
+            self.true_duration = None
+            self.read_data_from_csv(file.path)
+            self.cal_centers()
+            self.value = 'exists'
+            
+        else:
+            
+            self.value = None
         
-    def read_smr_detections(self, filepath):
+    def read_data_from_csv(self, filepath):
         
         df = pd.read_csv(filepath, skiprows = 4, header = [0])
         
         self.starts = (df['ON'].values / 4).astype(int)
         self.ends = (df['OFF'].values / 4).astype(int)
+        self.cal_true_duration()
+                
+        
+    def cal_centers(self):
+        
         self.centers = np.average( np.column_stack( (self.starts, 
                                                      self.ends) ), 
                                   axis = 1).astype(int) 
-        
-        self.cal_true_duration()
 
-        
+
     def cal_true_duration(self):
         
         self.true_duration = int( np.average( self.ends - self.starts) )
         
-    def align_to_video(self, shift_rel_to_smr):
+    def align_to_video(self, shift_rel_to_analogpulse):
         
-        self.starts += shift_rel_to_smr
-        self.ends += shift_rel_to_smr
+        self.starts += shift_rel_to_analogpulse
+        self.ends += shift_rel_to_analogpulse
         
     def remove_pulses(self, ind):
         
@@ -1050,26 +1147,54 @@ class AnalogPulse :
         
 class SortedExpeiment(Experiment) :
     
-    def __init__(self, video_filepath):
+    def __init__(self, video_filepath, stim_duration_dict):
         
         Experiment.__init__(self, video_filepath)
         
-        self.files = {}
+        self.files = {'DLC': None, 'analogpulse': None}
+        self.stim_duration = None
         self.check_func = {'DLC': self.right_DLC, 
-                           'smr': self.right_smr}
+                           'analogpulse': self.right_analogpulse}
     
 
         self.extract_info_from_video_filename()
+        self.find_stim_duration(stim_duration_dict)
         self.exp_dir = os.path.dirname( self.video.dirpath )
         
-        self.find_smr_DLC_csv()
+        self.find_analogpulse_DLC_csv()
         print('Video: ', self.video.name)
-        print( 'DLC  : ', self.files['DLC'].name )
-        print( 'smr  : ', self.files['smr'].name )
-        
+
+        self.already_analyzed = False
         self.prob_csv_path= None
+    
+    def find_stim_duration(self, stim_duration_dict):
         
-    def right_smr (self, file):
+        beta = 'beta' in self.stim_type.lower()
+        square = 'square' in self.stim_type.lower()
+        
+        if beta and not square:
+            self.stim_duration = stim_duration_dict['beta']
+        
+        elif square:
+            self.stim_duration = stim_duration_dict['square']
+            
+        else:
+            self.stim_duration = None
+        
+    def check_if_already_analyzed(self):
+        
+        directory = Directory( os.path.join( self.exp_dir, 'Laser'))
+        
+        supposed_analysis_filepath = os.path.join(self.exp_dir, 'Laser', 
+                                                  self.files['DLC'].name_base +
+                                                  '_Laser.csv')
+
+        if supposed_analysis_filepath in directory.filepath_list['.csv']:
+            
+            self.already_analyzed = True
+            print('File already analyzed!')
+            
+    def right_analogpulse (self, file):
         
         condition_1 = self.day_tag in file.name_base
         condition_2 = '_Laser' not in file.name_base 
@@ -1084,50 +1209,63 @@ class SortedExpeiment(Experiment) :
         return condition_1 and condition_2 
     
             
-    def find_csv_file(self, folder = 'Laser', d_type = 'smr') :
+    def find_csv_file(self, folder = 'Laser', d_type = 'analogpulse') :
         
         directory = Directory( os.path.join( self.exp_dir, folder))
         corres_files = []
         
-        for path in directory.filepath_list['.csv']:
-        
-            file = File ( path )
+        if '.csv' in directory.filepath_list:
             
-            if self.check_func[ d_type] (file):
+            for path in directory.filepath_list['.csv']:
+            
+                file = File ( path )
                 
-                corres_files.append(file)
+                if self.check_func[ d_type] (file):
+                    
+                    corres_files.append(file)
+                    
+            if len( corres_files ) == 1: # excatly one file found, great!
+    
+                self.files[d_type] = corres_files [0]   
                 
-        if len( corres_files ) == 1: # excatly one file found, great!
-
-            self.files[d_type] = corres_files [0]   
+            elif len( corres_files ) > 1:
+                
+                [ print(f.path) for f in corres_files]
+                raise ValueError(" multiple" + d_type + " files with the same day tag!")
             
-        elif len( corres_files ) > 1:
-            
-            [ print(f.path) for f in corres_files]
-            raise ValueError(" multiple" + d_type + " files with the same day tag!")
-        
+            if isinstance(self.files[d_type], File):
+                print(d_type, ' : ', self.files[d_type].name )
         # else:
 
         #    raise ValueError( d_type + " file doesn't exist!")
            
-    def find_smr_DLC_csv(self):
+    def find_analogpulse_DLC_csv(self):
         
-        self.find_csv_file( folder = 'Laser', d_type = 'smr')
+        self.find_csv_file( folder = 'Laser', d_type = 'analogpulse')
         self.find_csv_file( folder = 'DLC', d_type = 'DLC')
+        self.check_if_already_analyzed()
         
     def save_laser_detections (self, starts, ends, method, mean_shift, sd_shift):
 
+        if isinstance(self.files['analogpulse'], File):
+            
+            analog_path = self.files['analogpulse'].path
+            
+        else:
+            
+            analog_path = 'No analog pulse provided.'
+            
         metadatas=[
             [self.video.path],
-            [self.files['smr'].path],
+            [analog_path],
             [method],
             [str(mean_shift) + '+/-' + str(sd_shift)]
-           ]
+            ]
     
         df = pd.DataFrame( np.column_stack(( starts, ends)),
                            columns = ['ON', 'OFF'])
     
-        resultFilePath = os.path.join(self.files['smr'].dirpath, 
+        resultFilePath = os.path.join(self.exp_dir, 'Laser', 
                                       self.files['DLC'].name_base +
                                       '_Laser.csv')
         
@@ -1138,21 +1276,23 @@ class SortedExpeiment(Experiment) :
             
         df.to_csv(resultFilePath,  mode = 'a', index = False)
     
-    def get_laser_start_end(self, pulse, smr):
+    def get_laser_start_end(self, pulse, analogpulse, true_duration):
         
-        if pulse.use_laser_detection_only(smr) or pulse.enforce_use_laser_detection_only :
+        if pulse.use_laser_detection_only(analogpulse) or pulse.enforce_use_laser_detection_only :
             
             starts, ends = pulse.starts, pulse.ends
             
         else:
             
-            smr.align_to_video(pulse.shift_rel_to_smr)
-            starts, ends = smr.starts, smr.ends
+            analogpulse.align_to_video(pulse.shift_rel_to_analogpulse)
+            starts, ends = analogpulse.starts, analogpulse.ends
             
         centers = np.average( np.column_stack( (starts, ends)), axis = 1).astype(int)
         
+        
         return starts, ends, centers
     
+
     def plot_laser_detections(self, ax, centers, y_plot, title = None):
         
         for center, y in zip( centers[:-1], y_plot[:-1]) :
@@ -1164,17 +1304,32 @@ class SortedExpeiment(Experiment) :
         ax.set_title(title, fontsize = 12)      
         ax.legend(frameon = False, loc = 'lower right', fontsize = 12, bbox_to_anchor=(1.25, 0.15))
 
+    def remove_if_already_exists(self, filepath):
+        
+        df = pd.read_csv(filepath, header = [0])
+        
+        if self.video.path in df['path'].values:
+            print('reanalyzed')
+            df = df.drop(np.where(df['path'] == self.video.path)[0])
+            
+        df.to_csv(filepath, index = False)
+        
     def add_file_to_csv(self, filepath, info, file_no, shift_mean = None, shift_sd = None):
         
+        self.remove_if_already_exists(filepath)
+        
         if  shift_mean != None:
+            
             data = [self.video.path, info, shift_mean, shift_sd, file_no, self.day_tag]
+            
         else:
+            
             data = [self.video.path, info, file_no, self.day_tag]
-        # opening the csv file in 'a+' mode
+            
         file = open(filepath, 'a+', newline ='')
           
-        # writing the data into the file
         with file:    
+            
             write = csv.writer(file)
             write.writerows([data])
 
@@ -1274,4 +1429,4 @@ class ProblematicFileAnalysis:
 
 def remove_element(arr, ind):
     
-    return np.hstack(arr[:ind], arr[ind+1:])
+    return np.hstack((arr[:ind], arr[ind+1:]))
