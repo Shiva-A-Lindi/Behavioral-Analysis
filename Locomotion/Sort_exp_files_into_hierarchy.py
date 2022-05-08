@@ -10,7 +10,7 @@ import numpy as np
 from File_hierarchy import *
 
 move_if_not_all_files_found = True
-path = '/media/shiva/LaCie/Data_INCIA_Shiva/2021_04_27_newTrain2_ok_missing_smr'
+path =  '/media/shiva/LaCie/Data_INCIA_Shiva/2021_02_19_newTrain2_Video_empty'
 directory = Directory(path)
 
 stim_type_list = ['Square', 'Beta', 'beta', 'square']

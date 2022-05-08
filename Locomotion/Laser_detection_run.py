@@ -41,7 +41,7 @@ laser_detection_path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/L
 # for n, v in enumerate(video_filepath_list): 
 #     if 'o21' in v:
 #         print(n) 
-video_filepath_list = ['/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Control/Mouse_73/STR/squarepulse_0-5mW/Video']
+video_filepath_list = ['/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/ChR2/Mouse_60/STR/squarepulse_0-5mW/Video/Vglut2D2Cre#60_SquarePulse_STR_0-5mW_15cm-s_Right_b04.avi']
 # video_filepath_list = SortedExpeiment.read_summary_csv(os.path.join(laser_detection_path, 'Problematic_files.csv'))
 
 print( '{} experiment files found.'.format(len(video_filepath_list)) )
