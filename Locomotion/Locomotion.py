@@ -265,25 +265,26 @@ def csv_from_excel(filepath):
                                                header=True, index=False)
 
     
-# def build_filePath_list(path):
+def build_filePath_list(path):
     
-#     '''move all non csv xlsx files out of the Laser and DLC subdirectory'''
+    '''move all non csv xlsx files out of the Laser and DLC subdirectory'''
     
     
-#     for (dirpath, dirnames, filenames) in os.walk(path):
-#         for dirname in dirnames:
-#         dirname == 'Laser' or dirname == 'DLC'
-#         for f in filenames:
-#             dirname = os.path.dirname(f)
-#             print(f)
-#             if ((dirname == 'Laser' or dirname == 'DLC') and 
-#                 os.path.splitext(f) [1] not in ['.csv', 'xlsx']):
+    for (dirpath, dirnames, filenames) in os.walk(path):
+        
+        for dirname in dirnames:
+            
+            if dirname == 'Laser' or dirname == 'DLC':
                 
-#                 print('moving', f)
-#                 os.rename(os.path.join(dirpath, dirname, f),
-#                           os.path.join(dirpath, f))
+                for x in os.listdir(os.path.join(dirpath, dirname)):
+                                    
+                    if os.path.splitext(x) [1] not in ['.csv', '.xlsx']:
+                
+                        print('moving', x)
+                        os.rename(os.path.join(dirpath, dirname, x), 
+                                  os.path.join(dirpath, x))
     
-# path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2/ChR2/Mouse_116/STN/Spontaneous'
+path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/D2'
 build_filePath_list(path)
 
 def save_npz(pre_direct, mouse_type, opto_par, stim_loc, stim_type, pulse_inten, fps, window, n_timebin, file_name_ext,
