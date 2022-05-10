@@ -21,6 +21,7 @@ from scipy.signal import find_peaks
 from pathlib import Path
 import csv
 from File_hierarchy import *
+import xlrd
 
 font = FontProperties()
 font.set_family('sans-serif')
@@ -135,12 +136,12 @@ def check_DLC_corresponds_to_laser(filepath_laser, filepath_DLC):
         between the DLC and the laser files.
     """
 
-    filename_DLC = os.path.basename(filepath_DLC)
-    filename_laser = os.path.basename(filepath_laser)
+    filename_DLC = os.path.splitext(os.path.basename(filepath_DLC))[0]
+    filename_laser = os.path.splitext(os.path.basename(filepath_laser))[0]
     print('DLC:', filename_DLC)
     print('Laser:', filename_laser)
     
-    if not '_'.join( filename_DLC.split('_')[:-1])== '_'.join(filename_DLC.split('_')[:-1]):
+    if not '_'.join( filename_DLC.split('_')[:-1]) == '_'.join(filename_DLC.split('_')[:-1]):
 
         raise ValueError (" Laser and DLC files dont' match!")
 
@@ -176,8 +177,10 @@ def read_laser(laser_file_name, DLC_file_name):
         laser_t = pd.read_csv(laser_file_name, skiprows = n_rows_to_skip)
 
     elif extension in ['.xlsx' ]:
-
+        
+        
         n_rows_to_skip = find_header_line_laser_file_excel(laser_file_name)
+        print(n_rows_to_skip)
         laser_t = pd.read_excel(laser_file_name, skiprows = n_rows_to_skip)
     
     else: 
@@ -252,6 +255,36 @@ def convert_csv_to_xlsx(path):
                     path, filepath_in.replace(".csv", ".xlsx")), startrow=4, header=True, index=False)
 
             os.remove(name)  # remove the csv file.
+
+
+def csv_from_excel(filepath):
+    
+    ''' Convert xlsx file to csv'''
+    
+    pd.read_excel(filepath).to_csv(os.path.join(path, filepath.replace(".xlsx", ".csv")), 
+                                               header=True, index=False)
+
+    
+# def build_filePath_list(path):
+    
+#     '''move all non csv xlsx files out of the Laser and DLC subdirectory'''
+    
+    
+#     for (dirpath, dirnames, filenames) in os.walk(path):
+#         for dirname in dirnames:
+#         dirname == 'Laser' or dirname == 'DLC'
+#         for f in filenames:
+#             dirname = os.path.dirname(f)
+#             print(f)
+#             if ((dirname == 'Laser' or dirname == 'DLC') and 
+#                 os.path.splitext(f) [1] not in ['.csv', 'xlsx']):
+                
+#                 print('moving', f)
+#                 os.rename(os.path.join(dirpath, dirname, f),
+#                           os.path.join(dirpath, f))
+    
+# path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2/ChR2/Mouse_116/STN/Spontaneous'
+build_filePath_list(path)
 
 def save_npz(pre_direct, mouse_type, opto_par, stim_loc, stim_type, pulse_inten, fps, window, n_timebin, file_name_ext,
              epochs_all_mice, epochs_mean_each_mouse, epochs_spont_all_mice, pre_info,
@@ -974,7 +1007,7 @@ def plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, 
                      pre_interval, interval, post_interval, pre_stim_inter,
                      average='Averg_trials_all_mice', c_laser='deepskyblue',
                      c_spont='k', save_as_format='.pdf', title = True,
-                     plot_spont = True, label = None, annotate_n = True, axvspan = True):
+                     plot_spont = True, label = None, annotate_n = False, axvspan = True):
     
     """Plot (pre Laser | Laser | post Laser) velocity/position/acceleration comparison between laser and spontaneous trials.
 
@@ -1060,7 +1093,7 @@ def plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, 
     if plot_spont:
         
         line_2, = ax.plot(time_series, epochs_mean_spont,
-                         color=c_spont, label="Spontaeous")
+                         color=c_spont, label="Spontaneous")
         ax.fill_between(time_series, confidence_inter_spont[:, 0],  confidence_inter_spont[:, 1], 
                         color=c_spont, alpha=0.2)
     if axvspan:
@@ -1157,6 +1190,8 @@ def plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, 
     
 def handle_legend_label(ax, label, body_part, epochs, annotate_n):
     
+    ''' if annotate is True the number of trials is written as text in the plot
+    otherwise it will be reported in the legend'''
     
     label = label or ', '.join(body_part)
     
@@ -2449,7 +2484,7 @@ def correct_accep_interval_range_for_beta(accep_interval_range, stim_type):
 def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_dict, stim_loc, stim_type, opto_par, treadmil_velocity,
                                 ylim, spont_trial_dict, misdetection_dict, intervals_dict, t_window_dict, accep_interval_range, study_param_dict,
                                 max_distance, min_distance, n_trials_spont, c_laser = 'deepskyblue', c_spont = 'k', fig = None,
-                                outer = None, n_inner = 0, inner = None, axes = [], remove_empty_ax = True, label = None, annotate_n = True,
+                                outer = None, n_inner = 0, inner = None, axes = [], remove_empty_ax = True, label = None, annotate_n = False,
                                 title_manually = True, plot_spont = True, save_fig = True, suptitle_y = 0.95):
     
     """Save data of epochs and individal mice to a npz file.
@@ -2520,15 +2555,21 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
     fig = fig or plt.figure(figsize=(5 * n_subplots, 5))
     outer = outer or gridspec.GridSpec(1, 1, wspace=0.2, hspace=0.2)
     inner = inner or gridspec.GridSpecFromSubplotSpec(1, n_subplots,
-                    subplot_spec=outer[0], wspace=0.1, hspace=0.1,sharex = True)
+                    subplot_spec=outer[0], wspace=0.1, hspace=0.1)#,sharex = True)
 
     if len(axes) == 0:
+        
         axes = np.empty(n_subplots, object)
+        
         for i in range(n_subplots):
+            
             axes[i] = plt.Subplot(fig, inner[i])   
             fig.add_subplot(axes[i])
+            
         axvspan = True
+        
     else:
+        
         axvspan = False
 
     
@@ -2725,6 +2766,8 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
     return axes
 
 def save_pdf_png(fig, figname, size = (8,6)):
+    
+    '''Save fig as pdf and png format'''
     # fig.set_size_inches(size, forward=False)
     fig.savefig(figname + '.png', dpi = 500, facecolor='w', edgecolor='w',
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
