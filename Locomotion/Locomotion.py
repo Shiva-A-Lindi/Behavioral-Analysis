@@ -261,11 +261,29 @@ def csv_from_excel(filepath):
     
     ''' Convert xlsx file to csv'''
     
-    pd.read_excel(filepath).to_csv(os.path.join(path, filepath.replace(".xlsx", ".csv")), 
-                                               header=True, index=False)
+    print('converting', filepath)
+    df = pd.read_excel(filepath)
+    df.to_csv(filepath.replace(".xlsx", ".csv"), 
+              header=True, index=False)
 
     
-def build_filePath_list(path):
+
+def convert_all_xlsx_to_csv(path):
+    
+    '''conver all xlsx files to csvs 
+    under the given path'''
+    
+    d = Directory(path)
+    n = len(d.filepath_list['.xlsx'])
+    
+    for i, f in enumerate(d.filepath_list['.xlsx']):
+        
+        print('{} from {}'.format(i, n))
+        csv_from_excel(f)
+        os.remove(f)
+        
+    
+def move_unwanter_files_out_of_folder(path):
     
     '''move all non csv xlsx files out of the Laser and DLC subdirectory'''
     
@@ -283,13 +301,125 @@ def build_filePath_list(path):
                         print('moving', x)
                         os.rename(os.path.join(dirpath, dirname, x), 
                                   os.path.join(dirpath, x))
+
+def get_sorted_laser_DLC_files(path):
     
-path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/D2'
-build_filePath_list(path)
+    ''' print sorted files in laser and DLC folders to 
+    see if the match '''
+    
+    for (dirpath, dirnames, filenames) in os.walk(path):
+        
+        for dirname in dirnames:
+            
+            if dirname == 'Laser' or dirname == 'DLC':
+                
+                files = [x for x in os.listdir(os.path.join(dirpath, dirname)) if not x.startswith('.')]
+                files.sort()
+                remove_xlsx_if_csv_exists(os.path.join(dirpath, dirname))
+                
+                files = [x for x in os.listdir(os.path.join(dirpath, dirname)) if not x.startswith('.')]
+                files.sort()
+                print(dirname, ':\n', files)
+  
+def rename_laser_files_according_to_DLC(path):
+    
+    ''' rename matching the laser files to DLC files '''
+    
+    locs = [x.path for x in os.scandir(path)]
+    
+    for loc in locs:
+        
+        protocols = [x.path for x in os.scandir(loc)]
+        for prot in protocols:
+            
+            DLC_path = os.path.join(prot, 'DLC')
+            DLC_files = [x for x in os.listdir( DLC_path) if not x.startswith('.')]
+            DLC_files.sort()
+            
+            laser_path = os.path.join(prot, 'Laser')
+            
+            if os.path.exists(laser_path):
+                
+                remove_xlsx_if_csv_exists(laser_path)
+                laser_files = [x for x in os.listdir(laser_path) if not x.startswith('.')]
+                laser_files.sort()
+                
+            else:
+                continue
+            
+            get_sorted_laser_DLC_files(prot)
+            
+            for DLC, laser in zip(DLC_files, laser_files):
+                
+                shared_name = DLC.split('DLC')[0] 
+                if shared_name[-1] != '_'  :
+                    shared_name += '_'
+                
+                laser_ext = os.path.splitext(laser)[1]
+                DLC_ext = os.path.splitext(DLC)[1]
+                
+                os.rename(os.path.join(laser_path, laser), 
+                          os.path.join(laser_path, shared_name + 'Laser' + laser_ext))
+                os.rename(os.path.join(DLC_path, DLC), 
+                          os.path.join(DLC_path, shared_name + 'DLC' + DLC_ext))
+                
+    get_sorted_laser_DLC_files(path)
+    
+def remove_xlsx_if_csv_exists(path):
+    ''' remove matching xlsx if the equivalent csv file exists'''
+    d = Directory(path)
+    
+    try:
+        csv_files = [os.path.splitext(f)[0] for f in d.filepath_list['.csv']]
+        xlsx_files = [os.path.splitext(f)[0] for f in d.filepath_list['.xlsx']]
+
+    except KeyError:
+        
+        return 
+    
+    mutual = np.intersect1d(csv_files, xlsx_files)
+    
+    for f in  mutual:
+        
+        os.remove(os.path.join(path, f + '.xlsx'))
+     
+    
+def unify_protocol_names(path):
+    
+    for (dirpath, dirnames, filenames) in os.walk(path):
+        
+        for dirname in dirnames:
+            
+            name = dirname.lower()
+            if 'square' in name and 'pulse' not in name:
+                
+                new_name = 'squarepulse_' + '_'.join(dirname.split('_')[1:])
+                print(dirname, 'changing to', new_name)
+                os.rename(os.path.join(dirpath, dirname), 
+                          os.path.join(dirpath, new_name))
+                
+            elif 'beta' in name and 'pulse' not in name:
+                
+                new_name = 'betapulse_' + '_'.join(dirname.split('_')[1:])
+                
+                print(dirname, 'changing to', new_name)
+                os.rename(os.path.join(dirpath, dirname), 
+                          os.path.join(dirpath, new_name))
+            
+                
+            elif 'mW' in dirname and dirname.split('mW')[0][-1] != '_':
+                
+                new_name =  dirname.split('mW')[0] + '_mW' + dirname.split('mW')[1]
+                print(dirname, 'changing to', new_name)
+                os.rename(os.path.join(dirpath, dirname), 
+                          os.path.join(dirpath, new_name))
+            
+
 
 def save_npz(pre_direct, mouse_type, opto_par, stim_loc, stim_type, pulse_inten, fps, window, n_timebin, file_name_ext,
              epochs_all_mice, epochs_mean_each_mouse, epochs_spont_all_mice, pre_info,
              cor, body_part, plot_param):
+    
     '''Save the trial epochs in one .npz file.
 
     Parameters
