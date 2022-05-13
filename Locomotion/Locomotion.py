@@ -144,7 +144,8 @@ def check_DLC_corresponds_to_laser(filepath_laser, filepath_DLC):
     if not '_'.join( filename_DLC.split('_')[:-1]) == '_'.join(filename_DLC.split('_')[:-1]):
 
         raise ValueError (" Laser and DLC files dont' match!")
-
+    # else:
+    #     print('laser, DLC match!')
 def read_DLC(file_name, scale_pix_to_cm):
 
     '''Read DeepLabCut Data.'''
@@ -180,34 +181,33 @@ def read_laser(laser_file_name, DLC_file_name):
         
         
         n_rows_to_skip = find_header_line_laser_file_excel(laser_file_name)
-        print(n_rows_to_skip)
         laser_t = pd.read_excel(laser_file_name, skiprows = n_rows_to_skip)
     
     else: 
 
         raise ValueError ( "laser data format not right! Should be '.xlsx' or 'csv' ")
     
+    duration = np.average(laser_t['OFF'].values - laser_t['ON'].values)
+    if  duration < 100:
+        laser_t = read_laser_beta_stim(laser_t, min_t_between_stim = 100)
+        
     return laser_t
 
 
-def read_laser_beta_stim(laser_file_name):
+def read_laser_beta_stim(laser_t, min_t_between_stim = 200):
 
-    '''Read laser onset offset times for Beta pulse stimulation'''
+    """ Read laser onset offset times for laser detections of every 
+        beta cycle (Gilles's)"""
 
-    laser_t = pd.read_excel(laser_file_name, skiprows=4)
     onset = np.array(laser_t['ON'].values)
-    # find the starts of sessions if
-    starts = np.where(shift(onset, -1, cval=0)-onset > min_t_between_stim)
-    # they are not oscilations of a beta wave
-
-    temp = np.zeros((len(onset[starts[0]])+1,))
-    # save the first detected laser as the dtart of the first session
-    temp[0] = onset[0]
-
-    # the rest are as detected above
-    temp[1:temp.shape[0], ] = onset[starts[0]+1]
-
-    df = pd.DataFrame(({'ON': temp, 'OFF': temp+interval}))
+    offset = np.array(laser_t['OFF'].values)
+    
+    # find the transitions between cycles 
+    trans, = np.where(onset[1:] - onset[:-1] > min_t_between_stim)
+    starts = np.insert(onset[trans + 1], 0, onset[0])
+    ends = np.insert(offset[trans], len(trans), offset[-1]) 
+    
+    df = pd.DataFrame(({'ON': starts, 'OFF': ends}))
     
     return df
 
@@ -274,15 +274,33 @@ def convert_all_xlsx_to_csv(path):
     under the given path'''
     
     d = Directory(path)
-    n = len(d.filepath_list['.xlsx'])
-    
+    try:
+        n = len(d.filepath_list['.xlsx'])
+    except KeyError:
+        print('no xlsx files found!')
+        return 
+    print('nb all files before conversion:', len(d.all_filepath_list))
+    print('xlsx:', n)
+    if '.csv' in d.filepath_list:
+        print('csv:', len(d.filepath_list['.csv']))
+        
     for i, f in enumerate(d.filepath_list['.xlsx']):
         
-        print('{} from {}'.format(i, n))
+        print('{} from {}'.format(i+1, n))
         csv_from_excel(f)
-        os.remove(f)
         
+        if os.path.exists(f.replace('.xlsx', '.csv')):
+            os.remove(f)
+        else:
+            print('ERROR: could not convert')
+    d = Directory(path)
+    print('nb all files after conversion:', len(d.all_filepath_list))
+    if '.xlsx' in d.filepath_list:
+        print('xlsx:',  len(d.filepath_list['.xlsx']))
+    print('csv:', len(d.filepath_list['.csv']))
     
+
+        
 def move_unwanter_files_out_of_folder(path):
     
     '''move all non csv xlsx files out of the Laser and DLC subdirectory'''
@@ -358,6 +376,7 @@ def rename_laser_files_according_to_DLC(path):
                 laser_ext = os.path.splitext(laser)[1]
                 DLC_ext = os.path.splitext(DLC)[1]
                 
+                print('renaming:', laser, DLC)
                 os.rename(os.path.join(laser_path, laser), 
                           os.path.join(laser_path, shared_name + 'Laser' + laser_ext))
                 os.rename(os.path.join(DLC_path, DLC), 
@@ -383,7 +402,37 @@ def remove_xlsx_if_csv_exists(path):
         
         os.remove(os.path.join(path, f + '.xlsx'))
      
+def remove_repetition_in_intensities(path):
     
+    for (dirpath, dirnames, filenames) in os.walk(path):
+        
+        for dirname in dirnames:
+            if dirname == 'squarepulse_0-5-0-5_mW':
+                print(dirname, 'changing to', 'squarepulse_0-5_mW')
+                os.rename(os.path.join(dirpath, dirname), 
+                          os.path.join(dirpath, 'squarepulse_0-5_mW'))
+    
+
+
+def compare_analysis_file(path1, path2):
+    
+    '''match experiment analysis filenames between two directories and report comparison'''
+    d1 = Directory(path1)
+    d2 = Directory(path2)
+    
+    xlsx_csv_files1 = np.unique( np.array([os.path.splitext(os.path.basename(fp))[0] 
+                                           for fp in d1.all_filepath_list 
+                                           if os.path.splitext(fp)[-1] in ['.xlsx', '.csv']]))
+    xlsx_csv_files2 = np.unique( np.array([os.path.splitext(os.path.basename(fp))[0] 
+                                           for fp in d2.all_filepath_list 
+                                           if os.path.splitext(fp)[-1] in ['.xlsx', '.csv']]))
+
+    mutual = np.intersect1d(xlsx_csv_files1, xlsx_csv_files2)
+    print(len(mutual), len(xlsx_csv_files1), len(xlsx_csv_files2))
+    print('files from src not in dest path:', xlsx_csv_files1[~np.isin(mutual,xlsx_csv_files1)])
+    print('files from des not in src path:', xlsx_csv_files2[~np.isin(mutual,xlsx_csv_files2)])
+
+
 def unify_protocol_names(path):
     
     for (dirpath, dirnames, filenames) in os.walk(path):
@@ -415,11 +464,12 @@ def unify_protocol_names(path):
                           os.path.join(dirpath, new_name))
             
 
-
-def save_npz(pre_direct, mouse_type, opto_par, stim_loc, stim_type, pulse_inten, fps, window, n_timebin, file_name_ext,
+            # else:
+            #     print(dirname, "compliant")
+def save_npz(pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, window, n_timebin, file_name_ext,
              epochs_all_mice, epochs_mean_each_mouse, epochs_spont_all_mice, pre_info,
              cor, body_part, plot_param):
-    
+
     '''Save the trial epochs in one .npz file.
 
     Parameters
@@ -467,29 +517,30 @@ def save_npz(pre_direct, mouse_type, opto_par, stim_loc, stim_type, pulse_inten,
 
     '''
 
-    s = '_'
-    s = s.join(body_part)
-
+    pulse_inten = stim_type.split('_')[1]
     file_name = (mouse_type
                  + '_' + opto_par 
-                 + '_' + pulse_inten 
+                 + '_' + stim_loc
+                 + '_' + stim_type
                  + file_name_ext 
-                 + "_mov_aver=" + str(int(window/fps*1000)) 
-                 + "_n_t=" + str(int(n_timebin/fps*1000))
-                 + '_' + cor
+                 + "_mov_aver_window=" + str(int(window / fps * 1000)) 
+                 + "_V_window=" + str(int(n_timebin / fps * 1000))
+                 + 'ms_' + cor
                  + '_' + plot_param
-                 + '_' + s)
+                 + '_' + '_'.join(body_part))
+    
     Directory.create_dir_if_not_exist(os.path.join(pre_direct, 'data_npz', stim_loc, stim_type, opto_par))
+    
     np.savez(os.path.join(pre_direct, 'data_npz', stim_loc, stim_type, opto_par, file_name),
-             epochs_all_mice=epochs_all_mice,
-             epochs_mean_each_mouse=epochs_mean_each_mouse,
-             epochs_spont_all_mice=epochs_spont_all_mice,
-             avg_pre_stim_position=pre_info[:, 0],
-             avg_pre_stim_velocity=pre_info[:, 1],
-             avg_pre_stim_acc=pre_info[:, 2],
-             cor=[cor],
-             body_part=body_part,
-             plot_param=[plot_param])
+             epochs_all_mice = epochs_all_mice,
+             epochs_mean_each_mouse = epochs_mean_each_mouse,
+             epochs_spont_all_mice = epochs_spont_all_mice,
+             avg_pre_stim_position = pre_info[:, 0],
+             avg_pre_stim_velocity = pre_info[:, 1],
+             avg_pre_stim_acc = pre_info[:, 2],
+             cor = [cor],
+             body_part = body_part,
+             plot_param = [plot_param])
 
 
 def moving_average_array(X, n):
@@ -1131,14 +1182,24 @@ def plot_what_which_where(df, laser_t, mouse_type, mouse_no, trial_no, opto_par,
                              plot_param + '_averaged_'+s+save_as_format), bbox_inches='tight', orientation='landscape', dpi=300)
 
 
-def plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, epochs, 
+def get_axes(ax, figsize=(6, 5)):
+    
+    if ax == None:
+        
+        fig, ax = plt.subplots(1, 1, figsize=figsize)
+        
+    return plt.gcf(), ax
+
+
+def plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epochs, 
                      epochs_spont, treadmil_velocity, ylim,
                      fps, n_timebin, window_pos, window_veloc,
                      cor, body_part, plot_param,
                      pre_interval, interval, post_interval, pre_stim_inter,
                      average='Averg_trials_all_mice', c_laser='deepskyblue',
                      c_spont='k', save_as_format='.pdf', title = True,
-                     plot_spont = True, label = None, annotate_n = False, axvspan = True):
+                     plot_spont = True, label = None, annotate_n = False, axvspan = True,
+                     multi_region = False, save_fig = True, ax = None):
     
     """Plot (pre Laser | Laser | post Laser) velocity/position/acceleration comparison between laser and spontaneous trials.
 
@@ -1199,8 +1260,8 @@ def plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, 
     None
 
     """
-
-
+    
+    fig, ax = get_axes(ax)
 #     epochs_mean = np.average(epochs, axis = 0) # average over different stimuli
 #     epochs_mean_spont = np.average(epochs_spont, axis = 0) # average over different stimuli
 
@@ -1223,8 +1284,13 @@ def plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, 
     
     if plot_spont:
         
-        line_2, = ax.plot(time_series, epochs_mean_spont,
-                         color=c_spont, label="Spontaneous")
+        if multi_region:
+            spont_label = 'Spontaneous'
+        else:
+            spont_label = "Spontaneous n=" + str(epochs_spont.shape[0])
+        
+        line_2, = ax.plot(time_series, epochs_mean_spont, ls = '--',
+                         color=c_spont, label = spont_label)
         ax.fill_between(time_series, confidence_inter_spont[:, 0],  confidence_inter_spont[:, 1], 
                         color=c_spont, alpha=0.2)
     if axvspan:
@@ -1257,67 +1323,55 @@ def plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, 
     remove_frame(ax)
     ax = set_ticks(ax)
 
+    title = ( "(" + mouse_type 
+              + " " + opto_par + ")" 
+              + "\n" + stim_loc 
+              + "\n" + stim_type.replace('_', ' ').replace('-','.'))
+    
+    filename =  (stim_loc 
+                + '_' + stim_type
+                + "_" + opto_par
+                + '_' + mouse_type
+                + '_' + cor
+                + '_' + plot_param 
+                + '_' + '_'.join(body_part)
+                + '_deriv_window_' + str(int(n_timebin * 1000 / fps))
+                + '_pos_window_' + str(int(window_pos * 1000 / fps)) 
+                + '_v_window' + str(int(window_veloc * 1000 / fps)) 
+                + '_pre_post_stim' + save_as_format)
+    
     if not average:
         
-        if title:
-            ax.set_title(plot_param
-                      + opto_par 
-                      + " " + str(mouse_no) 
-                      + "(" + mouse_type 
-                      + ") #" 
-                      + "\n").set_fontproperties(font)
+        title += "# " + str(mouse_no) + ' '
+        filepath = os.path.join(pre_direct, 'Compare', 'Mouse' + str(mouse_no) + '_' + filename)
+                                
+
         
-        fig.savefig(os.path.join(pre_direct, 
-                                 'Compare', 
-                                 'Mouse' + str(mouse_no)
-                                 + '_' + stim_type
-                                 + "_" + opto_par
-                                 + '_' + mouse_type
-                                 + '_' + cor
-                                 + '_' + plot_param 
-                                 + '_' + '_'.join(body_part)
-                                 + '_timebin_' + str(int(n_timebin*1000/fps))
-                                 + '_window_pos_' + str(int(window_pos*1000/fps)) 
-                                 + '_window_veloc_' + str(int(window_veloc*1000/fps)) 
-                                 + '_pre_post_stim' + save_as_format), 
-                    bbox_inches='tight', orientation='landscape', dpi=300)
+    elif average == 'Averg_trials':  # one mouse
         
-    elif average == 'Averg_trials' and title:  # one mouse
-        
-        ax.set_title("# " + str(mouse_no) 
-                  + "(" + mouse_type 
-                  + " " + opto_par + ")" 
-                  + "\n" + stim_loc 
-                  + "\n" + stim_type.replace('_', ' ').replace('-','.')).set_fontproperties(font)
+        if not multi_region:
+            title = (mouse_type 
+                     + "\n" 
+                     + " Average of all " 
+                     + opto_par)
+        else:
+            title = '#' + str(mouse_no)
+            
+        filepath = os.path.join(pre_direct,  'Average_' + filename)
         
     else:
         
-        # if plot_spont :
-        #     ax.legend(handles=[line_1, line_2], labels=[label, 'Spontaneous'], 
-        #               loc='lower right', fontsize = 12, frameon = False, bbox_to_anchor=(1, -0.02))
-        if title:
-            ax.set_title(mouse_type 
-                         + "\n" 
-                         + " Average of all " 
-                         +opto_par).set_fontproperties(font)
+        filepath = os.path.join(pre_direct,  filename)
 
-        ax.get_figure().savefig(os.path.join(pre_direct, 
-                                 'Average'
-                                 + '_' + stim_type 
-                                 + '_' + opto_par
-                                 + '_' + mouse_type
-                                 + '_' + cor 
-                                 + '_' + plot_param
-                                 + '_' + '_'.join(body_part)
-                                 + '_timebin_'+str(int(n_timebin*1000/fps))
-                                 + '_window_pos_' + str(int(window_pos*1000/fps)) 
-                                 + '_window_veloc_' +str(int(window_veloc*1000/fps))
-                                 + '_pre_post_stim' +save_as_format),
-                    bbox_inches='tight', orientation='landscape', dpi=300)
+    if title:
         
-
+        ax.set_title(title).set_fontproperties(font)
         
-        return ax
+    if save_fig:
+        
+        ax.get_figure().savefig(filepath, bbox_inches='tight', orientation='landscape', dpi=300)
+        
+    return ax
     
 def handle_legend_label(ax, label, body_part, epochs, annotate_n):
     
@@ -1365,6 +1419,174 @@ def set_ticks(ax):
     ax.get_yaxis().set_tick_params(direction='out', labelsize=20, length=6)
     ax.yaxis.set_ticks_position('left')
     return ax
+
+def flatten(t):
+    
+    """ create a flattened list of the list of lists"""
+    
+    return [item for sublist in t for item in sublist]
+
+
+def get_all_filepaths_same_protocol(stim_loc_list, pre_direct, stim_type, opto_par):
+    
+    summary_files_list = []
+    
+    for stim_loc in stim_loc_list:
+        path = os.path.join(pre_direct, 'data_npz', stim_loc, stim_type, opto_par)
+        summary_files_list += [os.path.join( path, f) 
+                               for f in list_all_files(path, ".npz")]
+
+    
+    return summary_files_list
+
+def save_data_summary_to_excel(mouse_dict, pre_direct, stim_loc_list, 
+                               stim_type, opto_par, intervals_dict, t_window_dict):
+    
+
+    fps = t_window_dict['fps']
+    states = ['laser OFF ', 'laser ON ']
+    mouse_type_list = list(mouse_dict.keys())
+    columns = flatten([ [states[0] + s, states[1] + s] for s in mouse_type_list])
+    
+    summary_files_list = get_all_filepaths_same_protocol(stim_loc_list, pre_direct, stim_type, opto_par)
+    
+    df_final = pd.DataFrame(columns = columns)
+    df_final_animal = pd.DataFrame(columns = columns)
+    
+    df_path = os.path.join(pre_direct, 'data_npz', stim_type 
+                                                 + '_' + opto_par
+                                                 + '.xlsx')
+    writer = pd.ExcelWriter(df_path)
+    
+    
+    for count, filename in enumerate(summary_files_list):
+    
+        dat = np.load(filename)
+        properties = os.path.basename(filename).split("_")
+        mouse_type = properties[0]
+        opto_par = properties[1]
+        stim_loc = properties[2]
+        epochs = dat['epochs_all_mice']
+        epochs_spont = dat['epochs_spont_all_mice']
+    #     epochs_spont_all_mice = np.zeros((epochs_all_mice.shape))
+        study_param_dict = {'cor' : dat['cor'][0],
+                            'body_part' : dat['body_part'], 
+                            'plot_param' : dat['plot_param'][0]}
+    
+        (epochs_mean, epochs_mean_spont, 
+        confidence_inter, confidence_inter_spont) = epochs_stats(epochs, epochs_spont)  
+            
+        pre = epochs[:,:intervals_dict['pre_interval']] ; 
+        post = epochs[:,intervals_dict['pre_interval'] + 1:
+                      intervals_dict['pre_interval'] + intervals_dict['interval']+1]
+
+        off_vel = np.average(pre, axis = 1)
+        on_vel = np.average(post, axis = 1)
+        
+        print(mouse_type, stim_loc, " n_trials:", off_vel.shape[0])
+        
+        df_summary = pd.DataFrame(({'laser OFF '+ mouse_type: off_vel,
+                                   'laser ON '+ mouse_type: on_vel}))
+        
+        df_summary_animal = pd.DataFrame(({'laser OFF_' + mouse_type: dat['epochs_mean_each_mouse'][:,0],
+                                          'laser ON_' + mouse_type: dat['epochs_mean_each_mouse'][:,1]}))
+        if count == 2:
+            
+            df_final = df_summary
+            df_final_animal = df_summary_animal
+            
+        if count > 2:
+            
+            df_final.reset_index()
+            df_summary.reset_index()
+            df_temp = [df_final, df_summary]
+            df_final = pd.concat(df_temp, axis=1)
+            df_final_animal.reset_index()
+            df_summary_animal.reset_index()
+            df_temp_animal = [df_final_animal, df_summary_animal]
+            df_final_animal = pd.concat(df_temp_animal, axis = 1)
+            
+        time_series = np.arange(- intervals_dict['pre_interval'],
+                                 intervals_dict['interval']
+                                + intervals_dict['post_interval'] + 1) / fps
+        
+        df = pd.DataFrame(({'time (s)': time_series,
+                            'mean velocity': epochs_mean, 
+                            'mean velocity spont': epochs_mean_spont,
+                            'conf interval up': confidence_inter[:,1], 
+                            'conf interval up spont': confidence_inter_spont[:,1],
+                            'conf interval low': confidence_inter[:,0]
+                            }))
+        
+        df.to_excel(writer, sheet_name = mouse_type, index = False)
+        df_final.to_excel(writer, sheet_name = 'violin plot', index = False)
+        df_final_animal.to_excel(writer, sheet_name= 'violin plot_animal_specific',index=False)
+        
+    writer.save()
+    print('dataframe is saved at:\n', df_path)
+  
+def extract_study_param_dict(dat):
+    
+    study_param_dict = {'cor' : dat['cor'][0],
+                    'body_part' : dat['body_part'], 
+                    'plot_param' : dat['plot_param'][0]}
+    
+    return study_param_dict
+
+def save_data_summary_all_ctrls_concatenated(stim_loc_list, pre_direct, stim_type, opto_par,
+                                             intervals_dict, t_window_dict):
+    
+    fps = t_window_dict['fps']
+
+    epochs_all_ctr = np.empty((0,intervals_dict['pre_interval']
+                               + intervals_dict['interval']
+                               + intervals_dict['post_interval'] + 1))
+    epochs_spont_all_ctr = np.empty_like(epochs_all_ctr)
+    
+    summary_files_list = get_all_filepaths_same_protocol(stim_loc_list, pre_direct, stim_type, opto_par)
+    
+
+    for count, filename in enumerate(summary_files_list):
+    
+        dat = np.load(filename)
+        # construct an array of all the trial epochs of all mice
+        epochs_all_ctr = np.append(epochs_all_ctr,
+                                   dat['epochs_all_mice'], 
+                                   axis = 0)
+        epochs_spont_all_ctr = np.append(epochs_spont_all_ctr, 
+                                         dat['epochs_spont_all_mice'], 
+                                         axis = 0)
+          
+    
+    (epochs_mean, epochs_mean_spont, 
+    confidence_inter, confidence_inter_spont) = epochs_stats(epochs_all_ctr, epochs_spont_all_ctr)  
+    time_series = np.arange(-intervals_dict['pre_interval'], 
+                            intervals_dict['interval']
+                            + intervals_dict['post_interval'] + 1) / fps
+    df_path = os.path.join(pre_direct, 'data_npz', stim_type 
+                                                 + '_' + opto_par
+                                                 + '.xlsx')
+    writer = pd.ExcelWriter(df_path)
+    
+    df_all = pd.DataFrame(({'time (s)': time_series,
+                            'mean velocity': epochs_mean, 
+                            'mean velocity spont': epochs_mean_spont,
+                            'conf interval up': confidence_inter[:,1], 
+                            'conf interval up spont': confidence_inter_spont[:,1],
+                            'conf interval low': confidence_inter[:,0]
+                         }))
+    
+    pre = epochs_all_ctr[:, :intervals_dict['pre_interval']] 
+    post = epochs_all_ctr[:, intervals_dict['pre_interval'] + 1 : 
+                             intervals_dict['pre_interval']
+                             + intervals_dict['interval'] + 1]
+    off_vel = np.average(pre, axis = 1)
+    on_vel = np.average(post, axis = 1)
+    pd.DataFrame(({'Laser OFF': off_vel,
+                   'Laser ON': on_vel})).to_excel(writer, sheet_name= 'violin_plot',index=False)
+    df_all.to_excel(writer,sheet_name= 'All Controls',index=False)
+    writer.save()
+    print('dataframe is saved at:\n', df_path)
 
 def epochs_stats(epochs, epochs_spont):
     
@@ -1656,14 +1878,14 @@ def plot_two_protocols_with_mouse_distinction(mouse_type, mouse_list, stim_loc, 
         files_list_Laser1 = get_laser_files(
             os.path.join(direct, stim_loc, stim_type1, 'Laser'))
         files_list_spont1 = get_DLC_files(
-            os.path.join(direct, 'Spontaneous', 'DLC'))
+            os.path.join(direct, stim_loc,  'Spontaneous', 'DLC'))
         files_list_DLC2 = get_DLC_files(
             os.path.join(direct, stim_loc, stim_typ2e, 'DLC'))
 #         convert_csv_to_xlsx(direct+stim_type+'/Laser') # files might be given in csv, this is to unify
         files_list_Laser2 = get_laser_files(
             os.path.join(direct, stim_loc, stim_type2, 'Laser'))
         files_list_spont2 = get_DLC_files(
-            os.path.join(direct, 'Spontaneous', 'DLC'))
+            os.path.join(direct, stim_loc, 'Spontaneous', 'DLC'))
 #         files_list_spont = []
         if len(files_list_DLC1) == 0:
             print("No files for mouse # ", n)
@@ -1695,8 +1917,10 @@ def plot_two_protocols_with_mouse_distinction(mouse_type, mouse_list, stim_loc, 
                 epochs_spont_all_mice, epochs_spont, axis=0)
 
             ax = fig.add_subplot(3, 4, count)
-            plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, epochs, epochs_spont, treadmil_velocity, ylim, **t_window_dict, **study_param_dict,
-                             **intervals_dict, average='Averg_trials', c_laser='deepskyblue', c_spont='k', save_as_format='.pdf')
+            plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epochs, epochs_spont, 
+                             treadmil_velocity, ylim, **t_window_dict, **study_param_dict,
+                             **intervals_dict, average='Averg_trials', 
+                             c_laser='deepskyblue', c_spont='k', save_as_format='.pdf', ax = ax)
 
             epochs, = extract_epochs_over_trials(files_list_DLC2, files_list_Laser2, direct, stim_loc, stim_type2, scale_pix_to_cm, False, accep_interval_range,
                                                  spont_trial_dict, misdetection_dict, study_param_dict, **intervals_dict, **t_window_dict)
@@ -1719,8 +1943,8 @@ def plot_two_protocols_with_mouse_distinction(mouse_type, mouse_list, stim_loc, 
             epochs_spont_all_mice = np.append(
                 epochs_spont_all_mice, epochs_spont, axis=0)
 
-            plot_pre_on_post(ax, pre_direct, mouse_type, opto_par, stim_loc, stim_type, epochs, epochs_spont, treadmil_velocity, ylim, **t_window_dict, **study_param_dict,
-                             **intervals_dict, average='Averg_trials', c_laser='mediumseagreen', c_spont='hotpink', save_as_format='.pdf')
+            plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epochs, epochs_spont, treadmil_velocity, ylim, **t_window_dict, **study_param_dict,
+                             **intervals_dict, average='Averg_trials', c_laser='mediumseagreen', c_spont='hotpink', save_as_format='.pdf', ax = ax)
 
     plt.tight_layout()
 
@@ -2420,16 +2644,20 @@ def extract_epochs(bins, x, smallest_accep_inter, largest_accep_inter, pre_inter
     # extend the interval to pre and post
     bins_in[:, 0] = bins_in[:, 0] - pre_interval
     
-    n_trials = len(bins_in) - 1
+    n_trials = len(bins_in)
     
 
-    # make an array with indices of laser ON timebins
-    take = np.hstack([np.arange(i[0], i[1] + 1) for i in bins_in[:-1]])
-    epochs = x[take].reshape(n_trials, 
-                             pre_interval + post_interval + interval + 1)
+    if len(bins_in) > 0:
+        # make an array with indices of laser ON timebins
+        take = np.hstack([np.arange(start, end + 1) for (start, end) in bins_in])
+        epochs = x[take].reshape(n_trials, 
+                                 pre_interval + post_interval + interval + 1)
     
-    return epochs, n_trials, take
+        return epochs, n_trials, take
 
+    else:
+        
+        return np.empty((0, pre_interval + post_interval + interval + 1)), 0, []
         
 def choose_n_from_colormap(cmap, minval=0.0, maxval=1.0, n_colors = 100):
     
@@ -2567,36 +2795,60 @@ def extract_epochs_over_trials(files_list_DLC, files_list_laser, direct, stim_lo
             file_path_Laser = os.path.join(
                 direct, stim_loc, stim_type, 'Laser', files_list_laser[i])
             laser_t = read_laser(file_path_Laser, file_path_DLC)
+
             bins = np.copy(laser_t.values).astype(int)
         epochs_trial, n_trials, take = extract_epochs(
             bins, variable, *accep_interval_range, pre_era, interval, post_interval, session_length)
+        
+        if n_trials == 0:
+            continue
+        
         epochs_pos = position[take].reshape(
             n_trials, pre_era+post_interval+interval+1)
         epochs_veloc = velocity[take].reshape(
             n_trials, pre_era+post_interval+interval+1)
         epochs_acc = acceleration[take].reshape(
             n_trials, pre_era+post_interval+interval+1)
+        
         if pre_era > pre_interval:
 
             pre_info = np.append(pre_info,
-                                 np.concatenate((np.average(epochs_pos[:, :pre_stim_inter], axis=1).reshape(-1, 1),
-                                                 np.average(
-                                                     epochs_veloc[:, :pre_stim_inter], axis=1).reshape(-1, 1),
-                                                 np.average(epochs_acc[:, :pre_stim_inter], axis=1).reshape(-1, 1)),  axis=1),    axis=0)
-            epochs = np.append(
-                epochs, epochs_trial[:, pre_stim_inter-pre_interval:], axis=0)
+                                 np.concatenate(
+                                     (np.average(
+                                         epochs_pos[:, :pre_stim_inter], axis=1).reshape(-1, 1),
+                                     np.average(
+                                         epochs_veloc[:, :pre_stim_inter], axis=1).reshape(-1, 1),
+                                     np.average(
+                                         epochs_acc[:, :pre_stim_inter], axis=1).reshape(-1, 1)),  
+                                     axis=1),    
+                                 axis=0)
+            
+            epochs = np.append(epochs, 
+                               epochs_trial[:, pre_stim_inter-pre_interval:], 
+                               axis=0)
+            
         else:
 
             pre_info = np.append(pre_info,
-                                 np.concatenate((np.average(epochs_pos[:, pre_interval - pre_stim_inter:pre_era], axis=1).reshape(-1, 1),
-                                                 np.average(
-                                                     epochs_veloc[:, pre_interval - pre_stim_inter:pre_era], axis=1).reshape(-1, 1),
-                                                 np.average(epochs_acc[:, pre_interval - pre_stim_inter:pre_era], axis=1).reshape(-1, 1)),    axis=1),    axis=0)
+                                 np.concatenate(
+                                    (np.average(
+                                         epochs_pos[:, pre_interval - pre_stim_inter:pre_era], axis=1).reshape(-1, 1),
+                                    np.average(
+                                        epochs_veloc[:, pre_interval - pre_stim_inter:pre_era], axis=1).reshape(-1, 1),
+                                    np.average(
+                                        epochs_acc[:, pre_interval - pre_stim_inter:pre_era], axis=1).reshape(-1, 1)
+                                    ), 
+                                     axis=1),    
+                                 axis=0)
+            
             epochs = np.append(epochs, epochs_trial, axis=0)
 
     if plot_param == 'position':
+        
         return epochs - np.repeat(epochs[:, pre_interval].reshape(epochs.shape[0], 1), epochs.shape[1], axis=1)
+    
     else:
+        
         return epochs, pre_info
 
 def correct_accep_interval_range_for_beta(accep_interval_range, stim_type):
@@ -2616,7 +2868,8 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
                                 ylim, spont_trial_dict, misdetection_dict, intervals_dict, t_window_dict, accep_interval_range, study_param_dict,
                                 max_distance, min_distance, n_trials_spont, c_laser = 'deepskyblue', c_spont = 'k', fig = None,
                                 outer = None, n_inner = 0, inner = None, axes = [], remove_empty_ax = True, label = None, annotate_n = False,
-                                title_manually = True, plot_spont = True, save_fig = True, suptitle_y = 0.95):
+                                title_manually = True, plot_spont = True, save_fig = True, suptitle_y = 0.95, multi_region = False,
+                                axvspan = True):
     
     """Save data of epochs and individal mice to a npz file.
 
@@ -2697,11 +2950,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
             axes[i] = plt.Subplot(fig, inner[i])   
             fig.add_subplot(axes[i])
             
-        axvspan = True
         
-    else:
-        
-        axvspan = False
 
     
     global mouse_no
@@ -2723,13 +2972,13 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
         files_list_Laser = get_laser_files(
             os.path.join(direct, stim_loc, stim_type, 'Laser'))
 
-        if os.path.exists(os.path.join(direct, 'Spontaneous', 'DLC')) :
+        if os.path.exists(os.path.join(direct, stim_loc, 'Spontaneous', 'DLC')) :
 
             files_list_spont = get_DLC_files(
-                os.path.join(direct, 'Spontaneous', 'DLC'))
+                os.path.join(direct, stim_loc, 'Spontaneous', 'DLC'))
             
         else:
-
+            print('no Spont####################################################3')
             files_list_spont = []
         
         
@@ -2758,8 +3007,6 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
             n_epochs = epochs.shape[0]
             print(n_epochs, 'laser trials')
             
-            # fig.add_subplot(axes[count])
-
             # construct an array of all the trial epochs of all mice
             epochs_all_mice = np.append(epochs_all_mice, epochs, axis=0)
             all_pre_info = np.append(all_pre_info, pre_info, axis=0)
@@ -2767,10 +3014,10 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
 
             if len(files_list_spont) == 0:  # if no spont trials recorded set it to zero
 
-                epochs_spont = np.zeros(np.shape(epochs))
+                epochs_spont = np.zeros((1, epochs.shape[1]))
                 # construct an array of all the spont epochs
-                epochs_spont_all_mice = np.append(
-                    epochs_spont_all_mice, epochs_spont, axis=0)
+                # epochs_spont_all_mice = np.append(
+                #     epochs_spont_all_mice, epochs_spont, axis=0)
                 n_samples = 0
 
             else:
@@ -2784,7 +3031,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
 
                 epochs_spont, _ = extract_epochs_over_trials(files_list_spont,
                                                                 files_list_Laser,
-                                                                direct,
+                                                                direct, stim_loc,
                                                                 'Spontaneous',
                                                                 scale_pix_to_cm,
                                                                 'y',
@@ -2811,7 +3058,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
                 epochs_mean_each_mouse, average_of_on_off_on, axis=0)
 
 
-            ax = plot_pre_on_post(axes[count],
+            ax = plot_pre_on_post(
                              pre_direct,
                              mouse_type,
                              opto_par,
@@ -2828,11 +3075,14 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
                              c_laser= c_laser,
                              c_spont = c_spont,
                              save_as_format='.pdf',
-                             title = False,
+                             title = True,
+                             multi_region = multi_region,
                              label = label, 
                              annotate_n = annotate_n,
                              plot_spont=plot_spont,
-                             axvspan = axvspan)
+                             axvspan = axvspan,
+                             save_fig=False,
+                             ax = axes[count])
             
             axes[count].set_title('# {}'.format(mouse_no)).set_fontproperties(font)
 
@@ -2867,20 +3117,24 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
         if save_fig:
             save_pdf_png(fig, os.path.join(pre_direct, 'Subplots', stim_loc, stim_type,
                                      'All_together_' 
-                                     + opto_par 
-                                     + '_' + mouse_type 
-                                     + '_' + study_param_dict['cor']
-                                     + '_' + study_param_dict['body_part'][0] 
-                                     + '_timebin=' + str(t_window_dict['n_timebin']) 
-                                     + "_moving_aver_win=" + str(t_window_dict['window_pos']) 
-                                     + '_spont_sampl=' + str(n_samples) 
-                                     + '_pre_post_stim'))
+                                    + stim_loc 
+                                    + '_' + stim_type
+                                    + '_' + mouse_type
+                                    + '_' + opto_par
+                                    + '_' + study_param_dict['cor']
+                                    + '_' + study_param_dict['plot_param'] 
+                                    + '_' + '_'.join(study_param_dict['body_part'])
+                                    + '_deriv_window_' + str(int(t_window_dict['n_timebin'] * 1000 / t_window_dict['fps']))
+                                    + '_pos_window_' + str(int(t_window_dict['window_pos'] * 1000 / t_window_dict['fps'])) 
+                                    + '_v_window' + str(int(t_window_dict['window_veloc'] * 1000 / t_window_dict['fps'])) 
+                                    + '_pre_post_stim'))
+            
+
         save_npz(pre_direct, 
                  mouse_type, 
                  opto_par, 
                  stim_loc, 
                  stim_type, 
-                 stim_type.split('_')[-1],
                  t_window_dict['fps'], 
                  t_window_dict['window_pos'], 
                  t_window_dict['n_timebin'], "",
@@ -2905,69 +3159,231 @@ def save_pdf_png(fig, figname, size = (8,6)):
     fig.savefig(figname + '.pdf', dpi = 500, #facecolor='w', edgecolor='w',
                     orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
     
-def create_pulse_specific_color_lists(pulse_cmap = {'betapulse' : 'copper', 'squarepulse': 'winter'}, 
-                                      numbers = {'betapulse' : 4, 'squarepulse': 4}):
+def create_pulse_specific_color_lists(pulse_cmap, stim_type_dict):
     
-    cmap_dict = {pulse: choose_n_from_colormap(plt.get_cmap(cmap), minval=0.0, maxval=1.0, n_colors = numbers[pulse])
-                          for pulse, cmap in pulse_cmap.items()}
+    ''' create color dict for different stimulation protocols'''
+    
+    cmap_dict = {n_stim: {pulse: choose_n_from_colormap(plt.get_cmap(pulse_cmap[n_stim][pulse]), minval=0.0,
+                                                        maxval=1.0, n_colors = len(stim_type_list))
+                          for pulse, stim_type_list in stim_type_dict_n.items()}
+                 for n_stim, stim_type_dict_n in stim_type_dict.items()}
+    
     return cmap_dict
 
 def get_key_that_contains(dictionary, substr):
     
     return [key for key, value in dictionary.items() if substr in key.lower()]
 
-def superimpose_intensities(cmap_dict, opto_par_list, stim_type_dict, stim_loc_list, pre_direct, scale_pix_to_cm, 
+def get_set_of_sorted(d):
+    ''' get set of dict values
+    sort them and put back in dict'''
+    
+    for k, v in d.items():
+        
+        v = list(set(v))
+        v.sort()
+        d[k] = v
+        
+    return d
+
+def get_pulse_list(protocol_dict, mouse_type):
+    ''' get the list of all pulse types from the protocol dict
+    for the specified mouse line'''
+    
+    pulse_list = []
+    
+    for d in list(protocol_dict[mouse_type].values()):
+        
+        pulse_list += list(d.keys())
+        
+    return list(set(pulse_list))
+
+
+
+# def create_stim_type_dict(protocol_dict, stim_loc_list, mouse_type):
+    
+#     stim_type_list = get_pulse_list(protocol_dict, mouse_type)
+
+#     stim_type_dict_single_stim = {k:[] for k in stim_type_list if '-' not in k}
+#     stim_type_dict_double_stim = {k:[] for k in stim_type_list}
+#     stim_type_list_single_stim = [i for i in stim_type_list if '-' not in i]
+#     stim_type_list_double_stim = [i for i in stim_type_list]
+
+#     for loc in stim_loc_list:
+        
+#             for k in stim_type_list_single_stim:
+                
+#                 if k in protocol_dict[mouse_type][loc]: #and '-' not in loc:
+#                     stim_type_dict_single_stim[k] += [p for p in protocol_dict[mouse_type][loc][k] 
+#                                                       if p.count('-') < 2]
+                    
+#             for k in stim_type_list_double_stim:
+                
+#                 if k in protocol_dict[mouse_type][loc] and '-' in loc:
+                    
+#                     stim_type_dict_double_stim[k] += protocol_dict[mouse_type][loc][k]
+                    
+#     stim_type_dict_single_stim = get_set_of_sorted(stim_type_dict_single_stim)
+#     stim_type_dict_double_stim = get_set_of_sorted(stim_type_dict_double_stim)
+    
+    
+#     stim_type_dict_double_stim = rm_val_from_dict_if_exists_in_another(stim_type_dict_double_stim, 
+#                                                                        stim_type_dict_single_stim)
+#     return {'single_stim': stim_type_dict_single_stim, 
+#             'double_stim': stim_type_dict_double_stim }
+
+def create_stim_type_dict(protocol_dict, stim_loc_list, mouse_type):
+    
+    stim_type_list = get_pulse_list(protocol_dict, mouse_type)
+
+    stim_type_dict_single_stim = {k:[] for k in stim_type_list if '-' not in k}
+    stim_type_dict_double_stim = {k:[] for k in stim_type_list}
+    stim_type_list_single_stim = [i for i in stim_type_list if '-' not in i]
+    stim_type_list_double_stim = [i for i in stim_type_list]
+
+    for loc in stim_loc_list:
+        
+            for k in stim_type_list_single_stim:
+                
+                if k in protocol_dict[mouse_type][loc]: #and '-' not in loc:
+                    stim_type_dict_single_stim[k] += [p for p in protocol_dict[mouse_type][loc][k] 
+                                                      if p.split('_')[0].count('-') == 0 ] # one pulse type only
+                    
+            for k in stim_type_list_double_stim:
+                
+                if k in protocol_dict[mouse_type][loc] and '-' in loc:
+                    
+                    stim_type_dict_double_stim[k] += protocol_dict[mouse_type][loc][k]
+                    
+    stim_type_dict_single_stim = get_set_of_sorted(stim_type_dict_single_stim)
+    stim_type_dict_double_stim = get_set_of_sorted(stim_type_dict_double_stim)
+    
+    
+    stim_type_dict_double_stim = rm_val_from_dict_if_exists_in_another(stim_type_dict_double_stim, 
+                                                                       stim_type_dict_single_stim)
+    return {'single_stim': stim_type_dict_single_stim, 
+            'double_stim': stim_type_dict_double_stim }
+
+
+def rm_val_from_dict_if_exists_in_another(dictionary, ref_dictionary):
+    
+    """ remove values that exist in the same key of 
+    the ref dictionary from dictionary and return"""
+    
+    for k, v in dictionary.items():
+        if k in ref_dictionary:
+            
+            dictionary[k] = [i for i in v if i not in ref_dictionary[k]] 
+    
+    return dictionary
+            
+def get_nested_keys(dictionary):
+    
+    ''' Return the set of the keys of the dictionaries that are nested
+    whithin the original dictionary'''
+    
+    keys = []
+    
+    for key_1, nested_dict in dictionary.items():
+        keys += list(nested_dict.keys())
+    
+    return np.unique(keys) 
+ 
+def superimpose_intensities(opto_par_list, cmap_dict, stim_type_dict,
+                            stim_loc_dict, pre_direct, scale_pix_to_cm, 
                             mouse_type, mouse_dict, treadmil_velocity,
-                            ylim, spont_trial_dict, misdetection_dict, intervals_dict, t_window_dict, 
+                            ylim, spont_trial_dict, misdetection_dict,
+                            intervals_dict, t_window_dict, 
                             accep_interval_range, study_param_dict,
                             max_distance, min_distance, n_trials_spont, plot_spont = True, 
                             ylabel_x = 0, xlabel_y = 0.07, suptitle_y = 0.98):
 
+    """ Create a set of subplots with mice as rows and stimulation location as
+    columns, superimposeing all intensities and creating new figures for different
+    types of stimuli"""
+    
+    
+    
     
     for opto_par in opto_par_list:
+
+        n_mice = len(mouse_dict[opto_par])
+        figs = {}
+        outers = {}
+        inners = {}
+        fig_keys = get_nested_keys(stim_type_dict)
+        fig_keys = list(stim_loc_dict[opto_par].keys())
+        stim_loc_dict = stim_loc_dict[opto_par]
+        for key in fig_keys:
+            figs[key] = plt.figure(figsize = (5 * len(stim_loc_dict[key]), n_mice * 5))
+            outers[key] = gridspec.GridSpec(1, len(stim_loc_dict[key]), wspace=0.2, hspace=0.2)
+
+        for stim_n, stim_type_dict_stim in stim_type_dict.items():
+            for pulse, stim_type_list in stim_type_dict_stim.items():
+                if pulse in stim_loc_dict:
+                    axes = {k: [] for k in stim_loc_dict[pulse] }
+                else:
+                    continue
+                if len(stim_loc_dict[pulse]) > 0:
+                
+                    for i, stim_loc in enumerate(stim_loc_dict[pulse]):
+                        
+                        inners[pulse] = gridspec.GridSpecFromSubplotSpec(n_mice, 1, subplot_spec=outers[pulse][i], 
+                                                                         wspace=0.1, hspace=0.1)                    
+            
+                        for j, stim_type in enumerate(stim_type_list):
+                        
+                            print(stim_type)
+                            c_laser = cmap_dict[stim_n][pulse][j]  
+                            
+                            label = get_intesities_str(stim_type) + ' mW'
+                            axes[stim_loc] = run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_dict, stim_loc, stim_type, opto_par, treadmil_velocity,
+                                                            ylim, spont_trial_dict, misdetection_dict, intervals_dict, t_window_dict, accep_interval_range, study_param_dict,
+                                                            max_distance, min_distance, n_trials_spont, c_laser = c_laser, remove_empty_ax= False, annotate_n = False,
+                                                            c_spont = 'k', fig = figs[pulse], outer = outers[pulse], inner = inners[pulse], axes = axes[stim_loc], label = label,
+                                                            title_manually = False, plot_spont = plot_spont, save_fig = False, suptitle_y = suptitle_y[opto_par],
+                                                            multi_region = True, axvspan=False)
         
-        for pulse, stim_type_list in stim_type_dict.items():
-            
-            n_mice = len(mouse_dict[opto_par])
-            fig = plt.figure(figsize = (5 * len(stim_loc_list), n_mice * 5))
-            outer = gridspec.GridSpec(1, len(stim_loc_list), wspace=0.2, hspace=0.2)
-            
-            for i, stim_loc in enumerate(stim_loc_list):
-                
-                inner = gridspec.GridSpecFromSubplotSpec(n_mice, 1,
-                        subplot_spec=outer[i], wspace=0.1, hspace=0.1)
-                axes = []
-                
-                for j, stim_type in enumerate(stim_type_list):
-                
-
-                    c_laser = cmap_dict[pulse][j]  
-                    label = ' '.join(stim_type.split('_')[1:]).replace('-', '.')
-                    axes = run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_dict, stim_loc, stim_type, opto_par, treadmil_velocity,
-                                                    ylim, spont_trial_dict, misdetection_dict, intervals_dict, t_window_dict, accep_interval_range, study_param_dict,
-                                                    max_distance, min_distance, n_trials_spont, c_laser = c_laser, remove_empty_ax= False, annotate_n = False,
-                                                    c_spont = 'k', fig = fig, outer = outer, inner = inner, axes = axes, label = label,
-                                                    title_manually = False, plot_spont = False, save_fig = False, suptitle_y = suptitle_y)
+                        axes[stim_loc] = rm_repeated_legend(axes[stim_loc])
+                        for ax in axes[stim_loc]:
+                            ax.axvspan(0, intervals_dict['interval'] / t_window_dict['fps'], alpha=0.2, color = 'lightskyblue')
 
 
-            axes = rm_repeated_legend(axes)
-            fig.text(0.5, xlabel_y, 'time (ms)', ha='center',
-                      va='center').set_fontproperties(font)
-            fig.text(ylabel_x, 0.5, study_param_dict['plot_param'], ha='center', va='center',
-                      rotation='vertical').set_fontproperties(font)
+        for key in fig_keys:
             
-            save_pdf_png(fig, os.path.join(pre_direct, 'Subplots', 
-                                     'All_stim_type_and_loc_' 
-                                     + opto_par 
-                                     + '_' + pulse
-                                     + '_' + mouse_type 
-                                     + '_' + study_param_dict['cor']
-                                     + '_' + study_param_dict['body_part'][0] 
-                                     + '_timebin=' + str(t_window_dict['n_timebin']) 
-                                     + "_moving_aver_win=" + str(t_window_dict['window_pos']) 
-                                     + '_spont_sampl=' + str(n_samples) 
-                                     + '_pre_post_stim'))
-    return fig
+            figs[key].text(0.5, xlabel_y, 'time (ms)', ha='center',
+                           va='center').set_fontproperties(font)
+            figs[key].text(ylabel_x, 0.5, study_param_dict['plot_param'], ha='center', va='center',
+                           rotation='vertical').set_fontproperties(font)
+            
+            save_pdf_png(figs[key], os.path.join(pre_direct, 'Subplots', 
+                                      'All_stim_type_and_loc' 
+                                    + '_' + mouse_type
+                                    + '_' + opto_par
+                                    + '_' + key
+                                    + '_' + study_param_dict['cor']
+                                    + '_' + study_param_dict['plot_param'] 
+                                    + '_' + '_'.join(study_param_dict['body_part'])
+                                    + '_deriv_window_' + str(int(t_window_dict['n_timebin'] * 1000 / t_window_dict['fps']))
+                                    + '_pos_window_' + str(int(t_window_dict['window_pos'] * 1000 / t_window_dict['fps'])) 
+                                    + '_v_window' + str(int(t_window_dict['window_veloc'] * 1000 / t_window_dict['fps'])) 
+                                    + '_pre_post_stim'))
+        return figs
+
+def get_intesities_str(stim_type):
+    
+    intensity = stim_type.split('_')[1]
+    ind_dash = np.array([i.start() for i in re.finditer('-', intensity)])
+    arr = np.arange(len(ind_dash))
+    if intensity[0] == '0':
+        ind_to_change = ind_dash[np.where(arr % 2 == 0)[0]]
+    else:
+        ind_to_change = ind_dash[np.where(arr % 2 != 0)[0]]
+
+    for i in ind_to_change:
+        intensity = intensity[:i] + '.' + intensity[i+1:]
+    
+    return intensity
 
 def rm_shared_axis_labels(axes):
     
@@ -2977,14 +3393,17 @@ def rm_shared_axis_labels(axes):
         ax.label_outer()
 
     return axes
+
 def rm_repeated_legend(axes):
     
     for ax in axes:
+        
         handles, labels = ax.get_legend_handles_labels()
         by_label = dict(zip(labels, handles))
         leg = ax.legend(by_label.values(), by_label.keys(),
                   frameon = False, fontsize = 16)
         p = [l.set_linewidth(3) for l in leg.legendHandles ]
+        
     return axes
 
 def no_files(files, mouse_no, dtype = 'DLC'):
