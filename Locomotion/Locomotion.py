@@ -1427,17 +1427,220 @@ def flatten(t):
     return [item for sublist in t for item in sublist]
 
 
-def get_all_filepaths_same_protocol(stim_loc_list, pre_direct, stim_type, opto_par):
+def get_all_filepaths_same_protocol(stim_loc_list, pre_direct, stim_type_list, opto_par):
     
     summary_files_list = []
     
-    for stim_loc in stim_loc_list:
+    if isinstance(stim_type_list, str):
+        stim_type_list = [stim_type_list] * len(stim_loc_list)
+        
+    for stim_loc, stim_type in zip(stim_loc_list, stim_type_list):
+        
         path = os.path.join(pre_direct, 'data_npz', stim_loc, stim_type, opto_par)
         summary_files_list += [os.path.join( path, f) 
                                for f in list_all_files(path, ".npz")]
 
     
     return summary_files_list
+
+def get_all_filepaths_different_intensities( pre_direct, pulse = 'beta', opto_par = 'ChR2', stim_loc = 'STN',
+                                mouse_type = 'Vglut2D2'):
+
+    summary_files_list = []    
+    path = os.path.join(pre_direct, 'data_npz', stim_loc)
+    for (dirpath, dirnames, filenames) in os.walk(path):
+        
+        for f in filenames:
+            props = os.path.basename(f).split('_')
+            if pulse in props[3] and opto_par == props[1] and mouse_type == props[0]:
+                summary_files_list.append(os.path.join(dirpath, f))
+    
+    return summary_files_list
+def plot_individual_mice(ax, epochs_mean_mouse_dict, n_trials_dict, x_series, 
+                         sub_title_y = 38, n_annotate_y = -30):
+    for i, (key, mean) in enumerate(epochs_mean_mouse_dict.items()):
+        
+        for m in mean:
+            
+            ax.plot(x_series[i], m[:2], '-', 
+                     color = 'gray', marker = 'o', markersize=10, linewidth=2, alpha=0.6)
+        
+        ax.plot(x_series[i], np.average(mean[:, :2], axis = 0), '-', 
+                 color = 'r', marker = '.', markersize=15, linewidth=2, alpha=0.6)
+        ax.text(min(x_series[i]), sub_title_y, key, fontsize=30)
+        ax.text(min(x_series[i]), n_annotate_y,"n = " + str(n_trials_dict[key]), fontsize=30)
+    return ax
+
+def extract_info_from_saved_data(filename,  intervals_dict, subplot_parameter = None,
+                                 opto_par = 'ChR2', uniform_ON_OFF = False,
+                                 measure = 'mean'):
+    
+    '''for the given filename extract information from filename and create the mean velocity pre post laser
+        in a dataframe
+    '''
+    prop = os.path.basename(filename).split("_")
+    dat = np.load(filename)
+
+    info = {'mouse_type': prop[0],
+            'opto_par': prop[1],
+            'stim_loc': prop[2],
+            'pulse': prop[3],
+            'intensity': prop[4],
+            "stim_type": prop[3:6]}
+
+    parameter = info[subplot_parameter]
+    
+
+    epochs = dat['epochs_all_mice']    
+    pre = epochs[:, : intervals_dict['pre_interval']] ; 
+    post = epochs[:, intervals_dict['pre_interval'] + 1:
+                  intervals_dict['pre_interval'] + intervals_dict['interval'] + 1]
+    
+    n = epochs.shape[0] * 2
+    off_vel = np.average(pre, axis = 1)
+
+    if measure == 'mean':
+        
+        on_vel = np.average(post, axis = 1)
+        
+    elif measure == 'min':
+        
+        on_vel = np.min(post, axis = 1)
+        
+    print("shapiro :", stats.shapiro(off_vel-on_vel))
+    
+    stat_result = stats.mannwhitneyu(off_vel, on_vel, 
+                                     use_continuity=True, 
+                                     alternative='two-sided')
+    print('MW stat_result:', stat_result)
+    stat_result = stats.wilcoxon(off_vel, on_vel, 
+                                 zero_method='pratt',
+                                 alternative='two-sided')
+    
+    print('Wilcoxon stat_result:', stat_result)
+
+    print("OFF", np.average(off_vel), stats.sem(off_vel))
+    print("ON", np.average(on_vel), stats.sem(on_vel))
+    
+    
+    all_v = np.concatenate((off_vel, on_vel),axis = 0)
+    
+    if uniform_ON_OFF:
+        
+        epoch_off = ['OFF'] * epochs.shape[0]
+        epoch_on = ['ON'] * epochs.shape[0]
+        box_pair = ((("ON", opto_par), ("OFF", opto_par)) )
+
+    else:
+        
+        epoch_off = ['OFF' + parameter] * epochs.shape[0]
+        epoch_on = ['ON' + parameter] * epochs.shape[0]
+        box_pair = ((("ON" + parameter, opto_par), ("OFF" + parameter, opto_par)) )
+
+    epoch_list = epoch_off + epoch_on
+    print("n_trials:", epochs.shape)
+    
+    df = pd.DataFrame(({'mean_velocity': all_v, 
+                        'mouse_type':[info['mouse_type']] * n, 
+                        'optogenetic expression':[info['opto_par']] * n,
+                        'pulse_type': [info['pulse']] * n,
+                        'intensity_mW': [info['intensity']] * n,
+                        'epoch': epoch_list}))
+    
+    return epochs.shape[0], df, dat['epochs_mean_each_mouse'], box_pair, info
+
+def delta_v_vs_laser_intensity(pre_direct, intervals_dict,
+                               opto_par = 'ChR2',
+                               stim_loc = 'STR',
+                               mouse_type = 'Vglut2D2',
+                               pulse = 'beta',
+                               measure = 'mean'):
+    
+    '''extract the (means, std) of the change in velocity
+        for different laser intensities
+    '''
+    
+    summary_files_list = get_all_filepaths_different_intensities(pre_direct, pulse = pulse, 
+                                                                 opto_par = opto_par, 
+                                                                 stim_loc = stim_loc,
+                                                                 mouse_type = mouse_type)
+    
+    _, result, _, _ = create_df_from_data_summary(summary_files_list, 
+                                                  intervals_dict,
+                                                  subplot_parameter = 'intensity',
+                                                  opto_par = opto_par,
+                                                  uniform_ON_OFF = True,
+                                                  measure = measure)
+    ON = result[result['epoch'] == 'ON']
+    OFF = result[result['epoch'] == 'OFF']
+    n_trials = len(ON)
+    
+    delta_v = pd.DataFrame(np.empty((0, 2)), columns = ['intensity', 'delta_v'])
+    intensities = np.unique(result['intensity_mW'])
+    
+    for intensity in intensities:
+        
+        ind = (ON['intensity_mW'] == intensity).values
+        dv = ON['mean_velocity'][ind].values - OFF['mean_velocity'][ind].values
+        df = pd.DataFrame({'intensity': [intensity] * len(dv), 'delta_v': dv})
+        delta_v = pd.concat([delta_v, df])
+        
+        
+    intensity_number = [float(i.replace('-', '.')) for i in np.unique(delta_v['intensity'])]
+    
+    mean = delta_v.groupby(['intensity']).mean().values.reshape(-1,)
+    std = delta_v.groupby(['intensity']).sem().values.reshape(-1,)
+    
+    return intensity_number, mean, std, n_trials
+
+def create_df_from_data_summary(summary_files_list, intervals_dict, 
+                                subplot_parameter = 'stim_loc',
+                                opto_par = 'ChR2', 
+                                uniform_ON_OFF = False, 
+                                measure = 'mean'):
+    
+    ''''append the summary df of all files given in the list'''
+    
+    col_names =  ['mean_velocity', 'mouse_type', 
+                  'optogenetic expression', 'pulse_type',
+                  'intensity_mW','epoch']
+
+    result = pd.DataFrame(columns = col_names)
+    
+    epochs_mean_mouse_dict = {}
+    n_trials_dict = {}
+    box_pairs = []
+    
+    
+    
+    for count, filename in enumerate(summary_files_list):
+    
+    
+        dat = np.load(filename)
+        print(filename, dat.files)
+        (n_trials, 
+         df, 
+         epochs_mean_mouse,
+         box_pair,
+         info) = extract_info_from_saved_data(filename, intervals_dict,
+                                                  subplot_parameter = subplot_parameter,
+                                                  opto_par = opto_par,
+                                                  uniform_ON_OFF = uniform_ON_OFF,
+                                                  measure = measure)
+                                              
+        box_pairs.append(box_pair)       
+        n_trials_dict[info[subplot_parameter]] = n_trials     
+
+        epochs_mean_mouse_dict[info[subplot_parameter]] = epochs_mean_mouse   
+                             
+        frames = [result, df]
+        result = pd.concat(frames, ignore_index=True)
+        
+    result = pd.DataFrame(result.to_dict())
+    
+    box_pairs= set(box_pairs)
+
+    return box_pairs, result, n_trials_dict, epochs_mean_mouse_dict
 
 def save_data_summary_to_excel(mouse_dict, pre_direct, stim_loc_list, 
                                stim_type, opto_par, intervals_dict, t_window_dict):
@@ -1533,8 +1736,8 @@ def extract_study_param_dict(dat):
     
     return study_param_dict
 
-def save_data_summary_all_ctrls_concatenated(stim_loc_list, pre_direct, stim_type, opto_par,
-                                             intervals_dict, t_window_dict):
+def save_data_summary_all_ctrls_concatenated(stim_loc_list, pre_direct, stim_type, 
+                                             intervals_dict, t_window_dict, opto_par = 'Control'):
     
     fps = t_window_dict['fps']
 
@@ -1590,8 +1793,30 @@ def save_data_summary_all_ctrls_concatenated(stim_loc_list, pre_direct, stim_typ
 
 def epochs_stats(epochs, epochs_spont):
     
-    """ Return mean and confidence intervals of epochs"""
+    """ Return mean and confidence intervals of epochs
     
+    Parameters
+    ----------
+
+    epochs : 2D array(float)
+             Trials containtning laser stimulation aligned in rows. n_col = pre_interval + interval + post_interval
+    epochs_spont : 2D array(float)
+            same as epochs only for spontaneous sessions with no laser stimulation.
+            
+    Returns:
+    --------
+    
+    epochs_mean: 2D array(float)
+                average of epochs for all trials (averaged over rows)
+    epochs_mean_spont: 2D array(float)
+                average of epochs_spont for all trials (averaged over rows)
+    confidence_inter: 2D array(float)
+                95% confidence interval of epochs
+        
+    confidence_inter_spont: 2D array(float)
+                95% confidence interval of epochs_spont
+    
+    """
     confidence_inter = np.empty((0, 2), int)
 
     if len(epochs.shape) > 1:
@@ -1955,7 +2180,9 @@ def plot_two_protocols_with_mouse_distinction(mouse_type, mouse_list, stim_loc, 
     plt.show()
 
 
-def MWW_test(result, result_Ctr, mouse_type):
+def MWW_test(result, result_Ctr, exp_parameter = 'STN', 
+             mouse_type = 'Vglut2D2'):
+    
     '''Return two-sided Mann-Whitney test for ON-laser period velocity between Ctr and ChR2.
 
     Parameters
@@ -1976,13 +2203,17 @@ def MWW_test(result, result_Ctr, mouse_type):
     stat : obj
             MWW stat results
     '''
-    x = result_Ctr[(result_Ctr['epoch'] == 'ON') & (
-        result_Ctr['mouse_type'] == mouse_type)]['mean_velocity'].values
-    y = result[(result['epoch'] == ('ON'+mouse_type)) &
-               (result['mouse_type'] == mouse_type)]['mean_velocity'].values
+    x = result_Ctr[(result_Ctr['epoch'] == 'ON' + exp_parameter) 
+                   & (result_Ctr['mouse_type'] == mouse_type)]['mean_velocity'].values
+    
+    y = result[(result['epoch'] == ('ON' + exp_parameter)) 
+               & (result['mouse_type'] == mouse_type)]['mean_velocity'].values
+    
     stat = stats.mannwhitneyu(x, y)
-    print("MWW ChR2 vs. Ctr "+mouse_type+" = ", stat)
-    return statt
+    
+    print("MWW ChR2 vs. Ctr " + mouse_type + " = ", stat)
+    
+    return stat
 
 
 def read_npz_return_data_frame(file_path_list, pre_interval, interval, post_interval, pre_stim_inter):
@@ -3149,6 +3380,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
 
     
     return axes
+
 
 def save_pdf_png(fig, figname, size = (8,6)):
     
