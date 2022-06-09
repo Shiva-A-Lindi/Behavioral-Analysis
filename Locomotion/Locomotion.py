@@ -1,27 +1,33 @@
 
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib as mlt
-import pandas as pd
-from pandas import read_excel
-from matplotlib.font_manager import FontProperties
-from scipy.ndimage.interpolation import shift
 import os
 import glob
 import timeit
-from scipy import stats
-import statsmodels.stats.api as sms
-from matplotlib.collections import LineCollection
-from tempfile import TemporaryFile
-import matplotlib.gridspec as gridspec
-import seaborn as sns
-from statannot import add_stat_annotation
-from scipy.signal import find_peaks
-#from colour import Color
-from pathlib import Path
 import csv
-from File_hierarchy import *
 import xlrd
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
+import matplotlib.pyplot as plt
+import matplotlib as mlt
+import matplotlib.gridspec as gridspec
+from matplotlib import cm
+from matplotlib.font_manager import FontProperties
+from matplotlib.collections import LineCollection
+from matplotlib.ticker import FormatStrFormatter, MaxNLocator, FixedLocator, FixedFormatter, AutoMinorLocator
+from matplotlib.colors import ListedColormap, LinearSegmentedColormap
+
+# from scipy.ndimage.interpolation import shift
+from scipy.signal import find_peaks
+from scipy.ndimage import shift
+from scipy import stats
+from statannot import add_stat_annotation
+import statsmodels.stats.api as sms
+
+from tempfile import TemporaryFile
+from pathlib import Path
+from File_hierarchy import *
+
 
 font = FontProperties()
 font.set_family('sans-serif')
@@ -226,6 +232,42 @@ def list_all_files(path, extensions = ['.xlsx', '.csv']):
     else:
         
         return []
+
+def filter_based_on_substring(string_list, contains, not_contains = []):
+    
+    '''keep only strings that include the all the given substrings in contains'''    
+    
+    return [s for s in string_list if all(c in s for c in contains) and all(nc not in s for nc in not_contains)]
+
+def find_files_containing_substring(path, substring):
+    """
+    Walk in all subfolders and return all files containing 
+    substring.
+
+    Parameters
+    ----------
+    path : str
+        path to lood under for files.
+    substring : str
+        substring that is required to be contained in path.
+
+    Returns
+    -------
+    files : str (list)
+        list of files under path containing substring.
+
+    """
+    
+    files = []
+    for (dirpath, dirnames, filenames) in os.walk(path):
+        
+        for f in filenames:
+            
+            if substring in f and not f.startswith('.'):
+                
+                files.append(os.path.join(dirpath, f)) 
+                
+    return files  
 
 def convert_csv_to_xlsx(path):
 
@@ -1196,10 +1238,12 @@ def plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epoc
                      fps, n_timebin, window_pos, window_veloc,
                      cor, body_part, plot_param,
                      pre_interval, interval, post_interval, pre_stim_inter,
-                     average='Averg_trials_all_mice', c_laser='deepskyblue',
+                     average = 'all_mice', c_laser='deepskyblue',
                      c_spont='k', save_as_format='.pdf', title = True,
-                     plot_spont = True, label = None, annotate_n = False, axvspan = True,
-                     multi_region = False, save_fig = True, ax = None):
+                     plot_spont = True, label = 'body-part', annotate_n = False, axvspan = True,
+                     multi_region = False, save_fig = True, ax = None, 
+                     x_label_list = [0, 0.5, 1, 1.5, 2], y_label_list = [-20, -10, 0, 10, 20, 30],
+                     legend_loc = 'upper left', legend_fontsize = 15, bbox_to_anch_leg = (0.1, 1)):
     
     """Plot (pre Laser | Laser | post Laser) velocity/position/acceleration comparison between laser and spontaneous trials.
 
@@ -1209,7 +1253,7 @@ def plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epoc
     pre_direct : str
             Path to project directory
     mouse_type : str
-            Type of the animal that makes it different in the experiment e.g. for transgenic mice 'FoxP@' or 'Vglut2'.
+            Type of the animal that makes it different in the experiment e.g. for transgenic mice 'FoxP2' or 'Vglut2'.
     opto_par : str
             Optogentic parameter distinguishing injections. e.g. 'Control' or 'ChR2'.
     stim_loc : str
@@ -1274,15 +1318,15 @@ def plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epoc
     time_series = np.arange(-pre_interval, 
                             interval + post_interval + 1)/fps
     
-    ax, label = handle_legend_label(ax, label, body_part, epochs, annotate_n)
+    ax, legend = handle_legend_label(ax, label, stim_type, body_part, epochs, annotate_n)
         
-    line_1, = ax.plot(time_series, epochs_mean, color = c_laser, label = label,
+    line_1, = ax.plot(time_series, epochs_mean, color = c_laser, label = legend,
                      linestyle='-', linewidth=2)  # , marker='o',markersize=1)
     
     ax.fill_between(time_series, confidence_inter[:, 0],  confidence_inter[:, 1], 
                     color=c_laser, alpha=0.2)
     
-    if plot_spont:
+    if plot_spont and epochs_mean_spont.shape[0] > 0:
         
         if multi_region:
             spont_label = 'Spontaneous'
@@ -1314,11 +1358,11 @@ def plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epoc
     else:
         
         ax.set_ylabel(" Acceleration (cm/s**2)").set_fontproperties(font_label)
-        
+       
     ax.axhline(y=treadmil_velocity, ls='--', c='red')
     ax.set_xlabel("Time(s)").set_fontproperties(font_label)
     ax.set_ylim(ylim[0], ylim[1])  # set limits
-    leg = ax.legend(frameon = False, loc = 'upper left', bbox_to_anchor=(0.1, 1), fontsize = 17)
+    leg = ax.legend(frameon = False, loc = legend_loc, bbox_to_anchor=bbox_to_anch_leg, fontsize = legend_fontsize)
     p = [l.set_linewidth(3) for l in leg.legendHandles ]
     remove_frame(ax)
     ax = set_ticks(ax)
@@ -1328,10 +1372,9 @@ def plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epoc
               + "\n" + stim_loc 
               + "\n" + stim_type.replace('_', ' ').replace('-','.'))
     
-    filename =  (stim_loc 
-                + '_' + stim_type
-                + "_" + opto_par
+    filename =  (opto_par 
                 + '_' + mouse_type
+                + "_" +  stim_loc 
                 + '_' + cor
                 + '_' + plot_param 
                 + '_' + '_'.join(body_part)
@@ -1343,7 +1386,12 @@ def plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epoc
     if not average:
         
         title += "# " + str(mouse_no) + ' '
-        filepath = os.path.join(pre_direct, 'Compare', 'Mouse' + str(mouse_no) + '_' + filename)
+        Directory.create_dir_if_not_exist(os.path.join(pre_direct, 'Subplots', 
+                                                       'Compare', stim_loc))
+        filepath = os.path.join(pre_direct, 'Compare', 
+                                'Mouse' + str(mouse_no) 
+                                + '_' + stim_type 
+                                + '_' + filename)
                                 
 
         
@@ -1351,44 +1399,106 @@ def plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epoc
         
         if not multi_region:
             title = (mouse_type 
-                     + "\n" 
-                     + " Average of all " 
-                     + opto_par)
+                     + '-' + opto_par + ' (#' + str(mouse_no) + ')' 
+                     + "\n" + stim_type.replace('_', ' ').replace('-','.'))
         else:
-            title = '#' + str(mouse_no)
             
-        filepath = os.path.join(pre_direct,  'Average_' + filename)
+            title = '#' + str(mouse_no)
         
-    else:
+        Directory.create_dir_if_not_exist(os.path.join(pre_direct, 'Subplots', stim_loc))
+        filepath = os.path.join(pre_direct, 
+                                'Subplots',
+                                'Mouse' + str(mouse_no) 
+                                + '_' + stim_type 
+                                + '_' + filename)
         
-        filepath = os.path.join(pre_direct,  filename)
+    elif average == 'all_mice': # average of all mice with different intensities 
+        
+        title = (mouse_type 
+                 + '-' + opto_par + ' (All mice)' 
+                 + '\n' + stim_loc)
+        if '-' not in stim_loc:
+            title += '\n' + stim_type.split('_')[0]
 
+
+    else: 
+        
+        Directory.create_dir_if_not_exist(os.path.join(pre_direct, 'Subplots', stim_loc))
+        filepath = os.path.join(pre_direct, 'Subplots', 
+                                stim_loc, filename)
     if title:
         
         ax.set_title(title).set_fontproperties(font)
         
+    ax = set_xy_ticks_one_ax(ax, x_label_list, y_label_list)
+    ax.set_xlim(-pre_interval/fps, 
+                (interval + post_interval + 1) / fps)
     if save_fig:
         
         ax.get_figure().savefig(filepath, bbox_inches='tight', orientation='landscape', dpi=300)
         
-    return ax
+    return ax, filename
     
-def handle_legend_label(ax, label, body_part, epochs, annotate_n):
+def handle_legend_label(ax, label, stim_type, body_part, epochs, annotate_n):
+    """
+    Create the legend label based on the input parameters.
     
-    ''' if annotate is True the number of trials is written as text in the plot
-    otherwise it will be reported in the legend'''
+
+    Parameters
+    ----------
+    ax : object
+        plot axis.
+    label : str
+        Determining the variable to be reported as legend.
+    stim_type : str
+        stimulation type and string joined with underscore.
+    body_part : list (str)
+        list of tracked  body parts.
+    epochs : nd-array (float)
+        time epochs of all trials.
+    annotate_n : bool
+        if True is True the number of trials is written as text in the plot
+        otherwise it will be reported in the legend.
+
+    Returns
+    -------
+    ax : object
+        plot axis.
+    label : TYPE
+        text to be put in the plot object.
+
+    """
     
-    label = label or ', '.join(body_part)
     
-    if annotate_n:
+    
+    if label == 'intensity':
         
-        ax.annotate( 'n = {}'.format(epochs.shape[0]),
-                    xy=(0.26,0.85),xycoords='axes fraction', fontsize = 17)
+        label = get_intesities_str(stim_type) + ' mW'
         
+    elif label == 'body-part':
+        
+        label = ', '.join(body_part)
+    
+    elif label == 'protocol':
+        
+        label = stim_type.replace('_', ' ').replace('-', '.')
+    
+    n_trials = epochs.shape[0]
+    
+    if n_trials > 0:
+        
+        if annotate_n:
+            
+            ax.annotate( 'n = {}'.format(n_trials),
+                        xy=(0.26,0.85),xycoords='axes fraction', fontsize = 17)
+            
+        else:
+            
+            label += ', n=' + str(n_trials) 
     else:
-        
-        label += ' n=' + str(epochs.shape[0])
-        
+         
+         label = ''
+         
     return ax, label
 
 def rm_ax_unnecessary_labels_in_subplots(count, n_iter, ax, axis = 'both'):
@@ -1418,6 +1528,83 @@ def set_ticks(ax):
     ax.xaxis.set_ticks_position('bottom')
     ax.get_yaxis().set_tick_params(direction='out', labelsize=20, length=6)
     ax.yaxis.set_ticks_position('left')
+    return ax
+
+def set_xy_ticks_one_ax(ax, x_label_list, y_label_list):
+    
+    """
+    set x and y axis tick labels from list
+
+    Parameters
+    ----------
+    ax : obj
+        plot axis.
+    x_label_list : list (int)
+        x axis tick labels.
+    y_label_list : list (int)
+        y axis tick labels.
+
+    Returns
+    -------
+    ax : obj
+        plot axis.
+    """
+    
+    set_x_ticks_one_ax(ax, x_label_list)
+    set_y_ticks_one_ax(ax, y_label_list)
+    
+    return ax
+
+
+def set_y_ticks_one_ax(ax, label_list):
+    """
+    set y axis tick labels from list
+
+    Parameters
+    ----------
+    ax : obj
+        plot axis.
+
+    label_list : list (int)
+        y axis tick labels.
+
+    Returns
+    -------
+    ax : obj
+        plot axis.
+    """
+    
+    
+    y_formatter = FixedFormatter([str(x) for x in label_list])
+    y_locator = FixedLocator(label_list)
+    ax.yaxis.set_major_formatter(y_formatter)
+    ax.yaxis.set_major_locator(y_locator)
+    
+    return ax
+
+def set_x_ticks_one_ax(ax, label_list):
+    
+    """
+    set x axis tick labels from list
+
+    Parameters
+    ----------
+    ax : obj
+        plot axis.
+    label_list : list (int)
+        x axis tick labels.
+
+
+    Returns
+    -------
+    ax : obj
+        plot axis.
+    """
+    x_formatter = FixedFormatter([str(x) for x in label_list])
+    x_locator = FixedLocator(label_list)
+    ax.xaxis.set_major_formatter(x_formatter)
+    ax.xaxis.set_major_locator(x_locator)
+    
     return ax
 
 def flatten(t):
@@ -1471,6 +1658,21 @@ def plot_individual_mice(ax, epochs_mean_mouse_dict, n_trials_dict, x_series,
         ax.text(min(x_series[i]), n_annotate_y,"n = " + str(n_trials_dict[key]), fontsize=30)
     return ax
 
+
+def extract_info_from_npz_filename(filename):
+    """extract info about experiment from the summary npz file """
+    prop = os.path.basename(filename).split("_")
+
+    info = {'mouse_type': prop[0],
+            'opto_par': prop[1],
+            'stim_loc': prop[2],
+            'pulse': prop[3],
+            'intensity': prop[4],
+            "stim_type": '_'.join(prop[3:6])}
+
+    return info
+
+
 def extract_info_from_saved_data(filename,  intervals_dict, subplot_parameter = None,
                                  opto_par = 'ChR2', uniform_ON_OFF = False,
                                  measure = 'mean'):
@@ -1478,15 +1680,8 @@ def extract_info_from_saved_data(filename,  intervals_dict, subplot_parameter = 
     '''for the given filename extract information from filename and create the mean velocity pre post laser
         in a dataframe
     '''
-    prop = os.path.basename(filename).split("_")
     dat = np.load(filename)
-
-    info = {'mouse_type': prop[0],
-            'opto_par': prop[1],
-            'stim_loc': prop[2],
-            'pulse': prop[3],
-            'intensity': prop[4],
-            "stim_type": prop[3:6]}
+    info = extract_info_from_npz_filename(filename)
 
     parameter = info[subplot_parameter]
     
@@ -1822,9 +2017,9 @@ def epochs_stats(epochs, epochs_spont):
     if len(epochs.shape) > 1:
         
         epochs_mean = np.average(epochs, axis=0)
-        epochs_mean_spont = np.average(epochs_spont, axis=0)
-
+        
         # calculate the two sided confidence interval for every timestep
+
         for i in range(epochs.shape[1]):
             
             m = [sms.DescrStatsW(epochs[:, i]).tconfint_mean(
@@ -1833,11 +2028,22 @@ def epochs_stats(epochs, epochs_spont):
                 confidence_inter, [[m[0][0], m[0][1]]], axis=0)
         confidence_inter_spont = np.empty((0, 2), int)
 
-        for i in range(epochs_spont.shape[1]):
-            m = [sms.DescrStatsW(epochs_spont[:, i]).tconfint_mean(
-                alpha=0.05, alternative='two-sided')]
-            confidence_inter_spont = np.append(
-                confidence_inter_spont, [[m[0][0], m[0][1]]], axis=0)
+
+        if epochs_spont.shape[0] > 0:
+            
+            epochs_mean_spont = np.average(epochs_spont, axis=0)
+            
+            for i in range(epochs_spont.shape[1]):
+                m = [sms.DescrStatsW(epochs_spont[:, i]).tconfint_mean(
+                    alpha=0.05, alternative='two-sided')]
+                confidence_inter_spont = np.append(
+                    confidence_inter_spont, [[m[0][0], m[0][1]]], axis=0)
+                
+        else:
+            
+            epochs_mean_spont = epochs_spont
+            confidence_inter_spont = []
+
     else:
         
         epochs_mean = epochs
@@ -3209,7 +3415,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
                 os.path.join(direct, stim_loc, 'Spontaneous', 'DLC'))
             
         else:
-            print('no Spont####################################################3')
+            print('no Spont  ####################################################')
             files_list_spont = []
         
         
@@ -3245,7 +3451,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
 
             if len(files_list_spont) == 0:  # if no spont trials recorded set it to zero
 
-                epochs_spont = np.zeros((1, epochs.shape[1]))
+                epochs_spont = np.empty((0, epochs.shape[1]))
                 # construct an array of all the spont epochs
                 # epochs_spont_all_mice = np.append(
                 #     epochs_spont_all_mice, epochs_spont, axis=0)
@@ -3289,7 +3495,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
                 epochs_mean_each_mouse, average_of_on_off_on, axis=0)
 
 
-            ax = plot_pre_on_post(
+            ax, _ = plot_pre_on_post(
                              pre_direct,
                              mouse_type,
                              opto_par,
@@ -3333,7 +3539,6 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
     if exist_count > 1:
 
 
-        Directory.create_dir_if_not_exist(os.path.join(pre_direct, 'Subplots', stim_loc, stim_type ))
         if title_manually:
             fig.suptitle("(" + mouse_type 
                          + " " + opto_par + ") " 
@@ -3346,6 +3551,8 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
         
      
         if save_fig:
+            Directory.create_dir_if_not_exist(os.path.join(pre_direct, 'Subplots', stim_loc, stim_type ))
+
             save_pdf_png(fig, os.path.join(pre_direct, 'Subplots', stim_loc, stim_type,
                                      'All_together_' 
                                     + stim_loc 
@@ -3528,7 +3735,7 @@ def superimpose_intensities(opto_par_list, cmap_dict, stim_type_dict,
                             intervals_dict, t_window_dict, 
                             accep_interval_range, study_param_dict,
                             max_distance, min_distance, n_trials_spont, plot_spont = True, 
-                            ylabel_x = 0, xlabel_y = 0.07, suptitle_y = 0.98):
+                            ylabel_x = 0, xlabel_y = 0.07, suptitle_y = 0.98, c_spont = 'k'):
 
     """ Create a set of subplots with mice as rows and stimulation location as
     columns, superimposeing all intensities and creating new figures for different
@@ -3546,16 +3753,24 @@ def superimpose_intensities(opto_par_list, cmap_dict, stim_type_dict,
         fig_keys = get_nested_keys(stim_type_dict)
         fig_keys = list(stim_loc_dict[opto_par].keys())
         stim_loc_dict = stim_loc_dict[opto_par]
+        
         for key in fig_keys:
+            
             figs[key] = plt.figure(figsize = (5 * len(stim_loc_dict[key]), n_mice * 5))
             outers[key] = gridspec.GridSpec(1, len(stim_loc_dict[key]), wspace=0.2, hspace=0.2)
 
         for stim_n, stim_type_dict_stim in stim_type_dict.items():
+            
             for pulse, stim_type_list in stim_type_dict_stim.items():
+                
                 if pulse in stim_loc_dict:
+                    
                     axes = {k: [] for k in stim_loc_dict[pulse] }
+                    
                 else:
+                    
                     continue
+                
                 if len(stim_loc_dict[pulse]) > 0:
                 
                     for i, stim_loc in enumerate(stim_loc_dict[pulse]):
@@ -3568,13 +3783,21 @@ def superimpose_intensities(opto_par_list, cmap_dict, stim_type_dict,
                             print(stim_type)
                             c_laser = cmap_dict[stim_n][pulse][j]  
                             
-                            label = get_intesities_str(stim_type) + ' mW'
-                            axes[stim_loc] = run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_dict, stim_loc, stim_type, opto_par, treadmil_velocity,
-                                                            ylim, spont_trial_dict, misdetection_dict, intervals_dict, t_window_dict, accep_interval_range, study_param_dict,
-                                                            max_distance, min_distance, n_trials_spont, c_laser = c_laser, remove_empty_ax= False, annotate_n = False,
-                                                            c_spont = 'k', fig = figs[pulse], outer = outers[pulse], inner = inners[pulse], axes = axes[stim_loc], label = label,
-                                                            title_manually = False, plot_spont = plot_spont, save_fig = False, suptitle_y = suptitle_y[opto_par],
-                                                            multi_region = True, axvspan=False)
+                            
+                            axes[stim_loc] = run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, 
+                                                                         mouse_dict, stim_loc, stim_type, opto_par, 
+                                                                         treadmil_velocity, ylim, spont_trial_dict, 
+                                                                         misdetection_dict, intervals_dict, t_window_dict, 
+                                                                         accep_interval_range, study_param_dict,
+                                                                         max_distance, min_distance, n_trials_spont, 
+                                                                         c_laser = c_laser, remove_empty_ax= False, 
+                                                                         annotate_n = False, c_spont = c_spont, 
+                                                                         fig = figs[pulse], outer = outers[pulse], 
+                                                                         inner = inners[pulse], axes = axes[stim_loc], 
+                                                                         label = 'intensity', title_manually = False, 
+                                                                         plot_spont = plot_spont, save_fig = False, 
+                                                                         suptitle_y = suptitle_y[opto_par],
+                                                                         multi_region = True, axvspan=False)
         
                         axes[stim_loc] = rm_repeated_legend(axes[stim_loc])
                         for ax in axes[stim_loc]:
