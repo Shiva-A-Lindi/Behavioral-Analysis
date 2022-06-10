@@ -144,31 +144,100 @@ def check_DLC_corresponds_to_laser(filepath_laser, filepath_DLC):
 
     filename_DLC = os.path.splitext(os.path.basename(filepath_DLC))[0]
     filename_laser = os.path.splitext(os.path.basename(filepath_laser))[0]
+    
     print('DLC:', filename_DLC)
     print('Laser:', filename_laser)
     
     if not '_'.join( filename_DLC.split('_')[:-1]) == '_'.join(filename_DLC.split('_')[:-1]):
 
         raise ValueError (" Laser and DLC files dont' match!")
+        
     # else:
     #     print('laser, DLC match!')
-def read_DLC(file_name, scale_pix_to_cm):
-
-    '''Read DeepLabCut Data.'''
-
-    if get_extension(file_name) == '.csv':
-
-         df = pd.read_csv(file_name, header=[1, 2]) * scale_pix_to_cm  # scale to cm
-
-    elif get_extension(file_name) in ['.xlsx']:
     
-        df = pd.read_excel(file_name, header=[1, 2]) * scale_pix_to_cm  # scale to cm
+def read_DLC(filepath, scale_pix_to_cm):
+    
+    """
+    Read DeepLabCut trackings of bodyparts.
+
+    Parameters
+    ----------
+    filepath : str
+        path of the DLC file.
+    scale_pix_to_cm : float
+        scaling factor to transform DLC pixel values into cm.
+
+    Raises
+    ------
+    ValueError
+        Raises error if file type is not csv or xlsx.
+
+    Returns
+    -------
+    df : dataframe
+        DLC output dataframe.
+
+
+    """
+
+    
+
+    if get_extension(filepath) == '.csv':
+
+         df = pd.read_csv(filepath, header=[1, 2]) * scale_pix_to_cm  # scale to cm
+
+    elif get_extension(filepath) in ['.xlsx']:
+    
+        df = pd.read_excel(filepath, header=[1, 2]) * scale_pix_to_cm  # scale to cm
     
     else: 
 
         raise ValueError ( "DLC data format not right! Should be '.xlsx' or 'csv' ")
 
     return df
+
+def find_treadmill_velocity(filepath, default = 15):
+    """
+    Determine the treadmill velocity based on filename.
+
+    Parameters
+    ----------
+    filepath : str
+        path of the DLC file.
+
+    Returns
+    -------
+    treadmill_velocity: int
+        The treadmill velocity in cm/s. If not specified in filename, default = 15 is returned.
+
+    """
+    experiment = Experiment(filepath)
+    experiment.get_treadmill_velocity(default_velocity = default)
+    print('treadmill velocity = ', experiment.treadmill_velocity, ' cm/s')
+    
+    return experiment.treadmill_velocity
+
+
+def find_session_day_tag(filepath):
+    """
+    extract the session tag that is e.g. [a, b, ...][01, 02, ..] based on filename.
+
+    Parameters
+    ----------
+    filepath : str
+        path of the DLC file.
+
+    Returns
+    -------
+    day tag: str
+        3 charecter tag assigned to one session of recording.
+
+    """
+    experiment = Experiment(filepath)
+    experiment.get_day_tag()
+    print('day tag = ', experiment.day_tag)
+    
+    return experiment.day_tag
 
 
 def read_laser(laser_file_name, DLC_file_name):
@@ -621,9 +690,7 @@ def derivative(x, delta_t, fps):
     '''Take the derivative over delta_t.'''
 
     derivative_out = (x - shift(x, delta_t, cval=x[0])) / (delta_t/fps)
-    # got crazy zith keyerror -1
-#     print(derivative_out[-1])
-#     return shift(derivative_out,-int(delta_t/2),cval= derivative_out[-1])
+
     return shift(derivative_out, -int(delta_t/2), cval=derivative_out[len(derivative_out)-1])
 
 
@@ -631,10 +698,11 @@ def derivative_mov_ave(x, delta_t, window_veloc, fps):
     '''Take the derivative with delta_t and do a moving average.'''
 
     derivative_out = (x - shift(x, delta_t, cval=x[0])) / (delta_t/fps)
-    dx_dt = shift(derivative_out, -int(delta_t/2),
-                  cval=derivative_out[len(derivative_out)-1])
-    # return the moving average
-    return moving_average_array(dx_dt, window_veloc)
+    dx_dt = shift(derivative_out,
+                  -int(delta_t / 2),
+                  cval = derivative_out[len(derivative_out) - 1])
+   
+    return moving_average_array(dx_dt, window_veloc) # return the moving average
 #     return dx_dt # if you don't want to do a moving average
 
 
@@ -1234,7 +1302,7 @@ def get_axes(ax, figsize=(6, 5)):
 
 
 def plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epochs, 
-                     epochs_spont, treadmil_velocity, ylim,
+                     epochs_spont, treadmill_velocity, ylim,
                      fps, n_timebin, window_pos, window_veloc,
                      cor, body_part, plot_param,
                      pre_interval, interval, post_interval, pre_stim_inter,
@@ -1242,7 +1310,7 @@ def plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epoc
                      c_spont='k', save_as_format='.pdf', title = True,
                      plot_spont = True, label = 'body-part', annotate_n = False, axvspan = True,
                      multi_region = False, save_fig = True, ax = None, 
-                     x_label_list = [0, 0.5, 1, 1.5, 2], y_label_list = [-20, -10, 0, 10, 20, 30],
+                     x_label_list = [], y_label_list = [],
                      legend_loc = 'upper left', legend_fontsize = 15, bbox_to_anch_leg = (0.1, 1)):
     
     """Plot (pre Laser | Laser | post Laser) velocity/position/acceleration comparison between laser and spontaneous trials.
@@ -1349,7 +1417,7 @@ def plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epoc
         
     if plot_param == 'velocity':
         
-        ax.set_ylabel(" Velocity (cm/s)").set_fontproperties(font_label)
+        ax.set_ylabel(" Normalized Velocity").set_fontproperties(font_label)
         
     elif plot_param == 'position':
         
@@ -1357,9 +1425,9 @@ def plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epoc
         
     else:
         
-        ax.set_ylabel(" Acceleration (cm/s**2)").set_fontproperties(font_label)
+        ax.set_ylabel(r"$ Acceleration \; (cm/s^{2})$").set_fontproperties(font_label)
        
-    ax.axhline(y=treadmil_velocity, ls='--', c='red')
+    ax.axhline(y=treadmill_velocity, ls='--', c='red')
     ax.set_xlabel("Time(s)").set_fontproperties(font_label)
     ax.set_ylim(ylim[0], ylim[1])  # set limits
     leg = ax.legend(frameon = False, loc = legend_loc, bbox_to_anchor=bbox_to_anch_leg, fontsize = legend_fontsize)
@@ -1430,7 +1498,8 @@ def plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epoc
         
         ax.set_title(title).set_fontproperties(font)
         
-    ax = set_xy_ticks_one_ax(ax, x_label_list, y_label_list)
+    if len(x_label_list) > 0 and len(y_label_list) > 0:
+        ax = set_xy_ticks_one_ax(ax, x_label_list, y_label_list)
     ax.set_xlim(-pre_interval/fps, 
                 (interval + post_interval + 1) / fps)
     if save_fig:
@@ -1440,6 +1509,7 @@ def plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epoc
     return ax, filename
     
 def handle_legend_label(ax, label, stim_type, body_part, epochs, annotate_n):
+    
     """
     Create the legend label based on the input parameters.
     
@@ -2144,7 +2214,7 @@ def extract_pre_laser_x_epochs_over_trials(files_list, files_list_laser,
                                      f_DLC)
 
         df = read_DLC(file_path_DLC, scale_pix_to_cm)
-
+        
         study_param_dict = {
                             'cor': 'x', 
                             'body_part': ['Tail', 'Nose'], 
@@ -2326,8 +2396,11 @@ def plot_two_protocols_with_mouse_distinction(mouse_type, mouse_list, stim_loc, 
             continue
         else:
 
-            epochs, = extract_epochs_over_trials(files_list_DLC1, files_list_Laser1, direct, stim_loc, stim_type1, scale_pix_to_cm, False, accep_interval_range,
-                                                 spont_trial_dict, misdetection_dict, study_param_dict, **intervals_dict, **t_window_dict)
+            epochs, pre_info = extract_epochs_over_trials(files_list_DLC1, files_list_Laser1, direct, 
+                                                 stim_loc, stim_type1, scale_pix_to_cm, accep_interval_range, treadmill_velocity,
+                                                 spont_trial_dict, misdetection_dict, study_param_dict, 
+                                                 spont = False, **intervals_dict, **t_window_dict)
+            
             print('total of {} trials'.format(epochs.shape[0]))
             # construct an array of all the trial epochs of all mice
             epochs_all_mice = np.append(epochs_all_mice, epochs, axis=0)
@@ -2340,21 +2413,25 @@ def plot_two_protocols_with_mouse_distinction(mouse_type, mouse_list, stim_loc, 
             # number of repeats
             n_samples = int(n_epochs/(n_spont_sessions*n_trials_spont))+1
             # over a spont file to get the same number of epochs as laser session
-            epochs_spont, = extract_epochs_over_trials(files_list_spont1, files_list_Laser1, direct,
-                                                       'Spontaneous', scale_pix_to_cm, 'y', accep_interval_range,
-                                                       spont_trial_dict, misdetection_dict, study_param_dict, **intervals_dict, **t_window_dict)
+            epochs_spont, pre_info_spont = extract_epochs_over_trials(files_list_spont1, files_list_Laser1, direct,
+                                                       'Spontaneous', scale_pix_to_cm, accep_interval_range,treadmill_velocity,
+                                                       spont_trial_dict, misdetection_dict, study_param_dict,
+                                                       spont = True, **intervals_dict, **t_window_dict)
             # construct an array of all the spont epochs
             epochs_spont_all_mice = np.append(
                 epochs_spont_all_mice, epochs_spont, axis=0)
 
             ax = fig.add_subplot(3, 4, count)
             plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epochs, epochs_spont, 
-                             treadmil_velocity, ylim, **t_window_dict, **study_param_dict,
+                             treadmill_velocity, ylim, **t_window_dict, **study_param_dict,
                              **intervals_dict, average='Averg_trials', 
                              c_laser='deepskyblue', c_spont='k', save_as_format='.pdf', ax = ax)
 
-            epochs, = extract_epochs_over_trials(files_list_DLC2, files_list_Laser2, direct, stim_loc, stim_type2, scale_pix_to_cm, False, accep_interval_range,
-                                                 spont_trial_dict, misdetection_dict, study_param_dict, **intervals_dict, **t_window_dict)
+            epochs, pre_info = extract_epochs_over_trials(files_list_DLC2, files_list_Laser2, direct, 
+                                                 stim_loc, stim_type2, scale_pix_to_cm, accep_interval_range, treadmill_velocity,
+                                                 spont_trial_dict, misdetection_dict, study_param_dict, 
+                                                 spont = False, **intervals_dict, **t_window_dict)
+            
             print('total of {} trials'.format(epochs.shape[0]))
             # construct an array of all the trial epochs of all mice
             epochs_all_mice = np.append(epochs_all_mice, epochs, axis=0)
@@ -2367,14 +2444,15 @@ def plot_two_protocols_with_mouse_distinction(mouse_type, mouse_list, stim_loc, 
             # number of repeats
             n_samples = int(n_epochs/(n_spont_sessions*n_trials_spont))+1
             # over a spont file to get the same number of epochs as laser session
-            epochs_spont, = extract_epochs_over_trials(files_list_spont2, files_list_Laser2, direct,
-                                                       'Spontaneous', scale_pix_to_cm, 'y', accep_interval_range,
-                                                       spont_trial_dict, misdetection_dict, study_param_dict, **intervals_dict, **t_window_dict)
+            epochs_spont, pre_info_spont = extract_epochs_over_trials(files_list_spont2, files_list_Laser2, direct,
+                                                       'Spontaneous', scale_pix_to_cm, accep_interval_range, treadmill_velocity,
+                                                       spont_trial_dict, misdetection_dict, study_param_dict, 
+                                                       spont = True, **intervals_dict, **t_window_dict)
             # construct an array of all the spont epochs
             epochs_spont_all_mice = np.append(
                 epochs_spont_all_mice, epochs_spont, axis=0)
 
-            plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epochs, epochs_spont, treadmil_velocity, ylim, **t_window_dict, **study_param_dict,
+            plot_pre_on_post(pre_direct, mouse_type, opto_par, stim_loc, stim_type, epochs, epochs_spont, treadmill_velocity, ylim, **t_window_dict, **study_param_dict,
                              **intervals_dict, average='Averg_trials', c_laser='mediumseagreen', c_spont='hotpink', save_as_format='.pdf', ax = ax)
 
     plt.tight_layout()
@@ -3112,9 +3190,11 @@ def remove_epochs_with_unaccep_pre_post_interval(bins, pre_interval, post_interv
     
     return bins[~ind_unacc, :]
 
-def extract_epochs_over_trials(files_list_DLC, files_list_laser, direct, stim_loc, stim_type, scale_pix_to_cm, spont, accep_interval_range,
-                               spont_trial_dict, misdetection_dict, study_param_dict, pre_interval, interval, post_interval, pre_stim_inter,
-                               fps, n_timebin, window_veloc, window_pos, n_samples=25):
+def extract_epochs_over_trials(files_list_DLC, files_list_laser, direct, stim_loc, stim_type, 
+                               scale_pix_to_cm, accep_interval_range, default_treadmill_velocity,
+                               spont_trial_dict, misdetection_dict, study_param_dict, 
+                               pre_interval, interval, post_interval, pre_stim_inter,
+                               fps, n_timebin, window_veloc, window_pos, n_samples=25, spont = True):
     """Return all the epochs of all similar trials for one mouse.
 
     Parameters
@@ -3198,54 +3278,75 @@ def extract_epochs_over_trials(files_list_DLC, files_list_laser, direct, stim_lo
     epochs_veloc = np.empty((0, pre_stim_inter+interval+post_interval+1))
     epochs_acc = np.empty((0, pre_stim_inter+interval+post_interval+1))
     pre_info = np.empty((0, 3))
+    session_day_tag = np.empty((0, 1))
     
-    # print(files_list_DLC, files_list_laser)
+    last_trial = 0
+    
     for i in range(0, len(files_list_DLC)):
 
         print('\n session {} out of {}'.format(i+1, len(files_list_DLC)))
         
         file_path_DLC = os.path.join(direct, stim_loc, stim_type, 'DLC', files_list_DLC[i])
         df = read_DLC(file_path_DLC, scale_pix_to_cm)
-        # print(file_path_DLC)
-        position = average_position_r_l(
-            df, window_pos, misdetection_dict, **study_param_dict)
+        treadmill_velocity = find_treadmill_velocity(file_path_DLC, 
+                                                     default = default_treadmill_velocity)
+
+        position = average_position_r_l(df, window_pos, 
+                                        misdetection_dict, 
+                                        **study_param_dict)
         session_length = len(position)
         velocity = derivative_mov_ave(position, n_timebin, window_veloc, fps)
-        acceleration = derivative(velocity, n_timebin, fps)
+        abs_velocity =  velocity + treadmill_velocity
+        normalized_velocity = abs_velocity / treadmill_velocity 
+
+        acceleration = derivative(abs_velocity, n_timebin, fps)
 
         # if only onse side is needed
-        # variable,left_side = position_r_l(df, which_plot,where_plot)
+        # variable, left_side = position_r_l(df, which_plot,where_plot)
         if plot_param == 'position':
             variable = position
 
         elif plot_param == 'velocity':
-            variable = velocity   # velocity
-
+            variable = normalized_velocity
+            
         elif plot_param == 'acceleration':
-            variable = acceleration   # velocity
+            variable = acceleration   
 
-        if spont == 'y':  # if it's a spontaneous reading extract epochs randomly
-            bins = produce_random_bins_for_spont(len(variable), n_samples, pre_interval, interval, post_interval,
+        if spont:  # if it's a spontaneous reading extract epochs randomly
+            bins = produce_random_bins_for_spont(len(variable), n_samples, 
+                                                 pre_interval, interval, 
+                                                 post_interval,
                                                  **spont_trial_dict)
 
         else:  # if a normal trial read bins from laser times
-            file_path_Laser = os.path.join(
-                direct, stim_loc, stim_type, 'Laser', files_list_laser[i])
+        
+            file_path_Laser = os.path.join(direct, stim_loc, 
+                                           stim_type, 'Laser', 
+                                           files_list_laser[i])
+            
             laser_t = read_laser(file_path_Laser, file_path_DLC)
 
             bins = np.copy(laser_t.values).astype(int)
-        epochs_trial, n_trials, take = extract_epochs(
-            bins, variable, *accep_interval_range, pre_era, interval, post_interval, session_length)
+            
+        epochs_trial, n_trials, take = extract_epochs(bins, variable, 
+                                                      *accep_interval_range, 
+                                                      pre_era, interval, 
+                                                      post_interval, session_length)
+        
+        
         
         if n_trials == 0:
             continue
         
-        epochs_pos = position[take].reshape(
-            n_trials, pre_era+post_interval+interval+1)
-        epochs_veloc = velocity[take].reshape(
-            n_trials, pre_era+post_interval+interval+1)
-        epochs_acc = acceleration[take].reshape(
-            n_trials, pre_era+post_interval+interval+1)
+        session_day_tag[last_trial: last_trial + n_trials] = find_session_day_tag(filepath)
+        last_trial += n_trials
+        
+        epochs_pos = position[take].reshape(n_trials, 
+                                            pre_era + post_interval + interval + 1)
+        epochs_veloc = normalized_velocity[take].reshape(n_trials, 
+                                              pre_era + post_interval + interval + 1)
+        epochs_acc = acceleration[take].reshape(n_trials, 
+                                                pre_era + post_interval + interval + 1)
         
         if pre_era > pre_interval:
 
@@ -3282,17 +3383,22 @@ def extract_epochs_over_trials(files_list_DLC, files_list_laser, direct, stim_lo
 
     if plot_param == 'position':
         
-        return epochs - np.repeat(epochs[:, pre_interval].reshape(epochs.shape[0], 1), epochs.shape[1], axis=1)
+        return epochs - np.repeat(epochs[:, pre_interval].reshape(epochs.shape[0], 1), 
+                                  epochs.shape[1], 
+                                  axis=1), pre_info
     
     else:
         
         return epochs, pre_info
 
 def correct_accep_interval_range_for_beta(accep_interval_range, stim_type):
-    """ beta stimulation doesn't include the last half cycle so 
+    
+    """ 
+    beta stimulation doesn't include the last half cycle so 
     it's shorter. Therefore the acceptable range is coorected to be
     smaller 
     """
+    
     if 'beta' in stim_type and 'square' not in stim_type:
         
         return tuple([i * (118/125) for i in accep_interval_range])
@@ -3301,12 +3407,15 @@ def correct_accep_interval_range_for_beta(accep_interval_range, stim_type):
         
         return accep_interval_range
     
-def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_dict, stim_loc, stim_type, opto_par, treadmil_velocity,
-                                ylim, spont_trial_dict, misdetection_dict, intervals_dict, t_window_dict, accep_interval_range, study_param_dict,
-                                max_distance, min_distance, n_trials_spont, c_laser = 'deepskyblue', c_spont = 'k', fig = None,
-                                outer = None, n_inner = 0, inner = None, axes = [], remove_empty_ax = True, label = None, annotate_n = False,
-                                title_manually = True, plot_spont = True, save_fig = True, suptitle_y = 0.95, multi_region = False,
-                                axvspan = True):
+def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_dict, stim_loc, stim_type, 
+                                opto_par, treadmill_velocity, ylim, spont_trial_dict, misdetection_dict, 
+                                intervals_dict, t_window_dict, accep_interval_range, study_param_dict,
+                                max_distance, min_distance, n_trials_spont, c_laser = 'deepskyblue', 
+                                c_spont = 'k', fig = None, outer = None, n_inner = 0, inner = None, 
+                                axes = [], remove_empty_ax = True, label = None, annotate_n = False,
+                                title_manually = True, plot_spont = True, save_fig = True, 
+                                suptitle_y = 0.95, multi_region = False, axvspan = True,
+                                x_label_list = [], y_label_list = []):
     
     """Save data of epochs and individal mice to a npz file.
 
@@ -3328,7 +3437,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
             the folder with the corresponding experiment protocol e.g. "Square_1_mW".
     opto_par: str
             `ChR2` for ChR2 injected animals `Control` for Control group
-    treadmil_velocity : float
+    treadmill_velocity : float
             Treadmill velocity in `cm/s`
     ylim : list(float)
     spont_trial_dict : dict-like
@@ -3358,6 +3467,10 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
     -------
 
     """
+    
+    global mouse_no
+    global n_samples
+    
     epochs_spont_all_mice = np.empty((0, intervals_dict['pre_interval']
                                          + intervals_dict['interval'] 
                                          + intervals_dict['post_interval']
@@ -3390,8 +3503,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
         
 
     
-    global mouse_no
-    global n_samples
+
     exist_count = 0
     
     for count, mouse_no  in enumerate(mouse_dict[opto_par]):  # Run over all the mice
@@ -3434,11 +3546,12 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
                                                           direct, stim_loc, 
                                                           stim_type,
                                                           scale_pix_to_cm,
-                                                          False,
                                                           accep_interval_range,
+                                                          treadmill_velocity,
                                                           spont_trial_dict,
                                                           misdetection_dict,
                                                           study_param_dict,
+                                                          spont = False,
                                                           **intervals_dict,
                                                           **t_window_dict)
             n_epochs = epochs.shape[0]
@@ -3466,16 +3579,17 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
                                 / (n_spont_sessions 
                                    * n_trials_spont)) + 1 # number of repeats over a spont file to get the same number of epochs as laser session
 
-                epochs_spont, _ = extract_epochs_over_trials(files_list_spont,
+                epochs_spont, pre_info_spont = extract_epochs_over_trials(files_list_spont,
                                                                 files_list_Laser,
                                                                 direct, stim_loc,
                                                                 'Spontaneous',
                                                                 scale_pix_to_cm,
-                                                                'y',
                                                                 accep_interval_range,
+                                                                treadmill_velocity,
                                                                 spont_trial_dict,
                                                                 misdetection_dict,
                                                                 study_param_dict,
+                                                                spont = True,
                                                                 **intervals_dict,
                                                                 **t_window_dict,
                                                                 n_samples=n_samples)
@@ -3503,7 +3617,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
                              stim_type,
                              epochs,
                              epochs_spont,
-                             treadmil_velocity,
+                             treadmill_velocity,
                              ylim,
                              **t_window_dict,
                              **study_param_dict,
@@ -3519,7 +3633,9 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
                              plot_spont=plot_spont,
                              axvspan = axvspan,
                              save_fig=False,
-                             ax = axes[count])
+                             ax = axes[count],
+                             x_label_list = x_label_list,
+                             y_label_list = y_label_list)
             
             axes[count].set_title('# {}'.format(mouse_no)).set_fontproperties(font)
 
@@ -3730,12 +3846,13 @@ def get_nested_keys(dictionary):
  
 def superimpose_intensities(opto_par_list, cmap_dict, stim_type_dict,
                             stim_loc_dict, pre_direct, scale_pix_to_cm, 
-                            mouse_type, mouse_dict, treadmil_velocity,
+                            mouse_type, mouse_dict, treadmill_velocity,
                             ylim, spont_trial_dict, misdetection_dict,
                             intervals_dict, t_window_dict, 
                             accep_interval_range, study_param_dict,
                             max_distance, min_distance, n_trials_spont, plot_spont = True, 
-                            ylabel_x = 0, xlabel_y = 0.07, suptitle_y = 0.98, c_spont = 'k'):
+                            ylabel_x = 0, xlabel_y = 0.07, suptitle_y = 0.98, c_spont = 'k',
+                            x_label_list = [], y_lable_list = []):
 
     """ Create a set of subplots with mice as rows and stimulation location as
     columns, superimposeing all intensities and creating new figures for different
@@ -3786,7 +3903,7 @@ def superimpose_intensities(opto_par_list, cmap_dict, stim_type_dict,
                             
                             axes[stim_loc] = run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, 
                                                                          mouse_dict, stim_loc, stim_type, opto_par, 
-                                                                         treadmil_velocity, ylim, spont_trial_dict, 
+                                                                         treadmill_velocity, ylim, spont_trial_dict, 
                                                                          misdetection_dict, intervals_dict, t_window_dict, 
                                                                          accep_interval_range, study_param_dict,
                                                                          max_distance, min_distance, n_trials_spont, 
@@ -3797,7 +3914,9 @@ def superimpose_intensities(opto_par_list, cmap_dict, stim_type_dict,
                                                                          label = 'intensity', title_manually = False, 
                                                                          plot_spont = plot_spont, save_fig = False, 
                                                                          suptitle_y = suptitle_y[opto_par],
-                                                                         multi_region = True, axvspan=False)
+                                                                         multi_region = True, axvspan=False,
+                                                                         x_label_list = x_label_list, 
+                                                                         y_label_list = y_label_list)
         
                         axes[stim_loc] = rm_repeated_legend(axes[stim_loc])
                         for ax in axes[stim_loc]:
@@ -3950,28 +4069,42 @@ def save_npz_limb_and_tail(pre_direct, scale_pix_to_cm, mouse_type, mouse_list, 
 
         files_list_DLC = get_DLC_files(
             os.path.join(direct, stim_loc, stim_type, 'DLC'))
-#         convert_csv_to_xlsx(direct+stim_type+'/Laser') # files might be given in csv, this is to unify
         files_list_Laser = get_laser_files(
             os.path.join(direct, stim_loc, stim_type, 'Laser'))
+        
         if len(files_list_DLC) == 0:
+            
             print("No files for mouse # ", n)
             continue
+        
         elif len(files_list_Laser) == 0:
+            
             print("No Laser detection for mouse # ", n)
             continue
+        
         else:
-            study_param_dict = {'cor': cor, 'body_part': [
-                'HL'], 'plot_param': plot_param}
-            epochs = extract_epochs_over_trials_one_side_one_body_part(files_list_DLC, files_list_Laser, direct, stim_loc, stim_type, scale_pix_to_cm, accep_interval_range,
-                                                                       misdetection_dict, pre_interval, interval, post_interval,
+            
+            study_param_dict = {'cor': cor, 
+                                'body_part': ['HL'], 
+                                'plot_param': plot_param}
+            
+            epochs = extract_epochs_over_trials_one_side_one_body_part(files_list_DLC, files_list_Laser, 
+                                                                       direct, stim_loc, stim_type, 
+                                                                       scale_pix_to_cm, accep_interval_range, treadmill_velocity,
+                                                                       misdetection_dict, pre_interval, interval, 
+                                                                       post_interval,
                                                                        **t_window_dict, **study_param_dict)
             # construct an array of all the trial epochs of all mice
             epochs_limb = np.append(epochs_limb, epochs, axis=0)
 
-            study_param_dict = {'cor': cor, 'body_part': [
-                'Tail'], 'plot_param': plot_param}
-            epochs = extract_epochs_over_trials_one_side_one_body_part(files_list_DLC, files_list_Laser, direct, stim_loc, stim_type, scale_pix_to_cm, accep_interval_range,
-                                                                       misdetection_dict, pre_interval, interval, post_interval,
+            study_param_dict = {'cor': cor, 
+                                'body_part': ['Tail'], 
+                                'plot_param': plot_param}
+            epochs = extract_epochs_over_trials_one_side_one_body_part(files_list_DLC, files_list_Laser, 
+                                                                       direct, stim_loc, stim_type, 
+                                                                       scale_pix_to_cm, accep_interval_range, treadmill_velocity,
+                                                                       misdetection_dict, pre_interval, interval, 
+                                                                       post_interval,
                                                                        **t_window_dict, **study_param_dict)
             # construct an array of all the trial epochs of all mice
             epochs_tail = np.append(epochs_tail, epochs, axis=0)
@@ -3993,9 +4126,12 @@ def save_npz_limb_and_tail(pre_direct, scale_pix_to_cm, mouse_type, mouse_list, 
              plot_param=[plot_param])
 
 
-def extract_epochs_over_trials_one_side_one_body_part(files_list_DLC, files_list_Laser, direct, stim_loc, stim_type, scale_pix_to_cm,
-                                                      accep_interval_range, misdetection_dict, pre_interval, interval, post_interval,
-                                                      fps, n_timebin, window_veloc, window_pos, cor, body_part, plot_param, left_or_right='right'):
+def extract_epochs_over_trials_one_side_one_body_part(files_list_DLC, files_list_Laser, direct, stim_loc, 
+                                                      stim_type, scale_pix_to_cm, accep_interval_range, treadmill_velocity,
+                                                      misdetection_dict, pre_interval, interval, post_interval,
+                                                      fps, n_timebin, window_veloc, window_pos, cor, body_part, 
+                                                      plot_param, left_or_right = 'right'):
+    
     '''Return all the epochs of all simillar trials for one mouse.
 
     Parameters
@@ -4056,21 +4192,31 @@ def extract_epochs_over_trials_one_side_one_body_part(files_list_DLC, files_list
         file_path_DLC = os.path.join(direct, stim_loc, stim_type, 'DLC', files_list_DLC[i])
         df = read_DLC(file_path_DLC, scale_pix_to_cm)
 
-        right, left = position_r_l(
-            df, window_pos, misdetection_dict, cor, body_part, plot_param)
+        right, left = position_r_l(df, window_pos, 
+                                   misdetection_dict, 
+                                   cor, body_part, plot_param)
         
         session_length = len(right)
+        
         if left_or_right == 'left':
+        
             variable = left
+        
         else:
+            
             variable = right
-        file_path_Laser = os.path.join(
-            direct, stim_loc, stim_type, 'Laser', files_list_Laser[i])
+        
+        file_path_Laser = os.path.join(direct, stim_loc, 
+                                       stim_type, 'Laser', 
+                                       files_list_Laser[i])
         laser_t = read_laser(file_path_Laser, file_path_DLC)
         bins = np.copy(laser_t.values).astype(int)
-        epochs_trial, n_trials, take = extract_epochs(
-            bins, variable, *accep_interval_range, pre_interval, interval, post_interval, session_length)
-
+        
+        epochs_trial, n_trials, take = extract_epochs(bins, variable, 
+                                                      *accep_interval_range, 
+                                                      pre_interval, interval, 
+                                                      post_interval, session_length)
+        
         epochs = np.append(epochs, epochs_trial, axis=0)
 
     return epochs
