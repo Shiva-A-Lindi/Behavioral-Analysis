@@ -578,7 +578,7 @@ def unify_protocol_names(path):
             # else:
             #     print(dirname, "compliant")
 def save_npz(pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, window, n_timebin, file_name_ext,
-             epochs_all_mice, epochs_mean_each_mouse, epochs_spont_all_mice, pre_info,
+             epochs_all_mice, epochs_mean_each_mouse, epochs_spont_all_mice, epochs_tag, pre_info,
              cor, body_part, plot_param):
 
     '''Save the trial epochs in one .npz file.
@@ -613,6 +613,8 @@ def save_npz(pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, window,
             averaged for individual animals
     epochs_spont_all_mice : 2D-array(float)
             (pre | Laser ON | post) spontaneous epochs with shape (n_trials, pre_interval+post_interval+interval+1)
+    epochs_tag : 1D-array(str)
+            trial tags of each extracted laser epoch.
     pre_info : 2D array(float)
             Three columns with averages of : pre_x , pre_v, pre_acceleration over pre_stim_interval duration.
             with shape (n_trials, 3)
@@ -628,6 +630,7 @@ def save_npz(pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, window,
 
     '''
 
+    print(np.array(epochs_tag))
     pulse_inten = stim_type.split('_')[1]
     file_name = (mouse_type
                  + '_' + opto_par 
@@ -646,6 +649,7 @@ def save_npz(pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, window,
              epochs_all_mice = epochs_all_mice,
              epochs_mean_each_mouse = epochs_mean_each_mouse,
              epochs_spont_all_mice = epochs_spont_all_mice,
+             epochs_tag = np.array(epochs_tag),
              avg_pre_stim_position = pre_info[:, 0],
              avg_pre_stim_velocity = pre_info[:, 1],
              avg_pre_stim_acc = pre_info[:, 2],
@@ -1747,7 +1751,7 @@ def extract_info_from_saved_data(filename,  intervals_dict, subplot_parameter = 
                                  opto_par = 'ChR2', uniform_ON_OFF = False,
                                  measure = 'mean'):
     
-    '''for the given filename extract information from filename and create the mean velocity pre post laser
+    '''for the given filename extract information from filename and create the mean velocity pre/post laser
         in a dataframe
     '''
     dat = np.load(filename)
@@ -1804,8 +1808,9 @@ def extract_info_from_saved_data(filename,  intervals_dict, subplot_parameter = 
 
     epoch_list = epoch_off + epoch_on
     print("n_trials:", epochs.shape)
-    
+    print(dat['epochs_tag'].shape)
     df = pd.DataFrame(({'mean_velocity': all_v, 
+                        'session_tag': np.repeat(dat['epochs_tag'].reshape(-1,), 2),
                         'mouse_type':[info['mouse_type']] * n, 
                         'optogenetic expression':[info['opto_par']] * n,
                         'pulse_type': [info['pulse']] * n,
@@ -1821,8 +1826,9 @@ def delta_v_vs_laser_intensity(pre_direct, intervals_dict,
                                pulse = 'beta',
                                measure = 'mean'):
     
-    '''extract the (means, std) of the change in velocity
-        for different laser intensities
+    '''extract the (means, std) of the changes from baseline to when laser-ON velocity
+        for different laser intensities. Note that this function requires sorted
+        file hierarchy.
     '''
     
     summary_files_list = get_all_filepaths_different_intensities(pre_direct, pulse = pulse, 
@@ -3337,9 +3343,10 @@ def extract_epochs_over_trials(files_list_DLC, files_list_laser, direct, stim_lo
         
         if n_trials == 0:
             continue
+        video_path_temp = file_path_DLC.split('_DLC')[0] + '.avi'
+        print(video_path_temp)
+        session_day_tag = np.append(session_day_tag, np.full((n_trials, 1), find_session_day_tag(video_path_temp)))
         
-        session_day_tag[last_trial: last_trial + n_trials] = find_session_day_tag(filepath)
-        last_trial += n_trials
         
         epochs_pos = position[take].reshape(n_trials, 
                                             pre_era + post_interval + interval + 1)
@@ -3385,11 +3392,11 @@ def extract_epochs_over_trials(files_list_DLC, files_list_laser, direct, stim_lo
         
         return epochs - np.repeat(epochs[:, pre_interval].reshape(epochs.shape[0], 1), 
                                   epochs.shape[1], 
-                                  axis=1), pre_info
+                                  axis=1), pre_info, session_day_tag
     
     else:
         
-        return epochs, pre_info
+        return epochs, pre_info, session_day_tag
 
 def correct_accep_interval_range_for_beta(accep_interval_range, stim_type):
     
@@ -3481,7 +3488,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
     epochs_mean_each_mouse = np.empty((0, 3))
     all_pre_info = np.empty((0, 3))
     epochs_mean_pre_v = np.empty((0, 1))
-
+    epochs_tag = np.empty((0, 1))
     
     n_subplots = len(mouse_dict[opto_par])
     # fig, axes = plt.subplots(1, n_subplots, figsize=(5 * n_subplots, 5), sharey = True)
@@ -3541,19 +3548,19 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
         else:
             
             exist_count += 1
-            epochs, pre_info = extract_epochs_over_trials(files_list_DLC,
-                                                          files_list_Laser,
-                                                          direct, stim_loc, 
-                                                          stim_type,
-                                                          scale_pix_to_cm,
-                                                          accep_interval_range,
-                                                          treadmill_velocity,
-                                                          spont_trial_dict,
-                                                          misdetection_dict,
-                                                          study_param_dict,
-                                                          spont = False,
-                                                          **intervals_dict,
-                                                          **t_window_dict)
+            epochs, pre_info, session_day_tag = extract_epochs_over_trials(files_list_DLC,
+                                                                           files_list_Laser,
+                                                                           direct, stim_loc, 
+                                                                           stim_type,
+                                                                           scale_pix_to_cm,
+                                                                           accep_interval_range,
+                                                                           treadmill_velocity,
+                                                                           spont_trial_dict,
+                                                                           misdetection_dict,
+                                                                           study_param_dict,
+                                                                           spont = False,
+                                                                           **intervals_dict,
+                                                                           **t_window_dict)
             n_epochs = epochs.shape[0]
             print(n_epochs, 'laser trials')
             
@@ -3579,35 +3586,38 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
                                 / (n_spont_sessions 
                                    * n_trials_spont)) + 1 # number of repeats over a spont file to get the same number of epochs as laser session
 
-                epochs_spont, pre_info_spont = extract_epochs_over_trials(files_list_spont,
-                                                                files_list_Laser,
-                                                                direct, stim_loc,
-                                                                'Spontaneous',
-                                                                scale_pix_to_cm,
-                                                                accep_interval_range,
-                                                                treadmill_velocity,
-                                                                spont_trial_dict,
-                                                                misdetection_dict,
-                                                                study_param_dict,
-                                                                spont = True,
-                                                                **intervals_dict,
-                                                                **t_window_dict,
-                                                                n_samples=n_samples)
+                epochs_spont, pre_info_spont, session_day_tag = extract_epochs_over_trials(files_list_spont,
+                                                                                           files_list_Laser,
+                                                                                           direct, stim_loc,
+                                                                                           'Spontaneous',
+                                                                                           scale_pix_to_cm,
+                                                                                           accep_interval_range,
+                                                                                           treadmill_velocity,
+                                                                                           spont_trial_dict,
+                                                                                           misdetection_dict,
+                                                                                           study_param_dict,
+                                                                                           spont = True,
+                                                                                           **intervals_dict,
+                                                                                           **t_window_dict,
+                                                                                           n_samples=n_samples)
 
                 print('Spontaneous session available. {} trials extracted'.format(
                     epochs_spont.shape[0]))
 
             # construct an array of all the spont epochs
-            epochs_spont_all_mice = np.append(
-                epochs_spont_all_mice, epochs_spont, axis=0)
+            epochs_spont_all_mice = np.append(epochs_spont_all_mice, 
+                                              epochs_spont, 
+                                              axis=0)
             # get the mean value of velocity for pre-on-post intervals
             temp = min_and_mean_on_off(epochs, 'Mean', **intervals_dict)
-            average_of_on_off_on = np.average(
-                temp, axis=0).reshape(1, 3)  # average over trialas
+            average_of_on_off_on = np.average(temp, axis=0).reshape(1, 3)  # average over trialas
             # construct an array with these 3values for all the mice
-            epochs_mean_each_mouse = np.append(
-                epochs_mean_each_mouse, average_of_on_off_on, axis=0)
-
+            epochs_mean_each_mouse = np.append(epochs_mean_each_mouse, 
+                                               average_of_on_off_on, 
+                                               axis = 0)
+            epochs_tag = np.append(epochs_tag, 
+                                   np.array(session_day_tag).reshape(-1, 1), 
+                                   axis = 0)
 
             ax, _ = plot_pre_on_post(
                              pre_direct,
@@ -3695,6 +3705,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
                  epochs_all_mice, 
                  epochs_mean_each_mouse, 
                  epochs_spont_all_mice, 
+                 epochs_tag,
                  all_pre_info, 
                  **study_param_dict)
         
@@ -3852,7 +3863,7 @@ def superimpose_intensities(opto_par_list, cmap_dict, stim_type_dict,
                             accep_interval_range, study_param_dict,
                             max_distance, min_distance, n_trials_spont, plot_spont = True, 
                             ylabel_x = 0, xlabel_y = 0.07, suptitle_y = 0.98, c_spont = 'k',
-                            x_label_list = [], y_lable_list = []):
+                            x_label_list = [], y_label_list = []):
 
     """ Create a set of subplots with mice as rows and stimulation location as
     columns, superimposeing all intensities and creating new figures for different
