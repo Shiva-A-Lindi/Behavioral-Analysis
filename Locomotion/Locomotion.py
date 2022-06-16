@@ -234,10 +234,34 @@ def find_session_day_tag(filepath):
 
     """
     experiment = Experiment(filepath)
-    experiment.get_day_tag()
+    try:
+        experiment.get_day_tag()
+    except:
+        experiment.day_tag = 'UA'
     print('day tag = ', experiment.day_tag)
     
     return experiment.day_tag
+
+def find_mouse_no(filepath):
+    """
+    extract the  mouse number based on filename.
+
+    Parameters
+    ----------
+    filepath : str
+        path of the DLC file.
+
+    Returns
+    -------
+    mouse_no: str
+        mouse number.
+
+    """
+    experiment = Experiment(filepath)
+    experiment.get_mouse_no_and_line()
+    print('mouse = ', experiment.mouse_line, experiment.mouse_no)
+    
+    return experiment.mouse_no
 
 
 def read_laser(laser_file_name, DLC_file_name):
@@ -322,7 +346,7 @@ def find_files_containing_substring(path, substring):
 
     Returns
     -------
-    files : str (list)
+    files : list(str)
         list of files under path containing substring.
 
     """
@@ -337,6 +361,10 @@ def find_files_containing_substring(path, substring):
                 files.append(os.path.join(dirpath, f)) 
                 
     return files  
+
+def filter_files_for_mouse_type(summary_files_list, mouse_type):
+    
+    return [f for f in summary_files_list if os.path.basename(f).split('_')[0] == mouse_type]
 
 def convert_csv_to_xlsx(path):
 
@@ -578,7 +606,7 @@ def unify_protocol_names(path):
             # else:
             #     print(dirname, "compliant")
 def save_npz(pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, window, n_timebin, file_name_ext,
-             epochs_all_mice, epochs_mean_each_mouse, epochs_spont_all_mice, epochs_tag, pre_info,
+             epochs_all_mice, epochs_mean_each_mouse, epochs_spont_all_mice, epochs_tag, mouse_no_list, pre_info,
              cor, body_part, plot_param):
 
     '''Save the trial epochs in one .npz file.
@@ -630,7 +658,7 @@ def save_npz(pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, window,
 
     '''
 
-    print(np.array(epochs_tag))
+
     pulse_inten = stim_type.split('_')[1]
     file_name = (mouse_type
                  + '_' + opto_par 
@@ -650,6 +678,7 @@ def save_npz(pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, window,
              epochs_mean_each_mouse = epochs_mean_each_mouse,
              epochs_spont_all_mice = epochs_spont_all_mice,
              epochs_tag = np.array(epochs_tag),
+             mouse_no_list = np.array(mouse_no_list),
              avg_pre_stim_position = pre_info[:, 0],
              avg_pre_stim_velocity = pre_info[:, 1],
              avg_pre_stim_acc = pre_info[:, 2],
@@ -1689,11 +1718,32 @@ def flatten(t):
 
 
 def get_all_filepaths_same_protocol(stim_loc_list, pre_direct, stim_type_list, opto_par):
+    """
+    
+
+    Parameters
+    ----------
+    stim_loc_list : list(str)
+        stimulation locaiton list.
+    pre_direct : str
+        path to the project root.
+    stim_type_list : list(str)
+        stimulation type (pulse + intesity) list.
+    opto_par : str
+        optogenetic expression.
+
+    Returns
+    -------
+    summary_files_list : list(str)
+        list of file paths satisfying the input arguments.
+
+    """
     
     summary_files_list = []
     
-    if isinstance(stim_type_list, str):
-        stim_type_list = [stim_type_list] * len(stim_loc_list)
+    if len(stim_type_list) < len(stim_loc_list):
+        extra = len(stim_loc_list) - len(stim_type_list)
+        stim_type_list = stim_type_list + [stim_type_list[-1]] * extra
         
     for stim_loc, stim_type in zip(stim_loc_list, stim_type_list):
         
@@ -1704,8 +1754,26 @@ def get_all_filepaths_same_protocol(stim_loc_list, pre_direct, stim_type_list, o
     
     return summary_files_list
 
-def get_all_filepaths_different_intensities( pre_direct, pulse = 'beta', opto_par = 'ChR2', stim_loc = 'STN',
-                                mouse_type = 'Vglut2D2'):
+def get_all_filepaths_same_protocol_one_mouse_type(stim_loc_list, 
+                                                     pre_direct, 
+                                                     stim_type_list, 
+                                                     opto_par,
+                                                     mouse_type):
+    
+    summary_files_list = get_all_filepaths_same_protocol(stim_loc_list, 
+                                                         pre_direct, 
+                                                         stim_type_list, 
+                                                         opto_par)
+
+
+            
+    summary_files_list = filter_files_for_mouse_type(summary_files_list, mouse_type)
+    
+    return summary_files_list
+
+def get_all_filepaths_different_intensities( pre_direct, pulse = 'beta', 
+                                            opto_par = 'ChR2', stim_loc = 'STN',
+                                            mouse_type = 'Vglut2D2'):
 
     summary_files_list = []    
     path = os.path.join(pre_direct, 'data_npz', stim_loc)
@@ -1717,8 +1785,10 @@ def get_all_filepaths_different_intensities( pre_direct, pulse = 'beta', opto_pa
                 summary_files_list.append(os.path.join(dirpath, f))
     
     return summary_files_list
-def plot_individual_mice(ax, epochs_mean_mouse_dict, n_trials_dict, x_series, 
-                         sub_title_y = 38, n_annotate_y = -30):
+
+def plot_individual_mice(ax, epochs_mean_mouse_dict):
+    x_series = ax.get_xticks().reshape(-1, 2)
+
     for i, (key, mean) in enumerate(epochs_mean_mouse_dict.items()):
         
         for m in mean:
@@ -1728,13 +1798,142 @@ def plot_individual_mice(ax, epochs_mean_mouse_dict, n_trials_dict, x_series,
         
         ax.plot(x_series[i], np.average(mean[:, :2], axis = 0), '-', 
                  color = 'r', marker = '.', markersize=15, linewidth=2, alpha=0.6)
-        ax.text(min(x_series[i]), sub_title_y, key, fontsize=30)
-        ax.text(min(x_series[i]), n_annotate_y,"n = " + str(n_trials_dict[key]), fontsize=30)
+
+
+
     return ax
 
+# def plot_individual_mice(ax, result):
+    
+#     for i, (key, mean) in enumerate(epochs_mean_mouse_dict.items()):
+        
+#         for m in mean:
+            
+#             ax.plot(x_series[i], m[:2], '-', 
+#                      color = 'gray', marker = 'o', markersize=10, linewidth=2, alpha=0.6)
+        
+#         ax.plot(x_series[i], np.average(mean[:, :2], axis = 0), '-', 
+#                  color = 'r', marker = '.', markersize=15, linewidth=2, alpha=0.6)
+
+
+
+#     return ax
+
+
+def annotate_n_trials(ax, n_trials_dict, y = 0.02, fontsize = 30):
+    """
+    write number of trials for each double column of "ON"-"OFF".
+    
+    Parameters
+    ----------
+    ax : obj
+        plot axis.
+    n_trials_dict : dict
+        dictionary with values as number of trials and keys as condition of the column.
+    y : float
+        y axes-fraction of the text.
+    
+    Returns
+    -------
+    None.
+    
+    """
+    xtick_locs = get_xtick_label_position(ax)
+    xs = np.mean(xtick_locs.reshape(-1, 2), axis = 1)
+    gap = np.average(xtick_locs.reshape(-1, 2)[:, 1] - 
+                    xtick_locs.reshape(-1, 2)[:, 0])
+    for i, (key,n) in enumerate(n_trials_dict.items()):
+            
+        ax.annotate("n = " + str(n),(xs[i] - gap * 0.3, y),  fontsize= fontsize, xycoords = 'axes fraction')
+
+def annotate_conditions(ax, conditions, y = 0.9, fontsize = 30):
+    """
+    write grouping condition for each double column of "ON"-"OFF".
+
+    Parameters
+    ----------
+    ax : obj
+        plot axis.
+    y : float
+        y axes-fraction of the text.
+    conditions: list(str)
+        conditions corresponding to each double column
+    Returns
+    -------
+    None.
+
+    """
+    xtick_locs = get_xtick_label_position(ax)
+
+    xs = np.mean(xtick_locs.reshape(-1, 2), axis = 1)
+    for i, condition in enumerate(conditions):
+
+        ax.annotate(condition,(xs[i], y),  fontsize=fontsize, xycoords = 'axes fraction')
+
+
+def create_x_position_pairs(ax, pad = 0.2):
+    """
+    Create x pairs between pairs of x ticks.
+
+    Parameters
+    ----------
+    ax : axes.SubplotBase
+        The axes of the subplot..
+    pad : float, optional
+        distancing from the tick positions. The default is 0.2.
+
+    Returns
+    -------
+    x_series : 2D-array(float)
+        array of pairs of x positions.
+
+    """
+    x_series = ax.get_xticks().reshape(-1, 2).astype(float)
+    
+    x_series[:, 1] = x_series[:, 1] - pad * (x_series[0, 1] - x_series[0, 0])
+    x_series[:, 0] = x_series[:, 0] + pad * (x_series[0, 1] - x_series[0, 0])
+
+    return x_series
+
+def extract_and_plot_individual_mice(result, ax, opto_par, mouse_type, subplot_parameter,
+                                     subplot_parameter_list, mouse_color_dict, 
+                                     velocity_measure = 'norm_velocity (mean)'):
+
+    x_series = create_x_position_pairs(ax, pad = 0.2)
+    mean_individual_mice = result.groupby(['mouse_no', 
+                                           'epoch', 
+                                           subplot_parameter]).mean() 
+    
+    mean_individual_mice_dict = mean_individual_mice.to_dict()[velocity_measure]
+    
+    for i, subplot_parameter in enumerate(subplot_parameter_list):
+    
+        for mouse in result['mouse_no'].unique():
+            
+            key_OFF = (mouse, 'OFF', subplot_parameter)
+            key_ON = (mouse, 'ON', subplot_parameter)
+            
+            if key_ON in mean_individual_mice_dict:
+                
+                ax.plot(x_series[i], 
+                        [mean_individual_mice_dict[key_OFF],
+                        mean_individual_mice_dict[key_ON]], '-', 
+                         color = mouse_color_dict[mouse_type][opto_par][str(int(mouse))], 
+                         marker = 'o', markersize=5, linewidth=1.5, 
+                         zorder = 4, alpha = 0.8)
+    return ax
+
+def get_xtick_label_position(ax):
+    
+    x_min, x_max = ax.get_xlim()
+    xtick_locs = np.array([(tick - x_min)/(x_max - x_min) for tick in ax.get_xticks()])
+    
+    return xtick_locs
 
 def extract_info_from_npz_filename(filename):
+
     """extract info about experiment from the summary npz file """
+
     prop = os.path.basename(filename).split("_")
 
     info = {'mouse_type': prop[0],
@@ -1747,77 +1946,105 @@ def extract_info_from_npz_filename(filename):
     return info
 
 
-def extract_info_from_saved_data(filename,  intervals_dict, subplot_parameter = None,
-                                 opto_par = 'ChR2', uniform_ON_OFF = False,
-                                 measure = 'mean'):
-    
-    '''for the given filename extract information from filename and create the mean velocity pre/post laser
+def extract_info_from_saved_data(filename,  intervals_dict, 
+                                 opto_par = 'ChR2'):
+    """
+    for the given filename extract information from filename and create the mean velocity pre/post laser
         in a dataframe
-    '''
-    dat = np.load(filename)
-    info = extract_info_from_npz_filename(filename)
 
-    parameter = info[subplot_parameter]
+    Parameters
+    ----------
+    filename : str
+        DESCRIPTION.
+    intervals_dict : dict-like
+            dict-like of interals:{'pre_interval' : int(.5*fps), # interval before laser onset
+                                                            'interval' : int(interval_in_sec * fps), # number of timebins of stimulation
+                                                            'post_interval' : int(.5*fps*2), # interval after laser onset
+                                                            'pre_stim_inter' : pre_stim_inter }
+
+    opto_par : str, optional
+        e.g. ChR2 or Control. The default is 'ChR2'.
+
+    measure : str, optional
+        What is measured (either mean or min velocity in each time epoch). The default is 'mean'.
+
+    Returns
+    -------
+
+    df : dataframe
+        dataframe summerizing all data.
+    info : dict
+        information about the file extracted from its name.
+
+    """
+    
+
+    dat = np.load(filename)
+    
+    info = extract_info_from_npz_filename(filename)
     
 
     epochs = dat['epochs_all_mice']    
-    pre = epochs[:, : intervals_dict['pre_interval']] ; 
+    pre = epochs[:, : intervals_dict['pre_interval']] 
     post = epochs[:, intervals_dict['pre_interval'] + 1:
-                  intervals_dict['pre_interval'] + intervals_dict['interval'] + 1]
+                     intervals_dict['pre_interval'] 
+                     + intervals_dict['interval'] + 1]
     
     n = epochs.shape[0] * 2
     off_vel = np.average(pre, axis = 1)
-
-    if measure == 'mean':
-        
-        on_vel = np.average(post, axis = 1)
-        
-    elif measure == 'min':
-        
-        on_vel = np.min(post, axis = 1)
-        
-    print("shapiro :", stats.shapiro(off_vel-on_vel))
-    
-    stat_result = stats.mannwhitneyu(off_vel, on_vel, 
+    on_vel_mean = np.average(post, axis = 1)
+    stat_mw = stats.mannwhitneyu(off_vel, on_vel_mean, 
                                      use_continuity=True, 
                                      alternative='two-sided')
-    print('MW stat_result:', stat_result)
-    stat_result = stats.wilcoxon(off_vel, on_vel, 
+    stat_wilcoxon = stats.wilcoxon(off_vel, on_vel_mean, 
                                  zero_method='pratt',
                                  alternative='two-sided')
-    
-    print('Wilcoxon stat_result:', stat_result)
+    print("n_trials:", epochs.shape)
 
-    print("OFF", np.average(off_vel), stats.sem(off_vel))
-    print("ON", np.average(on_vel), stats.sem(on_vel))
+    print("shapiro :", stats.shapiro(off_vel - on_vel_mean))
+    print('MW result:', stat_mw )
+    print('Wilcoxon result:', stat_wilcoxon)
+
+    print("OFF", round(np.average(off_vel), 1),
+          stats.sem(off_vel))
+    print("ON", round(np.average(on_vel_mean), 1), 
+          stats.sem(on_vel_mean))
     
     
-    all_v = np.concatenate((off_vel, on_vel),axis = 0)
-    
-    if uniform_ON_OFF:
+    velocity_mean = np.concatenate((off_vel, on_vel_mean), axis = 0)
+    velocity_min = np.concatenate((off_vel, np.min(post, axis = 1)), axis = 0)
+
+    epoch_list = ['OFF'] * epochs.shape[0] + ['ON'] * epochs.shape[0] 
         
-        epoch_off = ['OFF'] * epochs.shape[0]
-        epoch_on = ['ON'] * epochs.shape[0]
-        box_pair = ((("ON", opto_par), ("OFF", opto_par)) )
-
+    if 'epochs_tag' in dat:
+        
+        epochs_tag = np.concatenate((dat['epochs_tag'], 
+                        dat['epochs_tag']), axis = 0).reshape(-1,)
     else:
         
-        epoch_off = ['OFF' + parameter] * epochs.shape[0]
-        epoch_on = ['ON' + parameter] * epochs.shape[0]
-        box_pair = ((("ON" + parameter, opto_par), ("OFF" + parameter, opto_par)) )
-
-    epoch_list = epoch_off + epoch_on
-    print("n_trials:", epochs.shape)
-    print(dat['epochs_tag'].shape)
-    df = pd.DataFrame(({'mean_velocity': all_v, 
-                        'session_tag': np.repeat(dat['epochs_tag'].reshape(-1,), 2),
-                        'mouse_type':[info['mouse_type']] * n, 
-                        'optogenetic expression':[info['opto_par']] * n,
+        epochs_tag = np.full(n, np.nan)
+    df = pd.DataFrame({'norm_velocity (mean)': velocity_mean, 
+                        'norm_velocity (min)': velocity_min,
+                        'session_tag': epochs_tag,
+                        'mouse_type': [info['mouse_type']] * n, 
+                        'mouse_no': np.concatenate((dat['mouse_no_list'], 
+                                                    dat['mouse_no_list']), axis = 0).reshape(-1,), 
+                        'optogenetic expression': [info['opto_par']] * n,
+                        'stim_loc': [info['stim_loc']] * n,
                         'pulse_type': [info['pulse']] * n,
                         'intensity_mW': [info['intensity']] * n,
-                        'epoch': epoch_list}))
+                        'epoch': epoch_list,
+                       'pre_velocity_sign': velocity_mean,
+                       'pre_x': np.concatenate((dat['avg_pre_stim_position'], 
+                                                dat['avg_pre_stim_position']), axis=0),
+                       'pre_x_front_back': np.concatenate((dat['avg_pre_stim_position'], 
+                                                           dat['avg_pre_stim_position']), axis=0),
+                       'pre_accel': np.concatenate((dat['avg_pre_stim_acc'], 
+                                                    dat['avg_pre_stim_acc']), axis=0),
+                       'pre_accel_sign': np.concatenate((dat['avg_pre_stim_acc'], 
+                                                         dat['avg_pre_stim_acc']), axis=0)})
     
-    return epochs.shape[0], df, dat['epochs_mean_each_mouse'], box_pair, info
+    return  df, info
 
 def delta_v_vs_laser_intensity(pre_direct, intervals_dict,
                                opto_par = 'ChR2',
@@ -1836,12 +2063,9 @@ def delta_v_vs_laser_intensity(pre_direct, intervals_dict,
                                                                  stim_loc = stim_loc,
                                                                  mouse_type = mouse_type)
     
-    _, result, _, _ = create_df_from_data_summary(summary_files_list, 
-                                                  intervals_dict,
-                                                  subplot_parameter = 'intensity',
-                                                  opto_par = opto_par,
-                                                  uniform_ON_OFF = True,
-                                                  measure = measure)
+    result = create_df_from_data_summary(summary_files_list, 
+                                         intervals_dict,
+                                         opto_par = opto_par)
     ON = result[result['epoch'] == 'ON']
     OFF = result[result['epoch'] == 'OFF']
     n_trials = len(ON)
@@ -1852,7 +2076,7 @@ def delta_v_vs_laser_intensity(pre_direct, intervals_dict,
     for intensity in intensities:
         
         ind = (ON['intensity_mW'] == intensity).values
-        dv = ON['mean_velocity'][ind].values - OFF['mean_velocity'][ind].values
+        dv = ON['norm_velocity (mean)'][ind].values - OFF['norm_velocity (mean)'][ind].values
         df = pd.DataFrame({'intensity': [intensity] * len(dv), 'delta_v': dv})
         delta_v = pd.concat([delta_v, df])
         
@@ -1865,53 +2089,46 @@ def delta_v_vs_laser_intensity(pre_direct, intervals_dict,
     return intensity_number, mean, std, n_trials
 
 def create_df_from_data_summary(summary_files_list, intervals_dict, 
-                                subplot_parameter = 'stim_loc',
-                                opto_par = 'ChR2', 
-                                uniform_ON_OFF = False, 
-                                measure = 'mean'):
+                                opto_par = 'ChR2'):
     
     ''''append the summary df of all files given in the list'''
     
-    col_names =  ['mean_velocity', 'mouse_type', 
+    col_names =  ['norm_velocity (mean)', 'norm_velocity (min)', 
+                  'mouse_type', 'mouse_no', 'stim_loc',
                   'optogenetic expression', 'pulse_type',
-                  'intensity_mW','epoch']
+                  'intensity_mW', 'epoch',
+                  'pre_velocity_sign', 'pre_x', 
+                  'pre_x_front_back', 'pre_accel', 'pre_accel_sign']
+
+
 
     result = pd.DataFrame(columns = col_names)
     
-    epochs_mean_mouse_dict = {}
-    n_trials_dict = {}
-    box_pairs = []
     
     
-    
+    print('files:', summary_files_list)
     for count, filename in enumerate(summary_files_list):
     
     
         dat = np.load(filename)
-        print(filename, dat.files)
-        (n_trials, 
-         df, 
-         epochs_mean_mouse,
-         box_pair,
-         info) = extract_info_from_saved_data(filename, intervals_dict,
-                                                  subplot_parameter = subplot_parameter,
-                                                  opto_par = opto_par,
-                                                  uniform_ON_OFF = uniform_ON_OFF,
-                                                  measure = measure)
+        (df, info) = extract_info_from_saved_data(filename, intervals_dict,
+                                                  opto_par = opto_par)
                                               
-        box_pairs.append(box_pair)       
-        n_trials_dict[info[subplot_parameter]] = n_trials     
-
-        epochs_mean_mouse_dict[info[subplot_parameter]] = epochs_mean_mouse   
-                             
+        
         frames = [result, df]
         result = pd.concat(frames, ignore_index=True)
         
     result = pd.DataFrame(result.to_dict())
-    
-    box_pairs= set(box_pairs)
 
-    return box_pairs, result, n_trials_dict, epochs_mean_mouse_dict
+
+    return result
+
+def get_box_pairs(subplot_param_list, opto_par = 'ChR2'):
+    
+    box_pairs = [(('OFF_' + parameter, opto_par), ('ON_' + parameter, opto_par)) 
+                 for parameter in subplot_param_list]
+
+    return box_pairs
 
 def save_data_summary_to_excel(mouse_dict, pre_direct, stim_loc_list, 
                                stim_type, opto_par, intervals_dict, t_window_dict):
@@ -2160,7 +2377,8 @@ def remove_frame(ax):
     ax.spines['top'].set_visible(False)
 
 def extract_pre_laser_x_epochs_over_trials(files_list, files_list_laser,
-                                           pre_direct, stim_loc, stim_type, scale_pix_to_cm, window_pos, misdetection_dict,
+                                           direct, stim_loc, stim_type, 
+                                           scale_pix_to_cm, window_pos, misdetection_dict,
                                            smallest_accep_inter, largest_accep_inter, pre_stim_inter):
     '''Return all the x positions in epochs preceding to a ON-laser of all trials for one mouse.
 
@@ -2212,8 +2430,9 @@ def extract_pre_laser_x_epochs_over_trials(files_list, files_list_laser,
     for i, (f_DLC, f_laser) in enumerate( zip(files_list, files_list_laser)):
 
         print('session {} out of {}'.format(i + 1, n_files))
+        print(f_DLC)
 
-        file_path_DLC = os.path.join(pre_direct, 
+        file_path_DLC = os.path.join(direct, 
                                      stim_loc, 
                                      stim_type, 
                                      'DLC', 
@@ -2273,10 +2492,138 @@ def plot_every_mouse_mean(epochs_mean_each_mouse):
             median, epochs_mean_each_mouse[i, :], '-', color='gray', marker='.')
 
 
+def violin_plot_laser_ON_OFF(pre_direct, intervals_dict, stim_loc_list,
+                             opto_par, mouse_color_dict, mouse_type, stim_type_list,
+                             subplot_parameter = 'stim_loc', fig_w = 1, fig_h = 4,
+                             velocity_measure = 'norm_velocity (mean)'):
+    """
+    Plot distributions of normalized velocity in the laser ON and OFF epochs as subplots 
+    distinguishing the subplot_parameter.
+
+    Parameters
+    ----------
+    pre_direct : str
+            Path to the root directory of the project
+    intervals_dict : dict-like
+            dict-like of intervals:{'pre_interval' : int(.5*fps), # interval before laser onset
+                                                            'interval' : int(interval_in_sec * fps), # number of timebins of stimulation
+                                                            'post_interval' : int(.5*fps*2), # interval after laser onset
+                                                            'pre_stim_inter' : pre_stim_inter }
+    stim_loc_list: list(str)
+        list of stimulation brain structures.
+    opto_par : str
+        optogenetic expression.
+    mouse_color_dict : dict-like
+        dictionary of colors for each mouse number.
+    mouse_type : str
+        mouse line.
+    stim_type_list : list(str)
+        type of stimulation that includes the pulse type and intensity.
+    subplot_parameter : str, optional
+        The parameter changing between the columns e.g. laser internsity or stim location. The default is 'stim_loc'.
+    fig_w : float, optional
+        individual double column width in inches. The default is 1.
+    fig_h : float, optional
+        figure height in inches. The default is 4.
+    velocity_measure : {'norm_velocity (mean)', 'norm_velocity (min)'}, optional
+        the measurement of the laser-ON and -OFF epochs.
+    Returns
+    -------
+    ax : obj
+        plot axis.
+
+    """
+    
+    plt.close('all')
+    summary_files_list = get_all_filepaths_same_protocol_one_mouse_type(stim_loc_list, 
+                                                                        pre_direct, 
+                                                                        stim_type_list, 
+                                                                        opto_par,
+                                                                        mouse_type)
+    print(summary_files_list)
+    if len(summary_files_list) == 0:
+        return 
+    result = create_df_from_data_summary(summary_files_list, intervals_dict,
+                                         opto_par = opto_par)
+    result['epoch+parameter'] = result[['epoch', subplot_parameter]].agg('_'.join, axis=1)
+    
+    result = result.sort_values(by = [subplot_parameter]).reset_index(drop=True)
+    
+    subplot_parameter_list = np.unique(result[subplot_parameter].values)
+    n_trials_dict = result[subplot_parameter].value_counts(sort = False).to_dict()
+    box_pairs = get_box_pairs(subplot_parameter_list, opto_par = opto_par)
+    order = [i[0] for i in flatten(box_pairs)]
+
+    sns.set(font_scale = 1.)
+    sns.set_style("white")
+    
+    g = sns.catplot(x = "epoch+parameter", y = velocity_measure, 
+                    hue = "optogenetic expression", 
+                    data = result, kind = "violin",  palette = ['turquoise'],
+                    height = 5, scale_hue = False, linewidth = 1,
+                    order = order,
+                    inner = "quartile", split = True, scale = 'area',
+                    hue_order = ['ChR2','Control'], legend = False, gridsize = 100 )
+    
+    ax = g.axes.flatten()[0]
+    add_stat_annotation(ax, data = result,
+                        x = "epoch+parameter", y = velocity_measure,
+                        hue = "optogenetic expression",
+                        box_pairs = box_pairs,
+                        test='Wilcoxon', text_format='star', 
+                        loc='inside', verbose=2)
+    
+    
+    
+    
+    add_title = ' '.join([mouse_type, opto_par]) + ' '
+    
+    if subplot_parameter == 'session_tag':
+        add_title += stim_loc_list[0] + '\n'
+        
+    if subplot_parameter == 'stim_loc':
+        add_title += ' '.join([s.replace('_', ' ') for s in stim_type_list])
+        
+    ax = extract_and_plot_individual_mice(result, ax, opto_par, mouse_type,  subplot_parameter,
+                                          subplot_parameter_list, mouse_color_dict, 
+                                          velocity_measure = velocity_measure)
+    
+    annotate_n_trials(ax, n_trials_dict, fontsize = 12)
+    annotate_conditions(ax, n_trials_dict.keys(), y = 1, fontsize = 15)
+    ax.axhline( y=0, ls='--', c='r', lw = 1, zorder = -1)
+    ax.axhline( y=1, ls='--', c='g', lw = 1, zorder = -1)
+    
+    
+    (g.set_axis_labels("laser", "Normalized velocity", fontsize=15)
+      .set_xticklabels(flatten([['ON', 'OFF'] *(len(list(box_pairs)))]))
+      .set(ylim = (-1, 4)))
+    
+    
+    ax.tick_params(direction='out')
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+    ax.set_title(add_title , fontsize = 15,pad = 30)
+
+    
+    Directory.create_dir_if_not_exist(os.path.join(pre_direct, 'Subplots', 'Violin_plots' ))
+    
+    size = (len(list(box_pairs)) * fig_w, fig_h)
+    plt.gcf().set_size_inches(size)
+    
+    figname = '_'.join([mouse_type, opto_par, 
+                        '_'.join(stim_loc_list), 
+                        '_'.join(stim_type_list), subplot_parameter])
+    
+    save_pdf_png(plt.gcf(), 
+                 os.path.join(pre_direct, 'Subplots','Violin_plots', figname ), 
+                 size = size)
+    return ax
+
 def violin_plot_summary(data_init, names, measure):
     ''' plot violin plot for different columns in data'''
 
     def set_axis_style(ax, labels):
+        
         ax.get_xaxis().set_tick_params(direction='out')
         ax.xaxis.set_ticks_position('bottom')
         ax.set_xticks(np.arange(1, len(labels) + 1))
@@ -2402,7 +2749,7 @@ def plot_two_protocols_with_mouse_distinction(mouse_type, mouse_list, stim_loc, 
             continue
         else:
 
-            epochs, pre_info = extract_epochs_over_trials(files_list_DLC1, files_list_Laser1, direct, 
+            epochs, pre_info, session_tag, mouse_no = extract_epochs_over_trials(files_list_DLC1, files_list_Laser1, direct, 
                                                  stim_loc, stim_type1, scale_pix_to_cm, accep_interval_range, treadmill_velocity,
                                                  spont_trial_dict, misdetection_dict, study_param_dict, 
                                                  spont = False, **intervals_dict, **t_window_dict)
@@ -2419,7 +2766,7 @@ def plot_two_protocols_with_mouse_distinction(mouse_type, mouse_list, stim_loc, 
             # number of repeats
             n_samples = int(n_epochs/(n_spont_sessions*n_trials_spont))+1
             # over a spont file to get the same number of epochs as laser session
-            epochs_spont, pre_info_spont = extract_epochs_over_trials(files_list_spont1, files_list_Laser1, direct,
+            epochs_spont, pre_info_spont, session_tag_spont, mouse_no_spont = extract_epochs_over_trials(files_list_spont1, files_list_Laser1, direct,
                                                        'Spontaneous', scale_pix_to_cm, accep_interval_range,treadmill_velocity,
                                                        spont_trial_dict, misdetection_dict, study_param_dict,
                                                        spont = True, **intervals_dict, **t_window_dict)
@@ -2433,7 +2780,7 @@ def plot_two_protocols_with_mouse_distinction(mouse_type, mouse_list, stim_loc, 
                              **intervals_dict, average='Averg_trials', 
                              c_laser='deepskyblue', c_spont='k', save_as_format='.pdf', ax = ax)
 
-            epochs, pre_info = extract_epochs_over_trials(files_list_DLC2, files_list_Laser2, direct, 
+            epochs, pre_info, session_tag, mouse_no = extract_epochs_over_trials(files_list_DLC2, files_list_Laser2, direct, 
                                                  stim_loc, stim_type2, scale_pix_to_cm, accep_interval_range, treadmill_velocity,
                                                  spont_trial_dict, misdetection_dict, study_param_dict, 
                                                  spont = False, **intervals_dict, **t_window_dict)
@@ -2450,7 +2797,7 @@ def plot_two_protocols_with_mouse_distinction(mouse_type, mouse_list, stim_loc, 
             # number of repeats
             n_samples = int(n_epochs/(n_spont_sessions*n_trials_spont))+1
             # over a spont file to get the same number of epochs as laser session
-            epochs_spont, pre_info_spont = extract_epochs_over_trials(files_list_spont2, files_list_Laser2, direct,
+            epochs_spont, pre_info_spont, session_tag_spont, mouse_no_spont = extract_epochs_over_trials(files_list_spont2, files_list_Laser2, direct,
                                                        'Spontaneous', scale_pix_to_cm, accep_interval_range, treadmill_velocity,
                                                        spont_trial_dict, misdetection_dict, study_param_dict, 
                                                        spont = True, **intervals_dict, **t_window_dict)
@@ -2494,10 +2841,10 @@ def MWW_test(result, result_Ctr, exp_parameter = 'STN',
             MWW stat results
     '''
     x = result_Ctr[(result_Ctr['epoch'] == 'ON' + exp_parameter) 
-                   & (result_Ctr['mouse_type'] == mouse_type)]['mean_velocity'].values
+                   & (result_Ctr['mouse_type'] == mouse_type)]['norm_velocity (mean)'].values
     
     y = result[(result['epoch'] == ('ON' + exp_parameter)) 
-               & (result['mouse_type'] == mouse_type)]['mean_velocity'].values
+               & (result['mouse_type'] == mouse_type)]['norm_velocity (mean)'].values
     
     stat = stats.mannwhitneyu(x, y)
     
@@ -2531,14 +2878,18 @@ def read_npz_return_data_frame(file_path_list, pre_interval, interval, post_inte
     -------
 
     result : dataframe
-            dataframe with following columns: ['mean_velocity', 'min_velocity', 'mouse_type', 'optogenetic expression', 
-                            'pulse_type','intensity_mW','epoch','pre_velocity_pos_neg','pre_x','pre_x_front_back','pre_accel','pre_accel_pos_neg']
+            dataframe with following columns: ['norm_velocity (mean)', 
+                                               'norm_velocity (min)', 
+                                               'mouse_type', 
+                                               'optogenetic expression', 
+                            'pulse_type','intensity_mW','epoch','pre_velocity_sign','pre_x','pre_x_front_back','pre_accel','pre_accel_sign']
 
 
     '''
 
-    col_names = ['mean_velocity', 'min_velocity', 'mouse_type', 'optogenetic expression',
-                 'pulse_type', 'intensity_mW', 'epoch', 'pre_velocity_pos_neg', 'pre_x', 'pre_x_front_back', 'pre_accel', 'pre_accel_pos_neg']
+    col_names = ['norm_velocity (mean)', 'norm_velocity (min)', 'mouse_type', 'optogenetic expression',
+                 'pulse_type', 'intensity_mW', 'epoch', 'pre_velocity_sign', 'pre_x', 
+                 'pre_x_front_back', 'pre_accel', 'pre_accel_sign']
     result = pd.DataFrame(columns=col_names)
     for file in file_path_list:
         print(file)
@@ -2574,10 +2925,10 @@ def read_npz_return_data_frame(file_path_list, pre_interval, interval, post_inte
         epoch_on = ['ON'] * n_epochs
         epoch_ = epoch_off+epoch_on
         # append the data of each mouse to a unit dataframe
-        df = pd.DataFrame(({'mean_velocity': all_mean, 'min_velocity': all_min,
+        df = pd.DataFrame(({'norm_velocity (mean)': all_mean, 'norm_velocity (min)': all_min,
                             'mouse_type': mouse_type_, 'optogenetic expression': opto_par_, 'pulse_type': pulse_,
-                            'intensity_mW': inten_, 'epoch': epoch_, 'pre_velocity_pos_neg': Velocity_, 'pre_x': x_, 'pre_x_front_back': x_,
-                            'pre_accel': accel_, 'pre_accel_pos_neg': accel_}))
+                            'intensity_mW': inten_, 'epoch': epoch_, 'pre_velocity_sign': Velocity_, 'pre_x': x_, 'pre_x_front_back': x_,
+                            'pre_accel': accel_, 'pre_accel_sign': accel_}))
         frames = [result, df]
         result = pd.concat(frames, ignore_index=True)
     return result
@@ -2606,26 +2957,26 @@ def categorize_pre_x_and_v(result, back_front_boundary, v_threshold, pre_stim_in
 
     result : dataframe
             the dataframe as the input but with the difference that pre_X_front_back and 
-            pre_velocity_pos_neg set to binary(str) values accorfing to values.
+            pre_velocity_sign set to binary(str) values accorfing to values.
 
     '''
 
-    ind_0 = result['pre_velocity_pos_neg'] < v_threshold
-    ind_1 = result['pre_velocity_pos_neg'] > v_threshold
+    ind_0 = result['pre_velocity_sign'] < v_threshold
+    ind_1 = result['pre_velocity_sign'] > v_threshold
     ind_2 = result['pre_x'] < back_front_boundary
     ind_3 = result['pre_x'] > back_front_boundary
     ind_4 = result['pre_accel'] < v_threshold
     ind_5 = result['pre_accel'] > v_threshold
-    result.loc[ind_0, 'pre_velocity_pos_neg'] = 'neg'
-    result.loc[ind_1, 'pre_velocity_pos_neg'] = 'pos'
-    result.loc[ind_4, 'pre_accel_pos_neg'] = 'neg'
-    result.loc[ind_5, 'pre_accel_pos_neg'] = 'pos'
+    result.loc[ind_0, 'pre_velocity_sign'] = 'neg'
+    result.loc[ind_1, 'pre_velocity_sign'] = 'pos'
+    result.loc[ind_4, 'pre_accel_sign'] = 'neg'
+    result.loc[ind_5, 'pre_accel_sign'] = 'pos'
     result.loc[ind_2, 'pre_x_front_back'] = 'front'
     result.loc[ind_3, 'pre_x_front_back'] = 'back'
     return result
 
 
-def Plot_ON_OFF_X_V_mean(result, path, mouse_type, stim_loc, stim_type, fps, back_front_boundary, v_threshold, pre_stim_inter, ylim=[-20, 15], save_as_format='.pdf'):
+def plot_ON_OFF_x_v_mean(result, path, mouse_type, stim_loc, stim_type, fps, back_front_boundary, v_threshold, pre_stim_inter, ylim=[-20, 15], save_as_format='.pdf'):
     '''Plot the mean laser-ON laser-OFF vellociry with distinction of velocity and x prior to laser stim.
 
     Parameters
@@ -2657,41 +3008,41 @@ def Plot_ON_OFF_X_V_mean(result, path, mouse_type, stim_loc, stim_type, fps, bac
             Format to save the figure default is '.pdf'
     '''
 
-    result_pos = result[result['pre_velocity_pos_neg'] == 'pos']
-    result_neg = result[result['pre_velocity_pos_neg'] == 'neg']
+    result_pos = result[result['pre_velocity_sign'] == 'pos']
+    result_neg = result[result['pre_velocity_sign'] == 'neg']
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 5), sharey=True)
 
-    y = [np.average(result_pos[(result_pos['pre_x_front_back'] == 'front') & (result_pos['epoch'] == 'OFF')]['mean_velocity']),
-         np.average(result_pos[(result_pos['pre_x_front_back'] == 'front') & (result_pos['epoch'] == 'ON')]['mean_velocity'])]
+    y = [np.average(result_pos[(result_pos['pre_x_front_back'] == 'front') & (result_pos['epoch'] == 'OFF')]['norm_velocity (mean)']),
+         np.average(result_pos[(result_pos['pre_x_front_back'] == 'front') & (result_pos['epoch'] == 'ON')]['norm_velocity (mean)'])]
     delta = str(round(y[1]-y[0], 2))
 
     plt.plot(['OFF', 'ON'], y, '-',
              color='g', marker='o', markersize=10, linewidth=4, alpha=1, label='V>0 - front-N=' +
-             str(len(result_pos[(result_pos['pre_x_front_back'] == 'front') & (result_pos['epoch'] == 'ON')]['mean_velocity'])) +
+             str(len(result_pos[(result_pos['pre_x_front_back'] == 'front') & (result_pos['epoch'] == 'ON')]['norm_velocity (mean)'])) +
              ' $\delta$='+delta)
 
-    y = [np.average(result_pos[(result_pos['pre_x_front_back'] == 'back') & (result_pos['epoch'] == 'OFF')]['mean_velocity']),
-         np.average(result_pos[(result_pos['pre_x_front_back'] == 'back') & (result_pos['epoch'] == 'ON')]['mean_velocity'])]
+    y = [np.average(result_pos[(result_pos['pre_x_front_back'] == 'back') & (result_pos['epoch'] == 'OFF')]['norm_velocity (mean)']),
+         np.average(result_pos[(result_pos['pre_x_front_back'] == 'back') & (result_pos['epoch'] == 'ON')]['norm_velocity (mean)'])]
     delta = str(round(y[1]-y[0], 2))
     plt.plot(['OFF', 'ON'], y, '-',
              color='r', marker='o', markersize=10, linewidth=4, alpha=1, label='V>0 - back-N=' +
-             str(len(result_pos[(result_pos['pre_x_front_back'] == 'back') & (result_pos['epoch'] == 'ON')]['mean_velocity'])) +
+             str(len(result_pos[(result_pos['pre_x_front_back'] == 'back') & (result_pos['epoch'] == 'ON')]['norm_velocity (mean)'])) +
              ' $\delta$='+delta)
 
-    y = [np.average(result_neg[(result_neg['pre_x_front_back'] == 'front') & (result_neg['epoch'] == 'OFF')]['mean_velocity']),
-         np.average(result_neg[(result_neg['pre_x_front_back'] == 'front') & (result_neg['epoch'] == 'ON')]['mean_velocity'])]
+    y = [np.average(result_neg[(result_neg['pre_x_front_back'] == 'front') & (result_neg['epoch'] == 'OFF')]['norm_velocity (mean)']),
+         np.average(result_neg[(result_neg['pre_x_front_back'] == 'front') & (result_neg['epoch'] == 'ON')]['norm_velocity (mean)'])]
     delta = str(round(y[1]-y[0], 2))
     plt.plot(['OFF', 'ON'], y, '-',
              color='b', marker='o', markersize=10, linewidth=4, alpha=1, label='V<0 - front-N=' +
-             str(len(result_neg[(result_neg['pre_x_front_back'] == 'front') & (result_neg['epoch'] == 'ON')]['mean_velocity'])) +
+             str(len(result_neg[(result_neg['pre_x_front_back'] == 'front') & (result_neg['epoch'] == 'ON')]['norm_velocity (mean)'])) +
              ' $\delta$='+delta)
 
-    y = [np.average(result_neg[(result_neg['pre_x_front_back'] == 'back') & (result_neg['epoch'] == 'OFF')]['mean_velocity']),
-         np.average(result_neg[(result_neg['pre_x_front_back'] == 'back') & (result_neg['epoch'] == 'ON')]['mean_velocity'])]
+    y = [np.average(result_neg[(result_neg['pre_x_front_back'] == 'back') & (result_neg['epoch'] == 'OFF')]['norm_velocity (mean)']),
+         np.average(result_neg[(result_neg['pre_x_front_back'] == 'back') & (result_neg['epoch'] == 'ON')]['norm_velocity (mean)'])]
     delta = str(round(y[1]-y[0], 2))
     plt.plot(['OFF', 'ON'], y, '-',
              color='k', marker='o', markersize=10, linewidth=4, alpha=1, label='V<0 - back-N=' +
-             str(len(result_neg[(result_neg['pre_x_front_back'] == 'back') & (result_neg['epoch'] == 'ON')]['mean_velocity'])) +
+             str(len(result_neg[(result_neg['pre_x_front_back'] == 'back') & (result_neg['epoch'] == 'ON')]['norm_velocity (mean)'])) +
              ' $\delta$='+delta)
     inten = result['intensity_mW'][0]
     legend = plt.legend(loc='upper right', fontsize=12)
@@ -2707,7 +3058,7 @@ def Plot_ON_OFF_X_V_mean(result, path, mouse_type, stim_loc, stim_type, fps, bac
                              '_inten='+inten+save_as_format), bbox_inches='tight', orientation='landscape', dpi=350)
 
 
-def Plot_ON_OFF_V_mean(result, path, mouse_type, stim_loc, stim_type, fps, back_front_boundary, v_threshold, pre_stim_inter, ylim=[-20, 15], save_as_format='.pdf'):
+def plot_ON_OFF_v_mean(result, path, mouse_type, stim_loc, stim_type, fps, back_front_boundary, v_threshold, pre_stim_inter, ylim=[-20, 15], save_as_format='.pdf'):
     '''Plot the mean laser-ON laser-OFF vellociry with distinction of velocity prior to laser stim.
 
     Parameters
@@ -2739,28 +3090,28 @@ def Plot_ON_OFF_V_mean(result, path, mouse_type, stim_loc, stim_type, fps, back_
             Format to save the figure default is '.pdf'
     '''
 
-    result_pos = result[result['pre_velocity_pos_neg'] == 'pos']
-    result_neg = result[result['pre_velocity_pos_neg'] == 'neg']
+    result_pos = result[result['pre_velocity_sign'] == 'pos']
+    result_neg = result[result['pre_velocity_sign'] == 'neg']
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 5), sharey=True)
 
-    y = [np.average(result_pos[(result_pos['epoch'] == 'OFF')]['mean_velocity']),
-         np.average(result_pos[(result_pos['epoch'] == 'ON')]['mean_velocity'])]
+    y = [np.average(result_pos[(result_pos['epoch'] == 'OFF')]['norm_velocity (mean)']),
+         np.average(result_pos[(result_pos['epoch'] == 'ON')]['norm_velocity (mean)'])]
     delta = str(round(y[1]-y[0], 2))
-    yerr = [np.std(result_pos[(result_pos['epoch'] == 'OFF')]['mean_velocity']),
-            np.std(result_pos[(result_pos['epoch'] == 'ON')]['mean_velocity'])]
+    yerr = [np.std(result_pos[(result_pos['epoch'] == 'OFF')]['norm_velocity (mean)']),
+            np.std(result_pos[(result_pos['epoch'] == 'ON')]['norm_velocity (mean)'])]
     plt.errorbar(['OFF', 'ON'], y, yerr, marker='o', markersize=10, linewidth=2, capsize=10, capthick=3,
                  color='r', label='V>0 -N=' +
-                 str(len(result_pos[(result_pos['epoch'] == 'ON')]['mean_velocity'])) +
+                 str(len(result_pos[(result_pos['epoch'] == 'ON')]['norm_velocity (mean)'])) +
                  ' $\delta$='+delta)
 
-    y = [np.average(result_neg[(result_neg['epoch'] == 'OFF')]['mean_velocity']),
-         np.average(result_neg[(result_neg['epoch'] == 'ON')]['mean_velocity'])]
-    yerr = [np.std(result_neg[(result_neg['epoch'] == 'OFF')]['mean_velocity']),
-            np.std(result_neg[(result_neg['epoch'] == 'ON')]['mean_velocity'])]
+    y = [np.average(result_neg[(result_neg['epoch'] == 'OFF')]['norm_velocity (mean)']),
+         np.average(result_neg[(result_neg['epoch'] == 'ON')]['norm_velocity (mean)'])]
+    yerr = [np.std(result_neg[(result_neg['epoch'] == 'OFF')]['norm_velocity (mean)']),
+            np.std(result_neg[(result_neg['epoch'] == 'ON')]['norm_velocity (mean)'])]
     delta = str(round(y[1]-y[0], 2))
     plt.errorbar(['OFF', 'ON'], y, yerr, marker='o', markersize=10, linewidth=2, capsize=10, capthick=3,
                  color='k', label='V<0 -N=' +
-                 str(len(result_neg[(result_neg['epoch'] == 'ON')]['mean_velocity'])) +
+                 str(len(result_neg[(result_neg['epoch'] == 'ON')]['norm_velocity (mean)'])) +
                  ' $\delta$='+delta)
 
     inten = result['intensity_mW'][0]
@@ -2777,7 +3128,9 @@ def Plot_ON_OFF_V_mean(result, path, mouse_type, stim_loc, stim_type, fps, back_
                              '_inten='+inten+save_as_format), bbox_inches='tight', orientation='landscape', dpi=350)
 
 
-def violin_plot_X_V_distiction(result, path, mouse_type, stim_loc, stim_type, fps, back_front_boundary, v_threshold, pre_stim_inter, ylim=[-30, 30], save_as_format='.pdf'):
+def violin_plot_x_v_distiction(result, path, mouse_type, stim_loc, stim_type, fps, 
+                               back_front_boundary, v_threshold, pre_stim_inter, 
+                               ylim=[-1, 2], save_as_format='.pdf'):
     """Plot violin plots with columns for pre_laser distinction and hue for back and front distinction on the treadmill.
 
     Parameters
@@ -2807,7 +3160,7 @@ def violin_plot_X_V_distiction(result, path, mouse_type, stim_loc, stim_type, fp
     -------
     """
 
-    g = sns.catplot(x="epoch", y="mean_velocity", hue="pre_x_front_back", col="pre_velocity_pos_neg",
+    g = sns.catplot(x="epoch", y="norm_velocity (mean)", hue="pre_x_front_back", col="pre_velocity_sign",
                     data=result, kind="violin", split=True, palette=sns.color_palette("Set2", n_colors=2, desat=.5),
                     scale_hue=False, linewidth=2, inner="quartile", scale='area',
                     hue_order=['front', 'back'], col_order=['pos', 'neg'], legend=False)
@@ -2892,16 +3245,16 @@ def plot_phase_space_V(result, path, mouse_type, stim_loc, stim_type, fps, back_
             Format to save the figure default is '.pdf'
     '''
 
-    result_pos = result[result['pre_velocity_pos_neg'] == 'pos']
-    result_neg = result[result['pre_velocity_pos_neg'] == 'neg']
+    result_pos = result[result['pre_velocity_sign'] == 'pos']
+    result_neg = result[result['pre_velocity_sign'] == 'neg']
 #     result_zero = result[(result['velocity'] != 'neg') & (result['velocity'] != 'pos')]
 
     fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(15, 10), sharey=True)
-    OFF_vel = result_pos[(result_pos['epoch'] == 'OFF')]['mean_velocity']
-    plt.scatter(result_pos[(result_pos['epoch'] == 'OFF')]['mean_velocity'],
-                result_pos[(result_pos['epoch'] == 'ON')]['mean_velocity'], c='navy', label=r'$V > 0$')
-    plt.scatter(result_neg[(result_neg['epoch'] == 'OFF')]['mean_velocity'],
-                result_neg[(result_neg['epoch'] == 'ON')]['mean_velocity'], c='purple', label=r'$V < 0$')
+    OFF_vel = result_pos[(result_pos['epoch'] == 'OFF')]['norm_velocity (mean)']
+    plt.scatter(result_pos[(result_pos['epoch'] == 'OFF')]['norm_velocity (mean)'],
+                result_pos[(result_pos['epoch'] == 'ON')]['norm_velocity (mean)'], c='navy', label=r'$V > 0$')
+    plt.scatter(result_neg[(result_neg['epoch'] == 'OFF')]['norm_velocity (mean)'],
+                result_neg[(result_neg['epoch'] == 'ON')]['norm_velocity (mean)'], c='purple', label=r'$V < 0$')
 
     inten = result['intensity_mW'][0]
     plt.plot([-40, 40], [-40, 40], '--', c='k', label=r'$ V_{ON}=V_{OFF}$')
@@ -2968,16 +3321,16 @@ def min_velocity_diff_inten_box_plot(file_path_list, path_to_save, intervals_dic
         ax = plt.subplot(100+n_subplots*10+count)
         set_ticks(ax)
 
-        sns.stripplot(x="pre_velocity_pos_neg", y="min_velocity", order=["pos", "neg"], dodge=True, data=result, jitter=True,
+        sns.stripplot(x="pre_velocity_sign", y="norm_velocity (min)", order=["pos", "neg"], dodge=True, data=result, jitter=True,
                       marker='o', edgecolor='k', linewidth=1, size=3,
                       alpha=0.5)
-        g = sns.boxplot(x="pre_velocity_pos_neg", y="min_velocity", order=["pos", "neg"], dodge=False, width=0.4,
+        g = sns.boxplot(x="pre_velocity_sign", y="norm_velocity (min)", order=["pos", "neg"], dodge=False, width=0.4,
                         data=result, fliersize=0)
 
-        add_stat_annotation(g, data=result, x="pre_velocity_pos_neg", y="min_velocity", order=["pos", "neg"], box_pairs=[("pos", "neg")],
+        add_stat_annotation(g, data=result, x="pre_velocity_sign", y="norm_velocity (min)", order=["pos", "neg"], box_pairs=[("pos", "neg")],
                             test='Mann-Whitney', text_format='star', loc='outside', verbose=2, fontsize=20)
-        plt.plot([0.3, 0.7], [np.average(result[result['pre_velocity_pos_neg'] == 'pos']['min_velocity']),
-                              np.average(result[result['pre_velocity_pos_neg'] == 'neg']['min_velocity'])],
+        plt.plot([0.3, 0.7], [np.average(result[result['pre_velocity_sign'] == 'pos']['norm_velocity (min)']),
+                              np.average(result[result['pre_velocity_sign'] == 'neg']['norm_velocity (min)'])],
                  '-', lw=3, c='r', alpha=0.5, markersize=12)
         for patch in g.artists:
             r, g, b, a = patch.get_facecolor()
@@ -3051,16 +3404,16 @@ def min_velocity_mouse_type_box_plot(file_path_list, path_to_save, intervals_dic
         ax = plt.subplot(100+n_subplots*10+count)
         set_ticks(ax)
 
-        sns.stripplot(x="pre_velocity_pos_neg", y="min_velocity", order=["pos", "neg"], dodge=True, data=result, jitter=True,
+        sns.stripplot(x="pre_velocity_sign", y="norm_velocity (min)", order=["pos", "neg"], dodge=True, data=result, jitter=True,
                       marker='o', edgecolor='k', linewidth=1, size=3,
                       alpha=0.5)
-        g = sns.boxplot(x="pre_velocity_pos_neg", y="min_velocity", order=["pos", "neg"], dodge=False, width=0.4,
+        g = sns.boxplot(x="pre_velocity_sign", y="norm_velocity (min)", order=["pos", "neg"], dodge=False, width=0.4,
                         data=result, fliersize=0)
 
-        add_stat_annotation(g, data=result, x="pre_velocity_pos_neg", y="min_velocity", order=["pos", "neg"], box_pairs=[("pos", "neg")],
+        add_stat_annotation(g, data=result, x="pre_velocity_sign", y="norm_velocity (min)", order=["pos", "neg"], box_pairs=[("pos", "neg")],
                             test='Mann-Whitney', text_format='star', loc='outside', verbose=2, fontsize=20)
-        plt.plot([0.3, 0.7], [np.average(result[result['pre_velocity_pos_neg'] == 'pos']['min_velocity']),
-                              np.average(result[result['pre_velocity_pos_neg'] == 'neg']['min_velocity'])],
+        plt.plot([0.3, 0.7], [np.average(result[result['pre_velocity_sign'] == 'pos']['norm_velocity (min)']),
+                              np.average(result[result['pre_velocity_sign'] == 'neg']['norm_velocity (min)'])],
                  '-', lw=3, c='r', alpha=0.5, markersize=12)
         for patch in g.artists:
             r, g, b, a = patch.get_facecolor()
@@ -3186,6 +3539,76 @@ def choose_n_from_colormap(cmap, minval=0.0, maxval=1.0, n_colors = 100):
     
     return  [cmap(i) for i in np.linspace(minval, maxval, num = n_colors, endpoint=True)]        
 
+
+def create_colormaps_for_beta_square_pulses(beta = ['Oranges_r', 'Blues'],
+                                            square = ['Reds_r', 'Greens']):
+    """
+    create colormaps for square and beta stimulations by creating a 
+    spectrum between the two given colors.
+
+    Parameters
+    ----------
+    beta : list(str), optional
+        colormaps to be joined representing beta stimulations. The default is ['Oranges_r', 'Blues'].
+    square : list(str), optional
+        colormaps to be joined representing beta stimulations. The default is ['Reds_r', 'Greens'].
+
+    Returns
+    -------
+    beta_cm : obj
+        beta colormap.
+    square_cm : obj
+        square colormap.
+
+    """
+
+    
+    top = cm.get_cmap(beta[0], 128)
+    bottom = cm.get_cmap(beta[1], 128)
+
+    newcolors = np.vstack((top(np.linspace(0.3, 1, 128)),
+                           bottom(np.linspace(0.3, 1, 128))))
+    beta_cm = ListedColormap(newcolors, name='beta')
+
+
+    top = cm.get_cmap(square[0], 128)
+    bottom = cm.get_cmap(square[1], 128)
+
+    newcolors = np.vstack((top(np.linspace(0.3, 1, 128)),
+                           bottom(np.linspace(0.3, 1, 128))))
+    square_cm = ListedColormap(newcolors, name='square')
+    
+    return beta_cm, square_cm
+
+def create_mouse_color_dict(mouse_dict, mouse_color_opto_dict):
+    """
+    Assign colors to each individual mouse in the mouse_dict.
+
+    Parameters
+    ----------
+    mouse_dict : dict
+        dictionary of mouse numbers for each mouse line and optogenetic expression.
+    mouse_color_opto_dict : dict
+        dictionary of color lists for the different optogenetic expressions.
+
+    Returns
+    -------
+    mouse_color_dict : dict
+        dictionary of colors for each mouse number in mouse_dict.
+
+    """
+    
+    mouse_color_dict = {line: 
+                            {opto: 
+                                 {str(no) : mouse_color_opto_dict[opto][i] 
+                                  for i, no in enumerate(mouse_list)
+                                  } 
+                             for opto, mouse_list in line_dict.items()
+                             }
+                        for line, line_dict in mouse_dict.items()
+                        }
+    return mouse_color_dict
+
 def remove_epochs_with_unaccep_pre_post_interval(bins, pre_interval, post_interval, session_length):
     
     ''' Remove trials where extending the width to pre interval and post
@@ -3285,7 +3708,8 @@ def extract_epochs_over_trials(files_list_DLC, files_list_laser, direct, stim_lo
     epochs_acc = np.empty((0, pre_stim_inter+interval+post_interval+1))
     pre_info = np.empty((0, 3))
     session_day_tag = np.empty((0, 1))
-    
+    mouse_no_list = np.empty((0, 1))
+
     last_trial = 0
     
     for i in range(0, len(files_list_DLC)):
@@ -3344,9 +3768,10 @@ def extract_epochs_over_trials(files_list_DLC, files_list_laser, direct, stim_lo
         if n_trials == 0:
             continue
         video_path_temp = file_path_DLC.split('_DLC')[0] + '.avi'
-        print(video_path_temp)
-        session_day_tag = np.append(session_day_tag, np.full((n_trials, 1), find_session_day_tag(video_path_temp)))
         
+        session_day_tag = np.append(session_day_tag, np.full((n_trials, 1), find_session_day_tag(video_path_temp)[0])) # only take the letter
+        # mouse_no_list = np.append(mouse_no_list, np.full((n_trials, 1), find_mouse_no(video_path_temp))) 
+
         
         epochs_pos = position[take].reshape(n_trials, 
                                             pre_era + post_interval + interval + 1)
@@ -3396,7 +3821,7 @@ def extract_epochs_over_trials(files_list_DLC, files_list_laser, direct, stim_lo
     
     else:
         
-        return epochs, pre_info, session_day_tag
+        return epochs, pre_info, session_day_tag, mouse_no_list
 
 def correct_accep_interval_range_for_beta(accep_interval_range, stim_type):
     
@@ -3454,7 +3879,10 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
     misdetection_dict : dict-like 
             dictionary of constants used in the misdetection correction algorithm:
     intervals_dict : dict-like
-            dictionary of intervals
+            dict-like of interals:{'pre_interval' : int(.5*fps), # interval before laser onset
+                                                            'interval' : int(interval_in_sec * fps), # number of timebins of stimulation
+                                                            'post_interval' : int(.5*fps*2), # interval after laser onset
+                                                            'pre_stim_inter' : pre_stim_inter }
     t_window_dict: dict-like
             dict-like containing information about time contants of the project:
             t_window_dict = {`fps` : int, 'n_timebin' : int, 'window_pos' : int , 'window_veloc' : int}
@@ -3489,6 +3917,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
     all_pre_info = np.empty((0, 3))
     epochs_mean_pre_v = np.empty((0, 1))
     epochs_tag = np.empty((0, 1))
+    mouse_numbers = np.empty((0, 1))
     
     n_subplots = len(mouse_dict[opto_par])
     # fig, axes = plt.subplots(1, n_subplots, figsize=(5 * n_subplots, 5), sharey = True)
@@ -3548,19 +3977,19 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
         else:
             
             exist_count += 1
-            epochs, pre_info, session_day_tag = extract_epochs_over_trials(files_list_DLC,
-                                                                           files_list_Laser,
-                                                                           direct, stim_loc, 
-                                                                           stim_type,
-                                                                           scale_pix_to_cm,
-                                                                           accep_interval_range,
-                                                                           treadmill_velocity,
-                                                                           spont_trial_dict,
-                                                                           misdetection_dict,
-                                                                           study_param_dict,
-                                                                           spont = False,
-                                                                           **intervals_dict,
-                                                                           **t_window_dict)
+            epochs, pre_info, session_day_tag, mouse_no_list = extract_epochs_over_trials(files_list_DLC,
+                                                                                          files_list_Laser,
+                                                                                          direct, stim_loc, 
+                                                                                          stim_type,
+                                                                                          scale_pix_to_cm,
+                                                                                          accep_interval_range,
+                                                                                          treadmill_velocity,
+                                                                                          spont_trial_dict,
+                                                                                          misdetection_dict,
+                                                                                          study_param_dict,
+                                                                                          spont = False,
+                                                                                          **intervals_dict,
+                                                                                          **t_window_dict)
             n_epochs = epochs.shape[0]
             print(n_epochs, 'laser trials')
             
@@ -3586,7 +4015,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
                                 / (n_spont_sessions 
                                    * n_trials_spont)) + 1 # number of repeats over a spont file to get the same number of epochs as laser session
 
-                epochs_spont, pre_info_spont, session_day_tag = extract_epochs_over_trials(files_list_spont,
+                epochs_spont, pre_info_spont, session_day_tag_spont, mouse_no_list_spont = extract_epochs_over_trials(files_list_spont,
                                                                                            files_list_Laser,
                                                                                            direct, stim_loc,
                                                                                            'Spontaneous',
@@ -3617,6 +4046,9 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
                                                axis = 0)
             epochs_tag = np.append(epochs_tag, 
                                    np.array(session_day_tag).reshape(-1, 1), 
+                                   axis = 0)
+            mouse_numbers = np.append(mouse_numbers, 
+                                   np.full((n_epochs, 1), mouse_no),
                                    axis = 0)
 
             ax, _ = plot_pre_on_post(
@@ -3706,6 +4138,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
                  epochs_mean_each_mouse, 
                  epochs_spont_all_mice, 
                  epochs_tag,
+                 mouse_numbers,
                  all_pre_info, 
                  **study_param_dict)
         
