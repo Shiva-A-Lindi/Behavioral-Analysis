@@ -22,10 +22,13 @@ from scipy.signal import find_peaks
 from scipy.ndimage import shift
 from scipy import stats
 from statannot import add_stat_annotation
+from statannotations.Annotator import Annotator
 import statsmodels.stats.api as sms
 
 from tempfile import TemporaryFile
 from pathlib import Path
+from itertools import groupby
+
 from File_hierarchy import *
 
 
@@ -43,6 +46,10 @@ font_label.set_name('Times New Roman')
 font_label.set_size('20')
 # font_label.set_weight('bold')
 
+
+def all_equal(iterable):
+    g = groupby(iterable)
+    return next(g, True) and not next(g, False)
 
 def lighten_color(color, amount=0.5):
     """
@@ -1754,6 +1761,83 @@ def find_filepaths_for_stim_type_and_loc_list(stim_loc_list, pre_direct, stim_ty
     
     return summary_files_list
 
+def get_mouse_types_of_files(summary_files_list):
+    
+    return [os.path.basename(f).split('_')[0] for f in summary_files_list]
+
+def get_stim_locs_of_files(summary_files_list):
+    
+    return [os.path.basename(f).split('_')[2] for f in summary_files_list]
+
+def get_stim_types_of_files(summary_files_list):
+    
+    return ['_'.join(os.path.basename(f).split('_')[3:6]) for f in summary_files_list]
+
+
+def find_filepaths_of_corresponding_stim_loc_for_mouse_type(pre_direct, opto_par, 
+                                                            stim_type_list, 
+                                                            mouse_type_to_loc_dict):
+    """
+    Find filepaths of the summary files with corresponding stim type --> stim_loc --> mouse_type 
+    charecterestics.
+
+    Parameters
+    ----------
+    pre_direct : str
+        path to project root.
+    opto_par : {'ChR2', 'Control'}
+        optogenetic expression.
+    stim_type_list : list(str)
+        stim type protocol.
+    mouse_type_to_loc_dict : dict-like
+        dictionary coupling mouse type to the desired stim location.
+
+    Returns
+    -------
+    summary_files_list : list(str)
+        filepaths.
+    """
+    
+    
+    stim_loc_list = list(mouse_type_to_loc_dict .values())
+
+    summary_files_list = find_filepaths_for_stim_type_and_loc_list(stim_loc_list, 
+                                                                   pre_direct, 
+                                                                   stim_type_list, 
+                                                                   opto_par)
+    summary_files_list = keep_corresponding_stim_loc_for_mouse_type(summary_files_list, 
+                                                                    mouse_type_to_loc_dict)
+    
+    return summary_files_list
+def keep_corresponding_stim_loc_for_mouse_type(summary_files_list, mouse_type_to_loc_dict):
+    """
+    from the provided list of files only keep ones that correspond to the specified mouse_type --> stim_loc
+    coupling in the dictionary
+
+    Parameters
+    ----------
+    summary_files_list : list(str)
+        filepaths.
+    mouse_type_to_loc_dict : dict-like
+        dictionary coupling mouse type to the desired stim location .
+
+    Returns
+    -------
+    summary_files_list : list(str)
+        filepaths.
+
+    """
+
+    mouse_types = get_mouse_types_of_files(summary_files_list)
+    stim_locs = get_stim_locs_of_files(summary_files_list)
+    
+    summary_files_list = [file for i, file in enumerate(summary_files_list) 
+                          if mouse_types[i] in mouse_type_to_loc_dict 
+                          and mouse_type_to_loc_dict[mouse_types[i]] == stim_locs[i] ]
+    
+    return summary_files_list
+
+
 def find_filepaths_for_stim_type_and_loc_list_one_mouse_type(stim_loc_list, 
                                                      pre_direct, 
                                                      stim_type_list, 
@@ -1820,7 +1904,7 @@ def plot_individual_mice(ax, epochs_mean_mouse_dict):
 #     return ax
 
 
-def annotate_n_trials(ax, n_trials_dict, y = 0.02, fontsize = 30):
+def annotate_n_trials_all_conditions(ax, n_trials_dict, y = 0.02, fontsize = 30):
     """
     write number of trials for each double column of "ON"-"OFF".
     
@@ -1895,14 +1979,16 @@ def create_x_position_pairs(ax, pad = 0.2):
 
     return x_series
 
-def extract_and_plot_individual_mice(result, ax, opto_par, mouse_type, subplot_parameter,
+def extract_and_plot_individual_mice(result, ax, opto_par, subplot_parameter,
                                      subplot_parameter_list, mouse_color_dict, 
-                                     velocity_measure = 'norm_velocity (mean)'):
+                                     velocity_measure = 'norm_velocity (mean)',
+                                     mouse_type = None):
 
     x_series = create_x_position_pairs(ax, pad = 0.2)
-    mean_individual_mice = result.groupby(['mouse_no', 
-                                           'epoch', 
-                                           subplot_parameter]).mean() 
+    grouped = result.groupby(['mouse_no', 
+                              'epoch', 
+                              subplot_parameter])
+    mean_individual_mice = grouped.mean() 
     
     mean_individual_mice_dict = mean_individual_mice.to_dict()[velocity_measure]
     
@@ -1914,11 +2000,21 @@ def extract_and_plot_individual_mice(result, ax, opto_par, mouse_type, subplot_p
             key_ON = (mouse, 'ON', subplot_parameter)
             
             if key_ON in mean_individual_mice_dict:
+                mouse_types = grouped.get_group(key_ON)['mouse_type'].values
                 
+                if all_equal(mouse_types):
+                    this_mouse_type = mouse_types[0]
+                
+                else:
+                    if mouse_type != None:
+                        this_mouse_type = mouse_type
+                    else:
+                        
+                        raise ValueError ("overlapping mouse type and numbers!")
                 ax.plot(x_series[i], 
                         [mean_individual_mice_dict[key_OFF],
                         mean_individual_mice_dict[key_ON]], '-', 
-                         color = mouse_color_dict[mouse_type][opto_par][str(int(mouse))], 
+                         color = mouse_color_dict[this_mouse_type][opto_par][str(int(mouse))], 
                          marker = 'o', markersize=5, linewidth=1.5, 
                          zorder = 4, alpha = 0.8)
     return ax
@@ -1947,7 +2043,7 @@ def extract_info_from_npz_filename(filename):
 
 
 def extract_info_from_saved_data(filename,  intervals_dict, 
-                                 opto_par = 'ChR2'):
+                                 opto_par = 'ChR2', report_stats = True):
     """
     for the given filename extract information from filename and create the mean velocity pre/post laser
         in a dataframe
@@ -1965,9 +2061,8 @@ def extract_info_from_saved_data(filename,  intervals_dict,
     opto_par : str, optional
         e.g. ChR2 or Control. The default is 'ChR2'.
 
-    measure : str, optional
-        What is measured (either mean or min velocity in each time epoch). The default is 'mean'.
-
+    report_stats : bool, optional
+        whether report the statistical tests. Default is True.
     Returns
     -------
 
@@ -1980,7 +2075,6 @@ def extract_info_from_saved_data(filename,  intervals_dict,
     
 
     dat = np.load(filename)
-    print(dat.files)
     info = extract_info_from_npz_filename(filename)
     
 
@@ -1993,22 +2087,24 @@ def extract_info_from_saved_data(filename,  intervals_dict,
     n = epochs.shape[0] * 2
     off_vel = np.average(pre, axis = 1)
     on_vel_mean = np.average(post, axis = 1)
-    stat_mw = stats.mannwhitneyu(off_vel, on_vel_mean, 
-                                     use_continuity=True, 
+
+    if report_stats:
+        stat_mw = stats.mannwhitneyu(off_vel, on_vel_mean, 
+                                         use_continuity=True, 
+                                         alternative='two-sided')
+        stat_wilcoxon = stats.wilcoxon(off_vel, on_vel_mean, 
+                                     zero_method='pratt',
                                      alternative='two-sided')
-    stat_wilcoxon = stats.wilcoxon(off_vel, on_vel_mean, 
-                                 zero_method='pratt',
-                                 alternative='two-sided')
-    print("n_trials:", epochs.shape[0])
-
-    print(stats.shapiro(off_vel - on_vel_mean))
-    print(stat_mw )
-    print(stat_wilcoxon)
-
-    print("OFF", round(np.average(off_vel), 1),
-          stats.sem(off_vel))
-    print("ON", round(np.average(on_vel_mean), 1), 
-          stats.sem(on_vel_mean))
+        print("n_trials:", epochs.shape[0])
+    
+        print(stats.shapiro(off_vel - on_vel_mean))
+        print(stat_mw )
+        print(stat_wilcoxon)
+    
+        print("OFF", round(np.average(off_vel), 1),
+              stats.sem(off_vel))
+        print("ON", round(np.average(on_vel_mean), 1), 
+              stats.sem(on_vel_mean))
     
     
     velocity_mean = np.concatenate((off_vel, on_vel_mean), axis = 0)
@@ -2062,10 +2158,9 @@ def delta_v_vs_laser_intensity(pre_direct, intervals_dict,
                                                                  opto_par = opto_par, 
                                                                  stim_loc = stim_loc,
                                                                  mouse_type = mouse_type)
-    
     result = create_df_from_data_summary(summary_files_list, 
                                          intervals_dict,
-                                         opto_par = opto_par)
+                                         opto_par = opto_par, report_stats= False)
     ON = result[result['epoch'] == 'ON']
     OFF = result[result['epoch'] == 'OFF']
     n_trials = len(ON)
@@ -2074,9 +2169,9 @@ def delta_v_vs_laser_intensity(pre_direct, intervals_dict,
     intensities = np.unique(result['intensity_mW'])
     
     for intensity in intensities:
-        
+        key = 'norm_velocity (' + measure + ')'
         ind = (ON['intensity_mW'] == intensity).values
-        dv = ON['norm_velocity (mean)'][ind].values - OFF['norm_velocity (mean)'][ind].values
+        dv = ON[key][ind].values - OFF[key][ind].values
         df = pd.DataFrame({'intensity': [intensity] * len(dv), 'delta_v': dv})
         delta_v = pd.concat([delta_v, df])
         
@@ -2089,7 +2184,7 @@ def delta_v_vs_laser_intensity(pre_direct, intervals_dict,
     return intensity_number, mean, std, n_trials
 
 def create_df_from_data_summary(summary_files_list, intervals_dict, 
-                                opto_par = 'ChR2'):
+                                opto_par = 'ChR2', report_stats = True):
     
     ''''append the summary df of all files given in the list'''
     
@@ -2106,13 +2201,12 @@ def create_df_from_data_summary(summary_files_list, intervals_dict,
     
     
     
-    print('files:', summary_files_list)
     for count, filename in enumerate(summary_files_list):
     
     
         dat = np.load(filename)
         (df, info) = extract_info_from_saved_data(filename, intervals_dict,
-                                                  opto_par = opto_par)
+                                                  opto_par = opto_par, report_stats= report_stats)
                                               
         
         frames = [result, df]
@@ -2123,10 +2217,17 @@ def create_df_from_data_summary(summary_files_list, intervals_dict,
 
     return result
 
-def get_box_pairs(subplot_param_list, opto_par = 'ChR2'):
+def get_box_pairs(subplot_param_list, hue = 'ChR2'):
     
-    box_pairs = [(('OFF_' + parameter, opto_par), ('ON_' + parameter, opto_par)) 
-                 for parameter in subplot_param_list]
+    
+    if isinstance(hue, list):
+
+            box_pairs = [(('OFF', h), ('ON' , h)) 
+                         for h in hue]
+
+    else:
+        box_pairs = [(('OFF_' + parameter, hue), ('ON_' + parameter, hue)) 
+                     for parameter in subplot_param_list]
 
     return box_pairs
 
@@ -2492,10 +2593,11 @@ def plot_every_mouse_mean(epochs_mean_each_mouse):
             median, epochs_mean_each_mouse[i, :], '-', color='gray', marker='.')
 
 
-def violin_plot_laser_ON_OFF(pre_direct, intervals_dict, stim_loc_list,
-                             opto_par, mouse_color_dict, mouse_type, stim_type_list,
-                             subplot_parameter = 'stim_loc', fig_w = 1, fig_h = 4,
-                             velocity_measure = 'norm_velocity (mean)'):
+def violin_plot_laser_ON_OFF(pre_direct, intervals_dict, 
+                             opto_par, mouse_color_dict, mouse_type, 
+                             subplot_parameter = 'stim_loc', fig_w = 2, fig_h = 4,
+                             velocity_measure = 'norm_velocity (mean)', stim_type_list = None,
+                             stim_loc_list = None, summary_files_list = None, savefig = True, pulse = None):
     """
     Plot distributions of normalized velocity in the laser ON and OFF epochs as subplots 
     distinguishing the subplot_parameter.
@@ -2508,17 +2610,13 @@ def violin_plot_laser_ON_OFF(pre_direct, intervals_dict, stim_loc_list,
             dict-like of intervals:{'pre_interval' : int(.5*fps), # interval before laser onset
                                                             'interval' : int(interval_in_sec * fps), # number of timebins of stimulation
                                                             'post_interval' : int(.5*fps*2), # interval after laser onset
-                                                            'pre_stim_inter' : pre_stim_inter }
-    stim_loc_list: list(str)
-        list of stimulation brain structures.
+                                                            'pre_stim_inter' : pre_stim_inter   
     opto_par : str
         optogenetic expression.
     mouse_color_dict : dict-like
         dictionary of colors for each mouse number.
     mouse_type : str
         mouse line.
-    stim_type_list : list(str)
-        type of stimulation that includes the pulse type and intensity.
     subplot_parameter : str, optional
         The parameter changing between the columns e.g. laser internsity or stim location. The default is 'stim_loc'.
     fig_w : float, optional
@@ -2527,6 +2625,17 @@ def violin_plot_laser_ON_OFF(pre_direct, intervals_dict, stim_loc_list,
         figure height in inches. The default is 4.
     velocity_measure : {'norm_velocity (mean)', 'norm_velocity (min)'}, optional
         the measurement of the laser-ON and -OFF epochs.
+    stim_type_list : list(str), optional
+        type of stimulation that includes the pulse type and intensity. The default is None.
+    stim_loc_list : list(str), optional
+        list of stimulation brain structures.. The default is None.
+    summary_files_list : list(str), optional
+        list of filepaths of experiments. The default is None where the function searches for the provided 
+        stim types and locs for the specified mouse type, otherwise input list is used.
+    savefig : bool, True
+        if save generated figure.
+    pulse : str, optional
+        stimulation type, to be added to the figname when subplot parameter is intensity
     Returns
     -------
     ax : obj
@@ -2535,11 +2644,14 @@ def violin_plot_laser_ON_OFF(pre_direct, intervals_dict, stim_loc_list,
     """
     
     plt.close('all')
-    summary_files_list = find_filepaths_for_stim_type_and_loc_list_one_mouse_type(stim_loc_list, 
-                                                                              pre_direct, 
-                                                                              stim_type_list, 
-                                                                              opto_par,
-                                                                              mouse_type)
+    summary_files_list = summary_files_list or find_filepaths_for_stim_type_and_loc_list_one_mouse_type(stim_loc_list, 
+                                                                                                        pre_direct, 
+                                                                                                        stim_type_list, 
+                                                                                                        opto_par,
+                                                                                                        mouse_type)
+    stim_type_list = stim_type_list or get_stim_types_of_files(summary_files_list)
+    stim_loc_list = stim_loc_list or get_stim_locs_of_files(summary_files_list)
+    print(stim_loc_list)
     if len(summary_files_list) == 0:
         return 
     result = create_df_from_data_summary(summary_files_list, intervals_dict,
@@ -2550,7 +2662,7 @@ def violin_plot_laser_ON_OFF(pre_direct, intervals_dict, stim_loc_list,
     
     subplot_parameter_list = np.unique(result[subplot_parameter].values)
     n_trials_dict = result[subplot_parameter].value_counts(sort = False).to_dict()
-    box_pairs = get_box_pairs(subplot_parameter_list, opto_par = opto_par)
+    box_pairs = get_box_pairs(subplot_parameter_list, hue = opto_par)
     order = [i[0] for i in flatten(box_pairs)]
 
     sns.set(font_scale = 1.)
@@ -2573,21 +2685,11 @@ def violin_plot_laser_ON_OFF(pre_direct, intervals_dict, stim_loc_list,
                         loc='inside', verbose=2)
     
     
-    
-    
-    add_title = ' '.join([mouse_type, opto_par]) + ' '
-    
-    if subplot_parameter == 'session_tag':
-        add_title += stim_loc_list[0] + '\n'
-        
-    if subplot_parameter == 'stim_loc':
-        add_title += ' '.join([s.replace('_', ' ') for s in stim_type_list])
-        
-    ax = extract_and_plot_individual_mice(result, ax, opto_par, mouse_type,  subplot_parameter,
+    ax = extract_and_plot_individual_mice(result, ax, opto_par, subplot_parameter,
                                           subplot_parameter_list, mouse_color_dict, 
                                           velocity_measure = velocity_measure)
     
-    annotate_n_trials(ax, n_trials_dict, fontsize = 12)
+    annotate_n_trials_all_conditions(ax, n_trials_dict, fontsize = 12)
     annotate_conditions(ax, n_trials_dict.keys(), y = 1, fontsize = 15)
     ax.axhline( y=0, ls='--', c='r', lw = 1, zorder = -1)
     ax.axhline( y=1, ls='--', c='g', lw = 1, zorder = -1)
@@ -2597,26 +2699,51 @@ def violin_plot_laser_ON_OFF(pre_direct, intervals_dict, stim_loc_list,
       .set_xticklabels(flatten([['ON', 'OFF'] *(len(list(box_pairs)))]))
       .set(ylim = (-1, 4)))
     
-    
+    title, figname = get_title_figname_violin_plot(mouse_type, opto_par, subplot_parameter, 
+                                                   stim_loc_list, stim_type_list, pulse)
     ax.tick_params(direction='out')
     ax.xaxis.set_ticks_position('bottom')
     ax.yaxis.set_ticks_position('left')
-    ax.set_title(add_title , fontsize = 15,pad = 30)
-
-    
-    Directory.create_dir_if_not_exist(os.path.join(pre_direct, 'Subplots', 'Violin_plots' ))
-    
+    ax.set_title(title , fontsize = 15,pad = 30)
     size = (len(list(box_pairs)) * fig_w, fig_h)
     plt.gcf().set_size_inches(size)
     
-    figname = '_'.join([mouse_type, opto_par, 
-                        '_'.join(stim_loc_list), 
-                        '_'.join(stim_type_list), subplot_parameter])
-    
-    save_pdf_png(plt.gcf(), 
-                 os.path.join(pre_direct, 'Subplots','Violin_plots', figname ), 
-                 size = size)
+    if savefig:
+        Directory.create_dir_if_not_exist(os.path.join(pre_direct, 'Subplots', 'Violin_plots' ))
+        
+
+        save_pdf_png(plt.gcf(), 
+                     os.path.join(pre_direct, 'Subplots','Violin_plots', figname ), 
+                     size = size)
     return ax
+
+def get_title_figname_violin_plot(mouse_type, opto_par, subplot_parameter, stim_loc_list,
+                                  stim_type_list, pulse):
+    print(stim_loc_list)
+    if subplot_parameter != 'mouse_type' or subplot_parameter == 'intensity_mW':
+        name = ' '.join([mouse_type, opto_par]) + '\n '
+    else:
+        name = opto_par + ' '
+    
+    if subplot_parameter == 'intensity_mW':
+        name += pulse + ' ' + ' '.join([s.replace('_', ' ') for s in list(set(stim_loc_list))])
+    elif subplot_parameter == 'mouse_type':
+        name += ('\n '.join([s.replace('_', ' ') for s in list(set(stim_type_list))])
+                + '\n ' 
+                + ' '.join([s.replace('_', ' ') for s in stim_loc_list]))
+    elif subplot_parameter == 'stim_loc':
+        name += '\n '.join([s.replace('_', ' ') for s in list(set(stim_type_list))])
+    else:
+            
+        name += ('\n '.join([s.replace('_', ' ') for s in list(set(stim_type_list))])
+                + '\n ' 
+                + ' '.join([s.replace('_', ' ') for s in list(set(stim_loc_list))]))
+            
+
+    figname = name.replace('\n ', '_').replace(' ', '_') +  '_' + subplot_parameter
+    figname.replace('pulse', '')
+    
+    return name, figname
 
 def violin_plot_summary(data_init, names, measure):
     ''' plot violin plot for different columns in data'''
@@ -2852,85 +2979,6 @@ def MWW_test(result, result_Ctr, exp_parameter = 'STN',
     return stat
 
 
-# def read_npz_return_data_frame(file_path_list, pre_interval, interval, post_interval, pre_stim_inter):
-#     '''Read the saved .npz file and produce a data frame with the following columns.
-
-#     Parameters
-#     ----------
-
-#     file_path_list : list(str)
-#             List of full paths to .npz files to be read
-
-#     pre_interval : int 
-#             Number of time bins to be taken into account before laser onset 
-
-#     interval : int 
-#             Laser duration in timebins.
-
-#     post_interval : int
-#             Number of time bins to be taken into account after laser onset 
-
-#     pre_stim_inter : int
-#             Pre interval for averaging the positions/velocity and accelaration and report as pre_info
-
-#     Returns
-#     -------
-
-#     result : dataframe
-#             dataframe with following columns: ['norm_velocity (mean)', 
-#                                                'norm_velocity (min)', 
-#                                                'mouse_type', 
-#                                                'optogenetic expression', 
-#                             'pulse_type','intensity_mW','epoch','pre_velocity_sign','pre_x','pre_x_front_back','pre_accel','pre_accel_sign']
-
-
-#     '''
-
-#     col_names = ['norm_velocity (mean)', 'norm_velocity (min)', 'mouse_type', 'optogenetic expression',
-#                  'pulse_type', 'intensity_mW', 'epoch', 'pre_velocity_sign', 'pre_x', 
-#                  'pre_x_front_back', 'pre_accel', 'pre_accel_sign']
-#     result = pd.DataFrame(columns=col_names)
-#     for file in file_path_list:
-#         print(file)
-#         dat = np.load(file)
-#         properties = file.split("_")
-#         epochs = dat['epochs_all_mice']
-#         n_epochs = epochs.shape[0]
-#         # set the variables of epoch/optogen/pulse type/mouse type/velocity and x of pre stim
-#         pre = epochs[:, :pre_interval]
-#         on = epochs[:, pre_interval+1:pre_interval+interval+1]
-#         mouse_type_ = [properties[0]] * n_epochs*2
-#         opto_par_ = [properties[1]] * n_epochs*2
-#         pulse_ = [properties[2]] * n_epochs*2
-#         inten_ = [properties[3]] * n_epochs*2
-
-#         x_ = np.concatenate(
-#             (dat['avg_pre_stim_position'], dat['avg_pre_stim_position']), axis=0)
-#         Velocity_ = np.concatenate(
-#             (dat['avg_pre_stim_velocity'], dat['avg_pre_stim_velocity']), axis=0)
-#         accel_ = np.concatenate(
-#             (dat['avg_pre_stim_acc'], dat['avg_pre_stim_acc']), axis=0)
-#         print(dat['avg_pre_stim_position'].shape, epochs.shape)
-#         try:
-#             off_vel = np.average(pre, axis=1)
-#             on_vel = np.average(on, axis=1)
-#             all_mean = np.concatenate((off_vel, on_vel), axis=0)
-#         except ZeroDivisionError:
-#             all_mean = np.empty((0))
-
-#         all_min = np.concatenate(
-#             (np.min(pre, axis=1), np.min(on, axis=1)), axis=0)
-#         epoch_off = ['OFF'] * n_epochs
-#         epoch_on = ['ON'] * n_epochs
-#         epoch_ = epoch_off+epoch_on
-#         # append the data of each mouse to a unit dataframe
-#         df = pd.DataFrame(({'norm_velocity (mean)': all_mean, 'norm_velocity (min)': all_min,
-#                             'mouse_type': mouse_type_, 'optogenetic expression': opto_par_, 'pulse_type': pulse_,
-#                             'intensity_mW': inten_, 'epoch': epoch_, 'pre_velocity_sign': Velocity_, 'pre_x': x_, 'pre_x_front_back': x_,
-#                             'pre_accel': accel_, 'pre_accel_sign': accel_}))
-#         frames = [result, df]
-#         result = pd.concat(frames, ignore_index=True)
-#     return result
 
 
 def categorize_pre_x_and_v(result, back_front_boundary, v_threshold, pre_stim_inter):
@@ -2970,103 +3018,20 @@ def categorize_pre_x_and_v(result, back_front_boundary, v_threshold, pre_stim_in
     result.loc[ind_1, 'pre_velocity_sign'] = 'pos'
     result.loc[ind_4, 'pre_accel_sign'] = 'neg'
     result.loc[ind_5, 'pre_accel_sign'] = 'pos'
-    result.loc[ind_2, 'pre_x_front_back'] = 'front'
-    result.loc[ind_3, 'pre_x_front_back'] = 'back'
+    result.loc[ind_2, 'pre_x_front_back'] = 'back'
+    result.loc[ind_3, 'pre_x_front_back'] = 'front'
     return result
 
 
-def plot_ON_OFF_x_v_mean(result, path, mouse_type, opto_par, stim_loc, stim_type, fps, 
-                         back_front_boundary, v_threshold, pre_stim_inter, ylim=[-20, 15], save_as_format='.pdf'):
-    '''Plot the mean laser-ON laser-OFF vellociry with distinction of velocity and x prior to laser stim.
 
-    Parameters
-    ----------
-
-    result : dataframe
-            dataframe containing information of all animals 
-
-    path : str
-            Path to save the figure
-    opto_par : str
-        optogenetic expression.
-    mouse_type : str
-        mouse line.
-    stim_loc : str
-            the folder with the corresponding experiment brain location e.g. "STR".   
-    stim_type : str
-            Folder containing the experiment sessions
-
-    back_front_boundary : float
-            Threshold to set the position of the animal before the laser onset as either 'back' or 'front'
-
-    v_threshold : float
-            Threshold to set the velocity of the animal before the laser onset as either 'pos' or 'neg'
-
-    pre_stim_inter : int
-            Pre interval for averaging the positions/velocity and accelaration and report as pre_info
-
-    ylim : list(float), optional
-            Y axis limits for the figure, default set to [-20,15]
-
-    save_as_format : str, optional
-            Format to save the figure default is '.pdf'
-    '''
-
-    result_pos = result[result['pre_velocity_sign'] == 'pos']
-    result_neg = result[result['pre_velocity_sign'] == 'neg']
-    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8, 5), sharey=True)
-
-    y = [np.average(result_pos[(result_pos['pre_x_front_back'] == 'front') & (result_pos['epoch'] == 'OFF')]['norm_velocity (mean)']),
-         np.average(result_pos[(result_pos['pre_x_front_back'] == 'front') & (result_pos['epoch'] == 'ON')]['norm_velocity (mean)'])]
-    delta = str(round(y[1]-y[0], 2))
-
-    plt.plot(['OFF', 'ON'], y, '-',
-             color='g', marker='o', markersize=10, linewidth=4, alpha=1, label='V>0 - front-N=' +
-             str(len(result_pos[(result_pos['pre_x_front_back'] == 'front') & (result_pos['epoch'] == 'ON')]['norm_velocity (mean)'])) +
-             ' $\delta$='+delta)
-
-    y = [np.average(result_pos[(result_pos['pre_x_front_back'] == 'back') & (result_pos['epoch'] == 'OFF')]['norm_velocity (mean)']),
-         np.average(result_pos[(result_pos['pre_x_front_back'] == 'back') & (result_pos['epoch'] == 'ON')]['norm_velocity (mean)'])]
-    delta = str(round(y[1]-y[0], 2))
-    plt.plot(['OFF', 'ON'], y, '-',
-             color='r', marker='o', markersize=10, linewidth=4, alpha=1, label='V>0 - back-N=' +
-             str(len(result_pos[(result_pos['pre_x_front_back'] == 'back') & (result_pos['epoch'] == 'ON')]['norm_velocity (mean)'])) +
-             ' $\delta$='+delta)
-
-    y = [np.average(result_neg[(result_neg['pre_x_front_back'] == 'front') & (result_neg['epoch'] == 'OFF')]['norm_velocity (mean)']),
-         np.average(result_neg[(result_neg['pre_x_front_back'] == 'front') & (result_neg['epoch'] == 'ON')]['norm_velocity (mean)'])]
-    delta = str(round(y[1]-y[0], 2))
-    plt.plot(['OFF', 'ON'], y, '-',
-             color='b', marker='o', markersize=10, linewidth=4, alpha=1, label='V<0 - front-N=' +
-             str(len(result_neg[(result_neg['pre_x_front_back'] == 'front') & (result_neg['epoch'] == 'ON')]['norm_velocity (mean)'])) +
-             ' $\delta$='+delta)
-
-    y = [np.average(result_neg[(result_neg['pre_x_front_back'] == 'back') & (result_neg['epoch'] == 'OFF')]['norm_velocity (mean)']),
-         np.average(result_neg[(result_neg['pre_x_front_back'] == 'back') & (result_neg['epoch'] == 'ON')]['norm_velocity (mean)'])]
-    delta = str(round(y[1]-y[0], 2))
-    plt.plot(['OFF', 'ON'], y, '-',
-             color='k', marker='o', markersize=10, linewidth=4, alpha=1, label='V<0 - back-N=' +
-             str(len(result_neg[(result_neg['pre_x_front_back'] == 'back') & (result_neg['epoch'] == 'ON')]['norm_velocity (mean)'])) +
-             ' $\delta$='+delta)
-    inten = result['intensity_mW'][0]
-    legend = plt.legend(loc='upper right', fontsize=12)
-    plt.xlabel("Laser", fontsize=15)  # .set_fontproperties(font_label),
-    # .set_fontproperties(font_label)
-    plt.ylabel("Average velocity (cm/s)", fontsize=15)
-    plt.suptitle(mouse_type + '  ' + stim_loc + ' ' + stim_type + '(I='+inten+')'+'\n'+'pre-stim-inetrval = ' +
-                 str(int(pre_stim_inter*1000/fps))+' ms', fontsize=20, y=1)
-    # set_ticks(ax)
-    plt.ylim(ylim[0], ylim[1])
-    ax.set_facecolor((0.8, 1.0, 1.0))
-    plt.savefig(os.path.join(path, 'X_V_distinction_mean_' + stim_loc + '_' + stim_type+'_pre_stim_t='+str(int(pre_stim_inter*1000/fps)) +
-                             '_inten='+inten+save_as_format), bbox_inches='tight', orientation='landscape', dpi=350)
-
-
-def plot_ON_OFF_v_mean(result, pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, 
+def plot_ON_OFF_measure(result, pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, 
                        back_front_boundary, v_threshold, pre_stim_inter, 
                        ylim = [-1, 2], velocity_measure = 'norm_velocity (mean)', 
-                       save_as_format='.pdf', axes = [], save = True, title = True, legend = False):
-    '''Plot the mean laser-ON laser-OFF vellociry with distinction of velocity prior to laser stim.
+                       save_as_format='.pdf', axes = [], save = True, title = True, legend = False,
+                       group_by = ['pre_velocity_sign','epoch'], conditions = ['pos', 'neg'],
+                       colors = ['teal', 'blueviolet'], alphas = [1, 1], lstyles = ['-', '-']):
+    '''Plot the mean laser-ON laser-OFF velocity measure with distinction of the groupby elements provided
+    prior to laser stim.
 
     Parameters
     ----------
@@ -3100,49 +3065,79 @@ def plot_ON_OFF_v_mean(result, pre_direct, mouse_type, opto_par, stim_loc, stim_
         list of 2 Axes. The default is an empty list.
     velocity_measure: ['norm_velocity (mean)', 'norm_velocity (min)']
             value reported in plot.
+    save_as_format : str, optional
+            Format to save the figure default is '.pdf'
+    axes = {[], axes}, optional
+        if axes provided the two conditions are plotted in separate axes. Otherwise will be plotted on the same axis.
     save: bool(default: True)
         if save figure.
     title: bool(default=True)
         if put title.
     legend: bool(default=True)
         if put legend.
-    save_as_format : str, optional
-            Format to save the figure default is '.pdf'
+    groupby: {['pre_velocity_sign', epoch'], 
+               ['pre_accel_sign', epoch'],
+                ['pre_accel_sign', epoch'], ..}, optional
+        The columns of result dataframe to group by. 
+        Note that when providing three columns the conditions list should be adjusted to include the conditions 
+        other that 'epoch' in each element. Default is ['pre_velocity_sign', epoch'].
+    conditions: {['pos', 'neg'], 
+                 [['pos', 'front'], ['neg', 'front']], ...}, optional
+        The list of conditions to plot the measure for. the default is ['pos', 'neg'].
+    colors: list of matplotlib colors, optional
+        list of colors for different conditions. The default is colors = ['teal', 'blueviolet'].
+    alphas: list(float), optional
+        list of saturation alphas for the lines drawn. 
+        The elements should correspond to the number of elements in conditions.The default is [1, 1].
+    ls: list of matplotlib linestyles, optional.
+        linestyles of each plotted line. The defautl is ['-', '-'].
+        
+        
+
     '''
 
-    measure = result.groupby(['pre_velocity_sign','epoch']).mean().to_dict()['norm_velocity (mean)']
-    std = result.groupby(['pre_velocity_sign','epoch']).std().to_dict()['norm_velocity (mean)']
-    n_trials = result.groupby(['pre_velocity_sign','epoch']).size().to_dict()
+    measure = result.groupby(group_by).mean().to_dict()['norm_velocity (mean)']
+    std = result.groupby(group_by).std().to_dict()['norm_velocity (mean)']
+    n_trials = result.groupby(group_by).size().to_dict()
+
     
-    conditions = ['pos', 'neg']
+    
     laser = ['OFF', 'ON']
     
     labels = [r'$V > V_{treadmill}$', r'$V < V_{treadmill}$']
-    colors = ['teal', 'blueviolet']
+    
         
     if axes == []:
         fig, ax = plt.subplots()
-        axes = [ax, ax]
+        axes = [ax, ax] # to plot on top of eachother
         
 
     
     for i, (ax, condition) in enumerate(zip(axes, conditions)):
-    
+
         try:
-            y = [measure[condition, l] for l in laser]
-            yerr = [std[condition, l] for l in laser]
-            delta_v = str(round(y[1]-y[0], 2))
+            if not isinstance(condition, str): # if condition is already a tuple
+                y = [measure[tuple(condition + [l])] for l in laser]
+                yerr = [std[tuple(condition + [l])] for l in laser]
+            
+            else:
+                y = [measure[condition, l] for l in laser]
+                yerr = [std[condition, l] for l in laser]
+            
+            delta_v = str(round(y[1] - y[0], 2))
             
         except KeyError:
-            return n_trials
+            continue
         
-        ax.errorbar(['OFF', 'ON'], y, yerr, marker='o', markersize=10, linewidth=2, capsize=10, capthick=3,
-                 color = colors[i])
+        ax.errorbar(['OFF', 'ON'], y, yerr, marker='o', color = colors[i], 
+                    markersize=10, linewidth=2, capsize=10, capthick=3, alpha = alphas[i],
+                    ls = lstyles[i])
 
         if legend:
             legend = ax.legend( labels[i] + '\n N = ' +
             str(n_trials[condition, 'ON']) +
             ' $\; \Delta_{V} =$ ' + delta_v, loc='upper right', fontsize = 15, frameon = False)
+            
         ax.axhline(y = 0, ls='--', c='r', linewidth = 1, zorder = -1)
         ax.axhline(y = 1, ls='--', c='g', linewidth = 1, zorder = -1)
         set_ticks(ax)
@@ -3151,7 +3146,7 @@ def plot_ON_OFF_v_mean(result, pre_direct, mouse_type, opto_par, stim_loc, stim_
         ax.set_ylabel(velocity_measure.replace('_', ' ')).set_fontproperties(font_label)
 
     if title:
-        ax.get_figure().suptitle(mouse_type 
+        ax.get_figure().suptitle(mouse_type  
                                  + ' ' + opto_par
                                  + ' ' + stim_type.replace('_', ' ')
                                  + '_' + stim_loc,
@@ -3170,11 +3165,98 @@ def plot_ON_OFF_v_mean(result, pre_direct, mouse_type, opto_par, stim_loc, stim_
                     bbox_inches='tight', orientation='landscape', dpi=350)
 
     
-    return n_trials
-def violin_plot_x_v_distiction(result, pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, 
+def plot_ON_OFF_measure_with_x_distionction(result, pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, 
+                                            back_front_boundary, v_threshold, pre_stim_inter, 
+                                            ylim = [-1, 2], velocity_measure = 'norm_velocity (mean)', 
+                                            save_as_format='.pdf', axes = [], save = False, title = False, legend = False,
+                                            group_by = ['pre_velocity_sign', 'pre_x_front_back', 'epoch'], 
+                                            conditions = [['pos', 'front'], ['neg', 'front']],
+                                            colors = ['teal', 'blueviolet'], alphas = [1, 1], lstyles = ['-', '-'], 
+                                            position_conditions = ['front', 'back']):
+    '''Plot the mean laser-ON laser-OFF velocity measure with distinction of the groupby elements provided
+    prior to laser stim which includes position.
+
+    Parameters
+    ----------
+
+    result : dataframe
+            dataframe containing information of all animals 
+
+    pre_direct : str
+            Path to save the figure
+    opto_par : str
+        optogenetic expression.
+    mouse_type : str
+        mouse line.
+    stim_loc : str
+            the folder with the corresponding experiment brain location e.g. "STR".   
+    stim_type : str
+            Folder containing the experiment sessions
+
+    back_front_boundary : float
+            Threshold to set the position of the animal before the laser onset as either 'back' or 'front'
+
+    v_threshold : float
+            Threshold to set the velocity of the animal before the laser onset as either 'pos' or 'neg'
+
+    pre_stim_inter : int
+            Pre interval for averaging the positions/velocity and accelaration and report as pre_info
+
+    ylim : list(float), optional
+            Y axis limits for the figure, default set to [-20,15]
+    axes: list(Axes), optional
+        list of 2 Axes. The default is an empty list.
+    velocity_measure: ['norm_velocity (mean)', 'norm_velocity (min)']
+            value reported in plot.
+    save_as_format : str, optional
+            Format to save the figure default is '.pdf'
+    axes = {[], axes}, optional
+        if axes provided the two conditions are plotted in separate axes. Otherwise will be plotted on the same axis.
+    save: bool(default: True)
+        if save figure.
+    title: bool(default=True)
+        if put title.
+    legend: bool(default=True)
+        if put legend.
+    groupby: {['pre_velocity_sign', epoch'], 
+               ['pre_accel_sign', epoch'],
+                ['pre_accel_sign', epoch'], ..}, optional
+        The columns of result dataframe to group by. 
+        Note that when providing three columns the conditions list should be adjusted to include the conditions 
+        other that 'epoch' in each element. Default is ['pre_velocity_sign', 'pre_x_front_back', 'epoch'].
+    conditions: {['pos', 'neg'], 
+                 [['pos', 'front'], ['neg', 'front']], ...}, optional
+        The list of conditions to plot the measure for. the default is  [['pos', 'front'], ['neg', 'front']].
+    colors: list of matplotlib colors, optional
+        list of colors for different conditions. The default is colors = ['teal', 'blueviolet'].
+    alphas: list(float), optional
+        list of saturation alphas for the lines drawn. 
+        The elements should correspond to the number of elements in conditions.The default is [1, 1].
+    ls: list of matplotlib linestyles, optional.
+        linestyles of each plotted line. The defautl is ['-', '-'].
+        
+        
+
+    '''
+    for pc, alpha, l_s in zip(position_conditions, alphas, lstyles):
+        plot_ON_OFF_measure(result, pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, 
+                                      back_front_boundary, v_threshold, pre_stim_inter, 
+                                      ylim = ylim, velocity_measure = velocity_measure, 
+                                      axes = axes, save = save, title =title, legend = legend,
+                                      group_by =group_by, 
+                                      conditions = [['pos', pc], ['neg', pc]],
+                                      colors = colors, alphas = [alpha, alpha],
+                                      lstyles = [l_s, l_s])
+    
+
+def violin_plot_with_distiction(result, pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, 
                                back_front_boundary, v_threshold, pre_stim_inter, 
                                ylim=[-1.5, 3], velocity_measure = 'norm_velocity (mean)', 
-                               alpha = 0.5, x_distinction = True, save_as_format='.pdf'):
+                               violin_alpha = 0.5, x_distinction = True, save_as_format='.pdf',
+                               scale = 'area', colors = ['teal', 'blueviolet'],
+                               velocity_conditions = ['pos', 'neg'],
+                               position_conditions = ['front', 'back'],
+                               alphas = [1, 0.6], ls = ['-', '--'], column = 'pre_velocity_sign'):
     """Plot violin plots with columns for pre laser velocity
     distinction and hue for back and front distinction on the treadmill.
 
@@ -3194,9 +3276,9 @@ def violin_plot_x_v_distiction(result, pre_direct, mouse_type, opto_par, stim_lo
     stim_type : str
             Folder containing the experiment sessions
     back_front_boundary : float
-            Threshold to set the position of the animal before the laser onset as either 'back' or 'front'
+            Threshold to set the position of the animal before the laser onset as either `back` or `front`
     v_threshold : float
-            Threshold to set the velocity of the animal before the laser onset as either 'pos' or 'neg'
+            Threshold to set the velocity of the animal before the laser onset as either `pos` or `neg`
     pre_stim_inter : int
             Pre interval for averaging the positions/velocity and accelaration and report as pre_info
     ylim : list(float), optional
@@ -3209,14 +3291,31 @@ def violin_plot_x_v_distiction(result, pre_direct, mouse_type, opto_par, stim_lo
         Whether separate x position as hue. Default is True
     save_as_format : str, optional
             Format to save the figure default is '.pdf'
+    scale : {“area”, “count”, “width”}, optional
+        The method used to scale the width of each violin. 
+        If `area`, each violin will have the same area. 
+        If `count`, the width of the violins will be scaled by the number of observations in that bin. If `width`, each violin will have the same width. The default is 'area'.
+    colors: list of matplotlib colors, optional
+        list of colors for different conditions. The default is ['teal', 'blueviolet'].
+    velocity_conditions : list(str), optional
+        The conditions for the `pre_velocity_sign` column of the data. The default is ['pos', 'neg'].
+    position_conditions : list(str), optional
+        The conditions for the `pre_x_front_back` column of the data. The default is ['front', 'back'].
+    alphas: list(float), optional
+        list of saturation alphas for the lines drawn. 
+        The elements should correspond to the number of elements in conditions.The default is [1, 1].
+    ls: list of matplotlib linestyles, optional.
+        linestyles of each plotted line. The defautl is ['-', '-'].
+    column : str, optional
+        The measure that separates the columns of the catplot. The default is 'pre_velocity_sign'.
 
     Returns
     -------
-    """
-    colors = ['teal', 'blueviolet']
-    labels = [r'$V > V_{treadmill}$', r'$V < V_{treadmill}$']
-    conditions = ['pos', 'neg']
+    None.
 
+    """
+
+    labels = get_colum_labels(column)
     if x_distinction:
     
         hue = 'pre_x_front_back'
@@ -3227,19 +3326,56 @@ def violin_plot_x_v_distiction(result, pre_direct, mouse_type, opto_par, stim_lo
         hue = 'optogenetic expression'
         hue_order = ['ChR2', 'Control']
     
-    g = sns.catplot(x = "epoch", y = velocity_measure, col="pre_velocity_sign", hue = hue,
-                    data=result, kind="violin", split=True, palette = ['.4', '.7'],
-                    scale_hue=False, linewidth=2, inner="quartile", scale='area',
-                    hue_order= hue_order, col_order=['pos', 'neg'], legend=False)
+    result['epoch+parameter'] = result[['epoch', column]].agg('_'.join, axis=1)
+
+    g = sns.catplot(x = "epoch", y = velocity_measure, col=column, hue = hue,
+                    data=result, kind="violin", split=True, palette = ['.4', '.8'], dodge = True,
+                    scale_hue=False, linewidth=1, inner='quartile', scale=scale,
+                    hue_order= hue_order, col_order=['pos', 'neg'], legend=False, bw=.2)
+    
+        
+
+    
     
     axes = g.axes[0]
-    n_trials = plot_ON_OFF_v_mean(result, pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, 
-                           back_front_boundary, v_threshold, pre_stim_inter, 
-                           ylim = ylim, velocity_measure = velocity_measure, 
-                            axes = axes, save = False, title =False, legend = False)
+    plot_ON_OFF_measure(result, pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, 
+                        back_front_boundary, v_threshold, pre_stim_inter, 
+                        ylim = ylim, velocity_measure = velocity_measure, 
+                        axes = axes, save = False, title =False, legend = False,
+                        colors = ['k', 'k'], group_by = [column, 'epoch'])
     
+    plot_ON_OFF_measure_with_x_distionction(result, pre_direct, mouse_type, opto_par, stim_loc, stim_type, fps, 
+                                            back_front_boundary, v_threshold, pre_stim_inter, 
+                                            ylim = ylim, velocity_measure = velocity_measure, 
+                                            axes = axes, save = False, title =False, legend = False,
+                                            group_by = [column, hue, 'epoch'], 
+                                            colors = colors, alphas = alphas,
+                                            lstyles = ls, position_conditions = position_conditions)
+    exist_dict = annotate_n_trials_with_distinction(axes, result, position_conditions, velocity_conditions,
+                                                    column = column, hue = hue)
     for i, ax in enumerate(axes):
-        
+
+        hue_list = [key for key, exist in exist_dict[i].items() if exist]
+        pairs = get_box_pairs(velocity_conditions, hue = hue_list)
+        if len(pairs) > 0:
+            add_stat_annotation(ax, data = result,
+                                x = "epoch", y = velocity_measure,
+                                hue = hue,
+                                box_pairs = pairs,
+                                test='Wilcoxon', text_format='star', 
+                                loc='outside')
+            add_stat_annotation(ax, data = result,
+                                x = "epoch", y = velocity_measure,
+                                box_pairs = [('OFF', 'ON')],
+                                test='Wilcoxon', text_format='star', 
+                                loc='inside')
+            
+
+        # annotator = Annotator(ax, pairs, data=result, x = "epoch", y = velocity_measure, hue = hue,
+        #                       order = ['OFF', 'ON'])#, hue_order= hue_order)
+        # annotator.configure(test='Wilcoxon', text_format='star', loc='inside')
+        # annotator.apply_and_annotate()
+
         set_ticks(ax)
         ax.axhline(y=0, ls='--', c='r', linewidth = 1, zorder = -1)
         ax.axhline(y=1, ls='--', c='g', linewidth = 1, zorder = -1)
@@ -3247,23 +3383,11 @@ def violin_plot_x_v_distiction(result, pre_direct, mouse_type, opto_par, stim_lo
         ax.set_xlabel('Laser', fontsize = 20)
         ax.set_ylabel('mean norm. velocity', fontsize = 20)
         ax.set_ylim(ylim)
-        try:
-            n =  str(n_trials[conditions[i], 'ON'])
-            
-        except KeyError:
-            
-            print(conditions[i], 'ON', ' not found')
-            n = '0'
-        ax.annotate('N = ' + n, 
-                    (0.1, 0.1), xycoords='axes fraction', fontsize = 20)
-        
-        for ind, violin in enumerate(ax.findobj(mlt.collections.PolyCollection)):
-            rgb = mlt.colors.to_rgb(colors[i])
-            if ind % 2 != 0:
-                rgb = 0.5 + 0.4 * np.array(rgb)  # make whiter
-            violin.set_facecolor(rgb)
-            violin.set_alpha(alpha)
 
+        set_violin_color(ax, colors[i], violin_alpha)
+        remove_violin_lines(ax)
+    
+    unsaturate_hue_violins(axes, exist_dict, colors)
     ax.axes.get_yaxis().set_visible(False)
     fig = ax.get_figure()
     g.fig.set_figwidth(6.0)
@@ -3275,7 +3399,7 @@ def violin_plot_x_v_distiction(result, pre_direct, mouse_type, opto_par, stim_lo
                  + ' ' + stim_type.replace('_', ' ')
                  + '_' + stim_loc,
                  fontsize=15, y=1)
-    
+    fig.tight_layout()
     if x_distinction:
         legend = ax.legend(loc='upper left', frameon = False,
                             title='position on treadmill', fontsize=18)
@@ -3283,13 +3407,111 @@ def violin_plot_x_v_distiction(result, pre_direct, mouse_type, opto_par, stim_lo
     fig.savefig(os.path.join(pre_direct, 'Subplots', 'distinction',
                              mouse_type 
                              + '_' + opto_par
-                             + '_x_v_violin_plot_' 
+                             + '_x_' + column + '_violin_plot_' 
                              + stim_type 
                              + '_' + stim_loc
                              + '_pre_stim_t=' 
                              + str(int(pre_stim_inter*1000/fps))
-                             + save_as_format), 
+                             + save_as_format), transparent = True,
                 bbox_inches='tight', orientation='landscape', dpi=350)
+
+def get_colum_labels(column):
+    
+    if 'velocity' in column:
+        labels = [r'$V > V_{treadmill}$', r'$V < V_{treadmill}$']
+        
+    elif 'accel' in column:
+        labels = ['accelerating', 'decelerating']
+        
+    return labels
+
+def remove_violin_lines(ax):
+    violins = ax.findobj(mlt.collections.PolyCollection)
+
+    for l in ax.lines[:3 * len(violins)]: # remove lines of the violin plots
+        l.set_alpha(0)
+        
+        
+def set_violin_color(ax, c, alpha):
+    violins = ax.findobj(mlt.collections.PolyCollection)
+
+    for violin in violins:
+        rgb = mlt.colors.to_rgb(c)
+        violin.set_facecolor(rgb)
+        violin.set_alpha(alpha)
+
+def unsaturate_hue_violins(axes, exist_dict, colors):
+
+    for i, ax in enumerate(axes):
+        violins = ax.findobj(mlt.collections.PolyCollection)
+
+        if exist_dict[i]['back']:
+            if exist_dict[i]['front']:
+                violin_back = violins[1::2]
+            else:
+                violin_back = violins[::2]
+            for violin in violin_back:
+                rgb = mlt.colors.to_rgb(colors[i])
+                rgb = 0.5 + 0.4 * np.array(rgb)  # make whiter
+                violin.set_facecolor(rgb)
+                
+                
+def annotate_n_trials(ax, n_dict, key, xy = (0.5, 0.1), txt = 'N = ',
+                      fontsize = 20):
+    """
+    Annotate the number of trials for the provided key within the `n_dict`.
+
+    Parameters
+    ----------
+    ax : Axesplot
+        matplotlib axis.
+    n_dict : dict-like
+        dictionary of number of trials.
+    key : str, or tuple
+        key for which the number needs to be retrieved.
+    xy : tuple(float), optional
+        x and y coordinate of the text annotated in axes fraction. The default is (0.5, 0.1).
+    txt : str, optional
+        Text informing about the number. The default is 'N = '.
+    fontsize : float, optional
+        fontsize of text. The default is 20.
+
+    Returns
+    -------
+    exists : bool
+        Returns `True` if the key exists and `False` otherwise.
+
+    """
+    
+
+    if key in n_dict:
+        n =  str(n_dict[key])
+        exists = True
+    else:
+        n = '0'
+        exists = False
+    ax.annotate(txt + n, 
+                xy, xycoords='axes fraction', fontsize = fontsize)
+    return exists
+
+def annotate_n_trials_with_distinction(axes, result, position_conditions, velocity_conditions, 
+                                       column = 'pre_velocity_sign', hue = 'pre_x_front_back'):
+    
+    n_trials_x_v = result.groupby([column, hue, 'epoch']).size().to_dict()
+    n_trials_all = result.groupby([column, 'epoch']).size().to_dict()    
+    exist_dict = []
+    for i, ax in enumerate(axes):
+        annotate_n_trials(ax, n_trials_all, (velocity_conditions[i], 'ON'), xy = (0.4, 0.05))
+        
+        exist_dict.append({})
+        for x, pc in zip([0.1, 0.6], position_conditions):
+            
+            exist_dict[i][pc] = annotate_n_trials(ax, n_trials_x_v, 
+                              (velocity_conditions[i], pc, 'ON'), 
+                              xy = (x, 0.15), txt = r'$N_{' + pc + '}=$',
+                              fontsize = 15)
+            
+    return exist_dict
 
 def plot_velocity_phase_space(result, pre_direct, mouse_type, opto_par, stim_loc, stim_type, 
                               fps, back_front_boundary, v_threshold, 
@@ -3797,7 +4019,6 @@ def extract_epochs_over_trials(files_list_DLC, files_list_laser, direct, stim_lo
         pre_era = pre_stim_inter
 
     plot_param = study_param_dict['plot_param']
-    i = 0
 
     epochs = np.empty((0, pre_interval+interval+post_interval+1))
     epochs_pos = np.empty((0, pre_stim_inter+interval+post_interval+1))
@@ -3806,8 +4027,6 @@ def extract_epochs_over_trials(files_list_DLC, files_list_laser, direct, stim_lo
     pre_info = np.empty((0, 3))
     session_day_tag = np.empty((0, 1))
     mouse_no_list = np.empty((0, 1))
-
-    last_trial = 0
     
     for i in range(0, len(files_list_DLC)):
 
@@ -3822,11 +4041,11 @@ def extract_epochs_over_trials(files_list_DLC, files_list_laser, direct, stim_lo
                                         misdetection_dict, 
                                         **study_param_dict)
         session_length = len(position)
+        
         velocity = derivative_mov_ave(position, n_timebin, window_veloc, fps)
         abs_velocity =  velocity + treadmill_velocity
         normalized_velocity = abs_velocity / treadmill_velocity 
-
-        acceleration = derivative(abs_velocity, n_timebin, fps)
+        acceleration = derivative(normalized_velocity, n_timebin, fps)
 
         # if only onse side is needed
         # variable, left_side = position_r_l(df, which_plot,where_plot)
@@ -3864,6 +4083,7 @@ def extract_epochs_over_trials(files_list_DLC, files_list_laser, direct, stim_lo
         
         if n_trials == 0:
             continue
+        
         video_path_temp = file_path_DLC.split('_DLC')[0] + '.avi'
         
         session_day_tag = np.append(session_day_tag, np.full((n_trials, 1), find_session_day_tag(video_path_temp)[0])) # only take the letter
@@ -3899,11 +4119,11 @@ def extract_epochs_over_trials(files_list_DLC, files_list_laser, direct, stim_lo
             pre_info = np.append(pre_info,
                                  np.concatenate(
                                     (np.average(
-                                         epochs_pos[:, pre_interval - pre_stim_inter:pre_era], axis=1).reshape(-1, 1),
+                                         epochs_pos[:, pre_interval - pre_stim_inter : pre_era], axis=1).reshape(-1, 1),
                                     np.average(
-                                        epochs_veloc[:, pre_interval - pre_stim_inter:pre_era], axis=1).reshape(-1, 1),
+                                        epochs_veloc[:, pre_interval - pre_stim_inter : pre_era], axis=1).reshape(-1, 1),
                                     np.average(
-                                        epochs_acc[:, pre_interval - pre_stim_inter:pre_era], axis=1).reshape(-1, 1)
+                                        epochs_acc[:, pre_interval - pre_stim_inter : pre_era], axis=1).reshape(-1, 1)
                                     ), 
                                      axis=1),    
                                  axis=0)
@@ -4097,10 +4317,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
 
             if len(files_list_spont) == 0:  # if no spont trials recorded set it to zero
 
-                epochs_spont = np.empty((0, epochs.shape[1]))
-                # construct an array of all the spont epochs
-                # epochs_spont_all_mice = np.append(
-                #     epochs_spont_all_mice, epochs_spont, axis=0)
+                epochs_spont = np.empty((0, epochs.shape[1])) # construct an array of all the spont epochs
                 n_samples = 0
 
             else:
@@ -4385,7 +4602,7 @@ def get_nested_keys(dictionary):
     
     return np.unique(keys) 
  
-def superimpose_intensities(opto_par_list, pulse_cmap_dict, protocol_dict, stim_type_dict,
+def superimpose_intensities(opto_par_list, pulse_cmap_dict, protocol_dict, 
                             stim_loc_dict, pre_direct, scale_pix_to_cm, 
                             mouse_type, mouse_dict, treadmill_velocity,
                             ylim, spont_trial_dict, misdetection_dict,
