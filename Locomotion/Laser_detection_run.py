@@ -16,8 +16,8 @@ treadmil_length_in_cm = 37.6
 constrain_frame= True
 max_iteration = 20
 
-# enforce_use_laser_detection_only = True
-enforce_use_laser_detection_only = False
+enforce_use_laser_detection_only = True
+# enforce_use_laser_detection_only = False
 use_laser_detection_if_no_analogpulse = True
 reanalyze_existing = True
 
@@ -32,8 +32,8 @@ RGB_blueLower = (150, 10,60)
 RGB_blueUpper = (255, 120, 140)
 center_vicinity_h_thresh = 0.3
 start_end_h_thresh = 0.3
-path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre'
-laser_detection_path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/LASER_DETECTION'
+path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2'
+laser_detection_path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2/LASER_DETECTION'
 
 # directory = Directory(path)
 # video_filepath_list = directory.get_spec_files( extensions= ['.avi', '.mp4', '.mov'])
@@ -41,7 +41,7 @@ laser_detection_path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/L
 # for n, v in enumerate(video_filepath_list): 
 #     if 'o21' in v:
 #         print(n) 
-video_filepath_list = ['/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/ChR2/Mouse_60/STR/squarepulse_0-5mW/Video/Vglut2D2Cre#60_SquarePulse_STR_0-5mW_15cm-s_Right_b04.avi']
+video_filepath_list = ['/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2/ChR2/Mouse_70/STN/squarepulse_0-75_mW/Video/Vglut2D2Cre#70_squarepulse_STN_0-75mW_15cm-s_t11_Stacked.avi']
 # video_filepath_list = SortedExpeiment.read_summary_csv(os.path.join(laser_detection_path, 'Problematic_files.csv'))
 
 print( '{} experiment files found.'.format(len(video_filepath_list)) )
@@ -64,7 +64,7 @@ for i, filepath in enumerate(video_filepath_list):
         if not sorted_exp.already_analyzed or reanalyze_existing:
 
             laser_detector = LaserDetector( sorted_exp.video.path,  
-                                            sorted_exp.files['DLC'].path,
+                                            sorted_exp.DLC_path,
                                             thresh_method = 'rgb',
                                             area_cal_method = area_cal_method,
                                             image_parts = ['upper', 'lower'],
@@ -88,7 +88,7 @@ for i, filepath in enumerate(video_filepath_list):
                           true_duration = sorted_exp.stim_duration)
             
             # analogpulse.remove_pulses( -(np.arange(6)+1)) ## if analogpulse has more pulses input the indicies of the pulses to delete
-            # pulse.cut_sig(11630)                           ## if there are problems in the signal cut it here
+            # pulse.cut_sig(11700)                           ## if there are problems in the signal cut it here
             
 
             pulse.find_events(gauss_window = 10, 
@@ -119,7 +119,11 @@ for i, filepath in enumerate(video_filepath_list):
             # starts = remove_element(starts, 14)
             # ends = remove_element(ends, 14)
             
-            
+            # centers = centers + 8
+            # ends = ends + 8
+            # starts = starts[:-1]
+            # ends = ends[:-1]
+            # centers = centers[:-1]
             ax_superimp = pulse.plot_superimposed(starts, ends, centers, true_duration)
             
             sorted_exp.save_laser_detections (starts, ends, 
@@ -130,9 +134,7 @@ for i, filepath in enumerate(video_filepath_list):
                                              centers, 
                                              pulse.normalize(pulse.smoothed_sig)[centers],
                                              title = pulse.method)
-            # starts = starts[:-1]
-            # ends = ends[:-1]
-            # centers = centers[:-1]
+
 
             filename = sorted_exp.video.name_base + '_constrained_'  + str(constrain_frame)
             pulse.save_figs( ax, ax_superimp, 

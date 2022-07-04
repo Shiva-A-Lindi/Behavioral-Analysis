@@ -297,13 +297,14 @@ class LaserDetector :
         
         vidstr = VideoStream( self.video_filepath , nb_frames = nb_frames). start()
         
-        x_range, y_range = None, None
         
         if constrain_frame:
             x_range, y_range = self.set_laser_boundaries( p_cutoff = p_cutoff_ranges, 
                                                          treadmil_length_in_pix = vidstr.treadmil_length_in_pix,
                                                          max_dev_in_cm = max_dev_in_cm )
-            
+        else:
+            x_range, y_range = None, None
+
         laser = Laser ( low_img_thresh, high_img_thresh )
                     
         laser.detect(vidstr, 
@@ -442,11 +443,11 @@ class Laser :
         
 
         
-    def plot_contour(self, mask, frame_no, image, contours = None):
+    def plot_mask(self, mask, frame_no, image, contours = None):
         
         while True:
     	
-            cv2.imshow('contours frame # {}'.format(frame_no), image) # display the image and wait for a keypress
+            cv2.imshow('frame # {}'.format(frame_no), image) # display the image and wait for a keypress
             cv2.imshow('mask', mask)
             # cv2.drawContours(image, contours, -1, (0,0, 255), 3)
 
@@ -477,6 +478,7 @@ class Laser :
             n += 1
             frame.no = n
             
+            print(frame.no)
             # if int(frame.no) % 1000 == 0:
             #     print('frame :', frame.no)
                 
@@ -489,9 +491,9 @@ class Laser :
             
 
             
-            # if frame.no == 2175 :
+            if frame.no == 187 :
                 
-            #     self. plot_contour(masked, frame.no, frame.image)
+                self. plot_mask(masked, frame.no, frame.image)
            
     @staticmethod                
     def moving_average_array(X, n):
@@ -1147,7 +1149,7 @@ class AnalogPulse :
         
 class SortedExpeiment(Experiment) :
     
-    def __init__(self, video_filepath, stim_duration_dict):
+    def __init__(self, video_filepath, stim_duration_dict, extract_info_from_file = True):
         
         Experiment.__init__(self, video_filepath)
         
@@ -1156,9 +1158,11 @@ class SortedExpeiment(Experiment) :
         self.check_func = {'DLC': self.right_DLC, 
                            'analogpulse': self.right_analogpulse}
     
-
-        self.extract_info_from_video_filename()
-        self.find_stim_duration(stim_duration_dict)
+        if extract_info_from_file:
+            self.extract_info_from_video_filename()
+            self.find_stim_duration(stim_duration_dict)
+        
+        self.get_DLC_path()
         self.exp_dir = os.path.dirname( self.video.dirpath )
         
         self.find_analogpulse_DLC_csv()
@@ -1167,11 +1171,21 @@ class SortedExpeiment(Experiment) :
         self.already_analyzed = False
         self.prob_csv_path= None
     
+    def get_DLC_path(self):
+        
+        if isinstance(self.files['DLC'], File):
+            self.DLC_path = self.files['DLC'].path
+        else:
+        
+            self.DLC_path = None
+        
+            
     def find_stim_duration(self, stim_duration_dict):
         
         beta = 'beta' in self.stim_type.lower()
         square = 'square' in self.stim_type.lower()
         
+        print(beta, square)
         if beta and not square:
             self.stim_duration = stim_duration_dict['beta']
         
@@ -1185,14 +1199,15 @@ class SortedExpeiment(Experiment) :
         
         directory = Directory( os.path.join( self.exp_dir, 'Laser'))
         
-        supposed_analysis_filepath = os.path.join(self.exp_dir, 'Laser', 
-                                                  self.files['DLC'].name_base +
-                                                  '_Laser.csv')
-
-        if supposed_analysis_filepath in directory.filepath_list['.csv']:
-            
-            self.already_analyzed = True
-            print('File already analyzed!')
+        if isinstance(self.files['DLC'], str):
+            supposed_analysis_filepath = os.path.join(self.exp_dir, 'Laser', 
+                                                      self.files['DLC'].name_base +
+                                                      '_Laser.csv')
+            if '.csv' in directory.filepath_list:
+                if supposed_analysis_filepath in directory.filepath_list['.csv']:
+                    
+                    self.already_analyzed = True
+                    print('File already analyzed!')
             
     def right_analogpulse (self, file):
         
