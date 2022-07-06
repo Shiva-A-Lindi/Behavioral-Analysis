@@ -31,13 +31,191 @@ from scipy.ndimage import gaussian_filter1d
 from pdf2image import convert_from_path
 
 from File_hierarchy import *
+import yaml
+from ruamel.yaml import YAML
+
+##################### Config file  ##########################################################################################
+def create_config_template():
+    """
+    Creates a template for config.yaml file. This specific order is preserved while saving as yaml file.
+    """
+
+    yaml_str = """\
+    # Project definitions (do not edit)
+        \n
+        experiment: # experiment paradigm 
+        \n
+    # Project path (change when moving around)
+        \n
+        project_path: '/home/shiva/Desktop/Rat_Lever_Analysis'
+        \n
+    # Experiment parameters
+        \n
+        fps : # frame per second of recorded video
+        treadmil_length_in_cm : # float, Full treadmill length in cm
+        stim_duration_dict : # dictionary, corresponding stim durations (in ms) for different pulses
+        stim_duration : # stim duration time, not necessary if stim type is specified in name and the above dict is specified.
+    # Frame analysis parameters
+        \n
+        thresholding_method : # str, {'RGB', 'HSV'}
+        pix_thresh_upper_bound : #  (R, G, B) and  (H, S, V)
+        pix_thresh_lower_bound : # (R, G, B) and (H, S, V) 
+        area_cal_method: # str, pix_count--> counts nb of laser pixels, contour--> creates contour around laser (suitable for HSV)
+
+        \n
+    # Laser detection parameters
+        \n
+        use_laser_detection_if_no_analogpulse : # bool
+        enforce_use_laser_detection_only : # bool, True if you don't want to use the analogpulse
+        reanalyze_existing: # bool, True if you wish to reanalyze already analyzed videos 
+        \n
+    # Individual Pulse detection parameters
+        \n
+        crude_smooth_wind : # gassian kernel window for crudly smoothing 
+        center_vicinity_h_thresh: # peak threshold value for crudly smoothed signal 
+        gauss_window : # gaussina kernel window for smoothing signal before bandpass filtering
+        bandpass_frequency : # (low_f, high_f) tuple specifying the freq band to filter for detecting start end of pulse
+        filter_order : # bandpass filter order
+        start_end_h_thresh: # peak threshold value for start end event detection using above specified bandpass filtered sig
+        \n
+    # DLC Aid parameters
+        \n
+        constrain_frame : # bool, whether or not constrain searched pixels with DLC analysis
+        DLC_label : # str, DLC label to use to constrain pixels
+        p_cutoff_ranges: # float, cutoff label detection liklihood to use to constrain the vertical wherabout of laser
+        max_dev_in_cm : # float, maximum deviation in cm around the provided label to constrain pixels.
+        
+    """
+
+    ruamelFile = YAML()
+    cfg_file = ruamelFile.load(yaml_str)
+    return cfg_file, ruamelFile
+    
+def read_config(configpath):
+    """
+    Reads structured config file defining a project.
+    """
+    
+    ruamelFile = YAML()
+    if os.path.exists(configpath):
+        try:
+            with open(configpath, "r") as f:
+                cfg = ruamelFile.load(f)
+                return cfg
+                # curr_dir = os.path.dirname(configname)
+                # if cfg["project_path"] != curr_dir:
+                #     cfg["project_path"] = curr_dir
+                #     write_config(configname, cfg)
+        except Exception as err:
+            
+            if len(err.args) > 2:
+                if ( err.args[2]
+                    == "could not determine a constructor for the tag '!!python/tuple'"):
+                    with open(path, "r") as ymlfile:
+                        
+                        cfg = yaml.load(ymlfile, Loader=yaml.SafeLoader)
+                        write_config(configname, cfg)
+                    return cfg
+                else:
+                    raise
+
+    else:
+        raise FileNotFoundError(
+            "Config file is not found. Please make sure that the file exists and/or that you passed the path of the config file correctly!"
+                                )
+    
+
+
+def write_config(configname, cfg):
+    """
+    Write structured config file.
+    """
+#     write_plainconfig(configname, cfg)
+    with open(configname, "w") as cf:
+        cfg_file, ruamelFile = create_config_template()
+        for key in cfg.keys():
+            cfg_file[key] = cfg[key]
+
+        ruamelFile.dump(cfg_file, cf)
+
+def edit_config(configname, edits):
+    """
+    Convenience function to edit and save a config file from a dictionary.
+    Parameters
+    ----------
+    configname : string
+        String containing the full path of the config file in the project.
+    """
+    cfg = read_plainconfig(configname)
+    
+    for key, value in edits.items():
+        cfg[key] = value
+    write_plainconfig(configname, cfg)
+    
+    return cfg
+
+def read_plainconfig(configname):
+    
+    if not os.path.exists(configname):
+        raise FileNotFoundError(
+            f"Config {configname} is not found. Please make sure that the file exists."
+        )
+    with open(configname) as file:
+        return YAML().load(file)
+
+def write_plainconfig(configname, cfg):
+    with open(configname, "w") as file:
+        YAML().dump(cfg, file)
+        
+def set_config_file(path): 
+    cfg = {
+        'area_cal_method': 'pix_count', # str, {'pix_count': counts nb of laser pixels, 'contour': creates contour around laser (suitable for HSV)}, 
+        'experiment': 'locomotion treadmill',# experiment paradigm 
+        'project_path': path,
+        'fps' : 250,# frame per second of recorded video
+        'treadmil_length_in_cm' : 37.6,# float, Full treadmill length in cm
+        'stim_duration_dict' : { 'beta': 118, 'square': 125, 'beta-square': 125} , # dictionary, corresponding stim durations (in ms) for different pulses
+        'stim_duration' : None, # stim duration time, not necessary if stim type is specified in name and the above dict is specified.
+        'thresholding_method' : 'RGB',# str, {'RGB', 'HSV'}
+        'pix_thresh_upper_bound' : {'RGB': (255, 120, 140),
+                                  'HSV': (150, 255, 255)}, # dictionary , {'HSV': (H, S, V), 
+                                                                          # 'RGB' : (R, G, B)}
+        'pix_thresh_lower_bound' :  {'RGB': (150, 10,60),
+                                  'HSV': (50, 80, 60)},# dictionary , {'HSV': (H, S, V), 
+                                                                     # 'RGB' : (R, G, B)}
+
+        'use_laser_detection_if_no_analogpulse' : True,# bool
+        'enforce_use_laser_detection_only' : False,# bool, True if you don't want to use the analogpulse
+        'reanalyze_existing': False,# bool, True if you wish to reanalyze already analyzed videos 
+        'crude_smooth_wind' : 100,# gassian kernel window for crudly smoothing 
+        'center_vicinity_h_thresh': 0.3,# peak threshold value for crudly smoothed signal 
+        'gauss_window' : 10,# gaussina kernel window for smoothing signal before bandpass filtering
+        'bandpass_frequency' : (1, 50),# (low_f, high_f) tuple specifying the freq band to filter for detecting start end of pulse
+        'filter_order' : 6,# bandpass filter order
+        'start_end_h_thresh': 0.3,# peak threshold value for start end event detection using above specified bandpass filtered sig
+    
+        'constrain_frame' : True,# bool, whether or not constrain searched pixels with DLC analysis
+        'DLC_label' : 'Nose',# str, DLC label to use to constrain pixels
+        'p_cutoff_ranges': 0.995,# float, cutoff label detection liklihood to use to constrain the vertical wherabout of laser
+        'max_dev_in_cm' : 1.7# float, maximum deviation in cm around the provided label to constrain pixels.
+        }
+
+
+
+    configpath = os.path.join(path, os.path.basename(os.path.normpath(path)) + '_config.yaml')
+    
+    if not os.path.exists(configpath):
+        write_config(configpath, cfg)
+        
+    return configpath
+
 
 class MouseLocation:
     
 
     def __init__( self, DLC_filepath, pos_in_vid = 'upper', p_cutoff = 0.995, 
                  treadmil_length_in_cm = 33, treadmil_length_in_pix = 1000,
-                 max_dev_in_cm = 2):
+                 max_dev_in_cm = 2, body_part = 'Nose'):
         
         
         self.DLC_filepath = DLC_filepath
@@ -49,7 +227,7 @@ class MouseLocation:
         self.y_range = None
         self.pos_in_vid = pos_in_vid
         self._set_side_from_pos(pos_in_vid)
-        self.get_location()
+        self.get_location(body_part = body_part)
         self.max_dist_nose_to_laser = self.cal_max_deviat_nose_to_laser(treadmil_length_in_cm, 
                                                                         treadmil_length_in_pix, 
                                                                         max_dev_in_cm = max_dev_in_cm)
@@ -242,7 +420,7 @@ class LaserDetector :
     def __init__ (self, 
                   video_filepath, 
                   DLC_filepath,
-                  thresh_method = 'rgb',
+                  thresh_method = 'RGB',
                   area_cal_method = 'pix_count',
                   image_parts = ['upper', 'lower'],
                   treadmil_length_in_cm = 33):
@@ -258,17 +436,20 @@ class LaserDetector :
                              p_cutoff = 0.995, 
                              treadmil_length_in_pix = 1000,
                              max_dev_in_cm = 2, 
-                             plot_bounds = False):
+                             plot_bounds = False,
+                             body_part = 'Nose'):
         
         mloc_lower = MouseLocation( self.DLC_filepath , 'lower', p_cutoff = p_cutoff,
                                     treadmil_length_in_cm = self.treadmil_length_in_cm, 
                                     treadmil_length_in_pix = treadmil_length_in_pix,
-                                    max_dev_in_cm = max_dev_in_cm )
+                                    max_dev_in_cm = max_dev_in_cm,
+                                    body_part = body_part)
         
         mloc_upper = MouseLocation( self.DLC_filepath , 'upper', p_cutoff = p_cutoff, 
                                     treadmil_length_in_cm = self.treadmil_length_in_cm, 
                                     treadmil_length_in_pix = treadmil_length_in_pix,
-                                    max_dev_in_cm = max_dev_in_cm )
+                                    max_dev_in_cm = max_dev_in_cm,
+                                    body_part = body_part)
         
         if plot_bounds:
             
@@ -289,9 +470,10 @@ class LaserDetector :
                   low_img_thresh = (150, 10,60), 
                   high_img_thresh = (255, 120, 140),
                   nb_frames = None,
-                  p_cutoff_ranges = 0.995,
+                  DLC_p_cutoff_ranges = 0.995,
                   constrain_frame = True,
-                  max_dev_in_cm = 2):
+                  max_dev_in_cm = 2,
+                  DLC_body_label = 'Nose'):
         
         start = timeit.default_timer()
         
@@ -299,9 +481,10 @@ class LaserDetector :
         
         
         if constrain_frame:
-            x_range, y_range = self.set_laser_boundaries( p_cutoff = p_cutoff_ranges, 
+            x_range, y_range = self.set_laser_boundaries( p_cutoff = DLC_p_cutoff_ranges, 
                                                          treadmil_length_in_pix = vidstr.treadmil_length_in_pix,
-                                                         max_dev_in_cm = max_dev_in_cm )
+                                                         max_dev_in_cm = max_dev_in_cm,
+                                                         body_part = DLC_body_label)
         else:
             x_range, y_range = None, None
 
@@ -353,8 +536,8 @@ class Frame :
         
         self.constrain_frame = self.whether_constrain_frame()
         self.detection_thresh_methods = {
-                                        'hsv' : self.mask_hsv, 
-                                        'rgb' : self.mask_rgb}
+                                        'HSV' : self.mask_hsv, 
+                                        'RGB' : self.mask_rgb}
         
         self.detection_area_cal_methods = {
                                         'contour' : self.cal_contour_areas,
@@ -478,9 +661,9 @@ class Laser :
             n += 1
             frame.no = n
             
-            print(frame.no)
-            # if int(frame.no) % 1000 == 0:
-            #     print('frame :', frame.no)
+            # print(frame.no)
+            if int(frame.no) % 1000 == 0:
+                print('frame :', frame.no)
                 
             
             masked, self.area_list [frame.no - 1] = frame.detect_laser( self.low_img_thresh, 
@@ -491,7 +674,7 @@ class Laser :
             
 
             
-            if frame.no == 187 :
+            if frame.no == 14918 :
                 
                 self. plot_mask(masked, frame.no, frame.image)
            
@@ -577,7 +760,28 @@ class Pulse :
                            low_f = 1, high_f = 50, 
                            filt_order = 10,
                            peak_heights = 0.3):
-        
+        """
+        Filter laser detection signal between the low_f and high_f
+        and then find the events (peaks in filtered sig) based on the peak heights threshold
+
+        Parameters
+        ----------
+        gauss_window : int, optional
+            window for gaussian kernel. The default is 5.
+        low_f : float, optional
+            low bound for frequency find_peaks. The default is 1.
+        high_f : float, optional
+            upper bound for frequency find_peaks. The default is 50.
+        filt_order : int, optional
+            filter order. The default is 10.
+        peak_heights : float, optional
+            sig peak height threshold. The default is 0.3.
+
+        Returns
+        -------
+        None.
+
+        """
         self.pre_process( gauss_window = gauss_window, 
                         low_f = low_f, high_f = high_f, 
                         filt_order = filt_order)
@@ -588,10 +792,26 @@ class Pulse :
         
         self.smoothed_sig = gaussian_filter1d( self.raw_signal.copy(), crude_smooth_wind)
 
-    def find_center_vicinities(self, center_vicinity_h_thresh, crude_smooth_wind = 100):
-        
+    def find_center_vicinities(self, center_vicinity_h_thresh = 0.3, crude_smooth_wind = 100):
+        """
+        Find approximate time for the pulse center by detectinf the peaks of
+        crudly smoothed laser detection signal.
+
+        Parameters
+        ----------
+        center_vicinity_h_thresh : float, optional
+            peak threshold for detecting the pulse center. The default is 0.3
+        crude_smooth_wind : int, optional
+            Gaussian kernel smoothing window to have a crude laser detection envelope. The default is 100.
+
+        Returns
+        -------
+        None.
+
+        """
         self.smooth_sig(crude_smooth_wind)
-        self.center_vicinities,_ = find_peaks(self.normalize(self.smoothed_sig), height = center_vicinity_h_thresh)
+        self.center_vicinities,_ = find_peaks(self.normalize(self.smoothed_sig), 
+                                              height = center_vicinity_h_thresh)
 
     def determine_start_ends(self):
 
@@ -638,6 +858,7 @@ class Pulse :
         self.normalize_filtered_sig()
         
     def cut_sig(self, ind_cut):
+        
         self.signal = self.signal[:ind_cut]
         self.raw_signal = self.signal[:ind_cut].copy()
 
@@ -744,9 +965,10 @@ class Pulse :
               self.shift_rel_to_analogpulse_sd,
               ' frames')
 
-    def verify_nb_with_analog(self, h_thresh, 
+    def verify_nb_with_analog(self, 
                               video_filename, path, 
                               analogpulse,
+                              center_vicinity_h_thresh = 0.3,
                               change_coef = 0.2,
                               max_iteration = 20,
                               crude_smooth_wind = 100):
@@ -755,7 +977,7 @@ class Pulse :
 
         if not self.enforce_use_laser_detection_only:
             
-            self.find_center_through_recursion(h_thresh, 
+            self.find_center_through_recursion(center_vicinity_h_thresh, 
                                                video_filename, path,
                                                analogpulse,
                                                change_coef = change_coef,
@@ -765,56 +987,83 @@ class Pulse :
             
         else:
             
-            self.find_center_vicinities(h_thresh, crude_smooth_wind = crude_smooth_wind)
+            self.find_center_vicinities(center_vicinity_h_thresh = h_thresh, crude_smooth_wind = crude_smooth_wind)
             
-    def find_center_through_recursion(self, h_thresh, 
-                                     video_filename, path,
-                                     analogpulse,
-                                     change_coef = 0.2,
-                                     max_iteration = 20,
-                                     crude_smooth_wind = 100):
-        
+    def find_center_through_recursion(self, 
+                                      center_vicinity_h_thresh, 
+                                      video_filename, path,
+                                      analogpulse,
+                                      change_coef = 0.2,
+                                      max_iteration = 20,
+                                      crude_smooth_wind = 100):
+        """
+        In order to get all the center vicinities when knowing the actual number of pulses through the
+        analog signal, we recursively change the peak detection threshold of the center vicinites till 
+        we get it right.
+
+        Parameters
+        ----------
+        center_vicinity_h_thresh : float
+            starting peak threshold value.
+        video_filename : str
+            filename.
+        path : str
+            poth.
+        analogpulse : AnalogPulse
+            analogopulse class instance.
+        change_coef : float, optional
+            coefficient by which the threshold is scaled in each iteration. The default is 0.2.
+        max_iteration : int, optional
+            maximum number of iterations to reset the threshold. The default is 20.
+        crude_smooth_wind : int, optional
+            the gaussian kernel window to smooth the laser detection signal with . The default is 100.
+
+        Returns
+        -------
+        None.
+
+        """
         it = 0
         raise_err = True
-        h_thresh_1_before = h_thresh
+        h_thresh_1_before = center_vicinity_h_thresh
         h_thresh_2_before = 1
         message = 'zero iterations for threshold adjustment'
         while it < max_iteration:
             
-            self.find_center_vicinities(h_thresh, crude_smooth_wind = crude_smooth_wind)
+            self.find_center_vicinities(center_vicinity_h_thresh = center_vicinity_h_thresh, crude_smooth_wind = crude_smooth_wind)
 
             
             if len(self.center_vicinities) > len(analogpulse.centers):
                 
                 message = "Extra pulses are detected"
-                h_thresh = h_thresh_1_before + change_coef * abs(h_thresh_2_before - h_thresh_1_before)
+                center_vicinity_h_thresh = h_thresh_1_before + change_coef * abs(h_thresh_2_before - h_thresh_1_before)
 
             elif len(self.center_vicinities) < len(analogpulse.centers):
                 
                 message = "Not all pulses are detected"
                  
-                h_thresh = h_thresh_1_before - change_coef * abs(h_thresh_1_before - h_thresh_2_before)
+                center_vicinity_h_thresh = h_thresh_1_before - change_coef * abs(h_thresh_1_before - h_thresh_2_before)
 
 
             else:
                 
                 raise_err = False
-                print('working threshold = {} found in {} iterations'.format(h_thresh, it))
+                print('working threshold = {} found in {} iterations'.format(center_vicinity_h_thresh, it))
                 print(os.path.join(path, 'JPEG', 'Problematic'),
                       video_filename + '_unsuccessful.jpg')
                 File.rm_if_exist(os.path.join(path, 'JPEG', 'Problematic'), video_filename + '_unsuccessful.jpg')
                 
                 break
             
-            print(message, 'new threshold = ', h_thresh)
+            print(message, 'new threshold = ', center_vicinity_h_thresh)
 
             h_thresh_2_before = h_thresh_1_before
-            h_thresh_1_before = h_thresh
+            h_thresh_1_before = center_vicinity_h_thresh
             it += 1
         
         if raise_err:
-            self.find_center_vicinities(h_thresh, crude_smooth_wind = crude_smooth_wind)
-            self. _raise_err_out_plot(analogpulse, message, video_filename, path, h_thresh)
+            self.find_center_vicinities(center_vicinity_h_thresh, crude_smooth_wind = crude_smooth_wind)
+            self. _raise_err_out_plot(analogpulse, message, video_filename, path, center_vicinity_h_thresh)
             
         return 
     
@@ -948,7 +1197,7 @@ class Pulse :
     
     def normalize_filtered_sig(self):
         
-        
+        """ normalize filtered signal by the maximum deflection value"""
         max_sig = max( abs ( self.signal[ self.signal < 0]) )
         self.signal = self.signal / max_sig
 
@@ -1149,18 +1398,22 @@ class AnalogPulse :
         
 class SortedExpeiment(Experiment) :
     
-    def __init__(self, video_filepath, stim_duration_dict, extract_info_from_file = True):
+    def __init__(self, video_filepath, 
+                 stim_duration = None,
+                 stim_duration_dict = { 'beta': 118, 'square': 125, 'beta-square': 125}, 
+                 extract_info_from_file = True):
         
         Experiment.__init__(self, video_filepath)
         
         self.files = {'DLC': None, 'analogpulse': None}
-        self.stim_duration = None
+        self.stim_duration = stim_duration
         self.check_func = {'DLC': self.right_DLC, 
                            'analogpulse': self.right_analogpulse}
     
         if extract_info_from_file:
             self.extract_info_from_video_filename()
-            self.find_stim_duration(stim_duration_dict)
+        
+        self.find_stim_duration(stim_duration_dict)
         
         self.get_DLC_path()
         self.exp_dir = os.path.dirname( self.video.dirpath )
@@ -1170,7 +1423,8 @@ class SortedExpeiment(Experiment) :
 
         self.already_analyzed = False
         self.prob_csv_path= None
-    
+        self.result_filename = self.get_result_filename()
+        
     def get_DLC_path(self):
         
         if isinstance(self.files['DLC'], File):
@@ -1184,16 +1438,18 @@ class SortedExpeiment(Experiment) :
         
         beta = 'beta' in self.stim_type.lower()
         square = 'square' in self.stim_type.lower()
-        
-        print(beta, square)
-        if beta and not square:
-            self.stim_duration = stim_duration_dict['beta']
-        
-        elif square:
-            self.stim_duration = stim_duration_dict['square']
+
+        if self.stim_duration == None:
             
-        else:
-            self.stim_duration = None
+            if beta and not square:
+                self.stim_duration = stim_duration_dict['beta']
+            
+            elif square:
+                self.stim_duration = stim_duration_dict['square']
+                
+            else:
+                print('stim duration is unknown!')
+                self.stim_duration = None
         
     def check_if_already_analyzed(self):
         
@@ -1281,8 +1537,7 @@ class SortedExpeiment(Experiment) :
                            columns = ['ON', 'OFF'])
     
         resultFilePath = os.path.join(self.exp_dir, 'Laser', 
-                                      self.files['DLC'].name_base +
-                                      '_Laser.csv')
+                                      self.result_filename)
         
         with open(resultFilePath, 'w') as resultfile:
     
@@ -1291,6 +1546,15 @@ class SortedExpeiment(Experiment) :
             
         df.to_csv(resultFilePath,  mode = 'a', index = False)
     
+    def get_result_filename(self):
+        
+        if isinstance(self.files['DLC'], File):
+            return self.files['DLC'].name_base + '_Laser.csv'
+        
+        else:
+            
+            return self.video.name_base +  '_Laser.csv'
+        
     def get_laser_start_end(self, pulse, analogpulse, true_duration):
         
         if pulse.use_laser_detection_only(analogpulse) or pulse.enforce_use_laser_detection_only :
