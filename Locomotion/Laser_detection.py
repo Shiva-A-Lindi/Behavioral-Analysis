@@ -47,27 +47,29 @@ def create_config_template():
         \n
     # Project path (change when moving around)
         \n
-        project_path: '/home/shiva/Desktop/Rat_Lever_Analysis'
+        project_path: 
         \n
     # Experiment parameters
         \n
         fps : # frame per second of recorded video
         treadmil_length_in_cm : # float, Full treadmill length in cm
-        stim_duration_dict : # dictionary, corresponding stim durations (in ms) for different pulses
-        stim_duration : # stim duration time, not necessary if stim type is specified in name and the above dict is specified.
+        stim_duration_dict : # stim durations (in ms) for different pulses
+        stim_duration : # stim duration time (in ms), not necessary if stim type is specified in name and the above dict is specified.
+        duration_off_per_cycle : # duration of laser off (in ms)per pulse (normal beta would be 25 ms)
+        extract_info_from_file : # True only for locomotion and only if filenames comply with the common naming rules
     # Frame analysis parameters
         \n
-        thresholding_method : # str, {'RGB', 'HSV'}
+        thresholding_method : # RGB or HSV
         pix_thresh_upper_bound : #  (R, G, B) and  (H, S, V)
         pix_thresh_lower_bound : # (R, G, B) and (H, S, V) 
-        area_cal_method: # str, pix_count--> counts nb of laser pixels, contour--> creates contour around laser (suitable for HSV)
+        area_cal_method: # pix_count for counting nb of laser pixels, or contour for analyzing contours around laser (suitable for HSV)
 
         \n
     # Laser detection parameters
         \n
-        use_laser_detection_if_no_analogpulse : # bool
-        enforce_use_laser_detection_only : # bool, True if you don't want to use the analogpulse
-        reanalyze_existing: # bool, True if you wish to reanalyze already analyzed videos 
+        use_laser_detection_if_no_analogpulse : # true or false
+        enforce_use_laser_detection_only : # true if you don't want to use the analogpulse
+        reanalyze_existing: # true if you wish to reanalyze already analyzed videos 
         \n
     # Individual Pulse detection parameters
         \n
@@ -77,18 +79,20 @@ def create_config_template():
         bandpass_frequency : # (low_f, high_f) tuple specifying the freq band to filter for detecting start end of pulse
         filter_order : # bandpass filter order
         start_end_h_thresh: # peak threshold value for start end event detection using above specified bandpass filtered sig
+        max_iteration : # maximum number of iterations for recursive adjustment of peak threshold
         \n
     # DLC Aid parameters
         \n
         constrain_frame : # bool, whether or not constrain searched pixels with DLC analysis
         DLC_label : # str, DLC label to use to constrain pixels
-        p_cutoff_ranges: # float, cutoff label detection liklihood to use to constrain the vertical wherabout of laser
+        DLC_p_cutoff_ranges: # float, cutoff label detection liklihood to use to constrain the vertical wherabout of laser
         max_dev_in_cm : # float, maximum deviation in cm around the provided label to constrain pixels.
         
     """
 
     ruamelFile = YAML()
     cfg_file = ruamelFile.load(yaml_str)
+    
     return cfg_file, ruamelFile
     
 def read_config(configpath):
@@ -99,9 +103,11 @@ def read_config(configpath):
     ruamelFile = YAML()
     if os.path.exists(configpath):
         try:
-            with open(configpath, "r") as f:
-                cfg = ruamelFile.load(f)
-                return cfg
+            # with open(configpath, "r") as f:
+            #     cfg = ruamelFile.load(f)
+            a_yaml_file = open(configpath)
+            cfg = yaml.load(a_yaml_file, Loader=yaml.FullLoader)
+            return cfg
                 # curr_dir = os.path.dirname(configname)
                 # if cfg["project_path"] != curr_dir:
                 #     cfg["project_path"] = curr_dir
@@ -167,15 +173,36 @@ def write_plainconfig(configname, cfg):
     with open(configname, "w") as file:
         YAML().dump(cfg, file)
         
-def set_config_file(path): 
+def set_config_file(path, n_exp, rewrite_existing = False): 
+
+    if n_exp == '1': 
+        cfg = set_config_file_locomotion(path)
+        
+    elif n_exp == '2':
+        cfg = set_config_file_openfield(path)
+        
+    else:
+        raise ValueError ('Invalid input. Try again. You must input 1 or 2.')
+        
+    configpath = os.path.join(path, os.path.basename(os.path.normpath(path)) + '_config.yaml')
+    
+    if not os.path.exists(configpath) or rewrite_existing:
+        write_config(configpath, cfg)
+        
+    return configpath
+
+def set_config_file_locomotion(path):
+    
     cfg = {
         'area_cal_method': 'pix_count', # str, {'pix_count': counts nb of laser pixels, 'contour': creates contour around laser (suitable for HSV)}, 
-        'experiment': 'locomotion treadmill',# experiment paradigm 
+        'experiment': 'Locomotion treadmil',# experiment paradigm 
         'project_path': path,
         'fps' : 250,# frame per second of recorded video
         'treadmil_length_in_cm' : 37.6,# float, Full treadmill length in cm
-        'stim_duration_dict' : { 'beta': 118, 'square': 125, 'beta-square': 125} , # dictionary, corresponding stim durations (in ms) for different pulses
+        'stim_duration_dict' : { 'beta': 500, 'square': 500, 'beta-square': 500} , # dictionary, corresponding stim durations (in ms) for different pulses
         'stim_duration' : None, # stim duration time, not necessary if stim type is specified in name and the above dict is specified.
+        'duration_off_per_cycle' : 25,
+        'extract_info_from_file' : True,
         'thresholding_method' : 'RGB',# str, {'RGB', 'HSV'}
         'pix_thresh_upper_bound' : {'RGB': (255, 120, 140),
                                   'HSV': (150, 255, 255)}, # dictionary , {'HSV': (H, S, V), 
@@ -193,22 +220,52 @@ def set_config_file(path):
         'bandpass_frequency' : (1, 50),# (low_f, high_f) tuple specifying the freq band to filter for detecting start end of pulse
         'filter_order' : 6,# bandpass filter order
         'start_end_h_thresh': 0.3,# peak threshold value for start end event detection using above specified bandpass filtered sig
-    
-        'constrain_frame' : True,# bool, whether or not constrain searched pixels with DLC analysis
+        'max_iteration' : 20, 
+        'constrain_frame' : True,# bool, whethers or not constrain searched pixels with DLC analysis
         'DLC_label' : 'Nose',# str, DLC label to use to constrain pixels
-        'p_cutoff_ranges': 0.995,# float, cutoff label detection liklihood to use to constrain the vertical wherabout of laser
+        'DLC_p_cutoff_ranges': 0.995,# float, cutoff label detection liklihood to use to constrain the vertical wherabout of laser
         'max_dev_in_cm' : 1.7# float, maximum deviation in cm around the provided label to constrain pixels.
-        }
-
-
-
-    configpath = os.path.join(path, os.path.basename(os.path.normpath(path)) + '_config.yaml')
-    
-    if not os.path.exists(configpath):
-        write_config(configpath, cfg)
         
-    return configpath
+        }
+    return cfg
 
+def set_config_file_openfield(path):
+    
+    cfg = {
+        'area_cal_method': 'pix_count', # str, {'pix_count': counts nb of laser pixels, 'contour': creates contour around laser (suitable for HSV)}, 
+        'experiment': 'Open field',# experiment paradigm 
+        'project_path': path,
+        'fps' : 60, # frame per second of recorded video
+        'stim_duration_dict' : {'beta': 30000, 
+                                'square': 30000} , # dictionary, corresponding stim durations (in ms) for different pulses
+        'stim_duration' : 30000, # stim duration time, not necessary if stim type is specified in name and the above dict is specified.
+        'duration_off_per_cycle' : 40,
+        'extract_info_from_file' : False,
+        'thresholding_method' : 'RGB',# str, {'RGB', 'HSV'}
+        'pix_thresh_upper_bound' : {'RGB': (255, 120, 140),
+                                  'HSV': (150, 255, 255)}, # dictionary , {'HSV': (H, S, V), 
+                                                                          # 'RGB' : (R, G, B)}
+        'pix_thresh_lower_bound' :  {'RGB': (150, 10,60),
+                                  'HSV': (50, 80, 60)},# dictionary , {'HSV': (H, S, V), 
+                                                                     # 'RGB' : (R, G, B)}
+
+        'use_laser_detection_if_no_analogpulse' : True,# bool
+        'enforce_use_laser_detection_only' : True,# bool, True if you don't want to use the analogpulse
+        'reanalyze_existing': False,# bool, True if you wish to reanalyze already analyzed videos 
+        'crude_smooth_wind' : 100,# gassian kernel window for crudly smoothing 
+        'center_vicinity_h_thresh': 0.3,# peak threshold value for crudly smoothed signal 
+        'gauss_window' : 10,# gaussina kernel window for smoothing signal before bandpass filtering
+        'bandpass_frequency' : (1, 50),# (low_f, high_f) tuple specifying the freq band to filter for detecting start end of pulse
+        'filter_order' : 6,# bandpass filter order
+        'start_end_h_thresh': 0.3,# peak threshold value for start end event detection using above specified bandpass filtered sig
+        'max_iteration' : 20, 
+        'constrain_frame' : False,# bool, whether or not constrain searched pixels with DLC analysis
+        'DLC_label' : 'Nose',# str, DLC label to use to constrain pixels
+        'DLC_p_cutoff_ranges': 0.995,# float, cutoff label detection liklihood to use to constrain the vertical wherabout of laser
+        'max_dev_in_cm' : 1.7# float, maximum deviation in cm around the provided label to constrain pixels.
+        
+        }
+    return cfg
 
 class MouseLocation:
     
@@ -529,7 +586,6 @@ class Frame :
         
         self.image = vidstr.read()
         self.no = None # vidstr.get_current_frame_no()
-        # self.laser_area = 0
         self.height, self.width = self.image.shape[:2]
         self.x_range = x_range
         self.y_range = y_range
@@ -674,9 +730,9 @@ class Laser :
             
 
             
-            if frame.no == 14918 :
+            # if frame.no == 14918 :
                 
-                self. plot_mask(masked, frame.no, frame.image)
+            #     self. plot_mask(masked, frame.no, frame.image)
            
     @staticmethod                
     def moving_average_array(X, n):
@@ -1344,6 +1400,21 @@ class Pulse :
         fig_superimp.savefig(os.path.join(path_list[0], 'JPEG', figname + '_superimp.jpg'), dpi = 250, facecolor='w', edgecolor='w',
                         orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
 
+# class LongPulse(Pulse):
+    
+#     def __init__( self, sig, fs = 250, low_f = 1, high_f = 50, 
+#                  enforce_use_laser_detection_only = False, 
+#                  use_laser_detection_if_no_analogpulse = False,
+#                  true_duration = None):
+        
+#         Pulse.__init__(self, sig, fs = fs, low_f = low_f, high_f = high_f, 
+#                      enforce_use_laser_detection_only = enforce_use_laser_detection_only, 
+#                      use_laser_detection_if_no_analogpulse = use_laser_detection_if_no_analogpulse,
+#                      true_duration = true_duration)
+        
+#     def determine_start_ends(self):
+        
+
 class AnalogPulse : 
     
     def __init__(self, file, stim_type):
@@ -1400,8 +1471,10 @@ class SortedExpeiment(Experiment) :
     
     def __init__(self, video_filepath, 
                  stim_duration = None,
-                 stim_duration_dict = { 'beta': 118, 'square': 125, 'beta-square': 125}, 
-                 extract_info_from_file = True):
+                 stim_duration_dict = { 'beta': 500, 'square': 500, 'beta-square': 500}, 
+                 extract_info_from_file = True,
+                 fps = 250,
+                 duration_off_per_cycle = 25):
         
         Experiment.__init__(self, video_filepath)
         
@@ -1409,24 +1482,26 @@ class SortedExpeiment(Experiment) :
         self.stim_duration = stim_duration
         self.check_func = {'DLC': self.right_DLC, 
                            'analogpulse': self.right_analogpulse}
-    
+        self.fps = fps
         if extract_info_from_file:
             self.extract_info_from_video_filename()
         
-        self.find_stim_duration(stim_duration_dict)
+        self.find_stim_duration(fps, stim_duration_dict, duration_off_per_cycle)
         
-        self.get_DLC_path()
+        
         self.exp_dir = os.path.dirname( self.video.dirpath )
         
         self.find_analogpulse_DLC_csv()
         print('Video: ', self.video.name)
 
+        self.get_DLC_path()
         self.already_analyzed = False
         self.prob_csv_path= None
         self.result_filename = self.get_result_filename()
         
     def get_DLC_path(self):
         
+                
         if isinstance(self.files['DLC'], File):
             self.DLC_path = self.files['DLC'].path
         else:
@@ -1434,23 +1509,28 @@ class SortedExpeiment(Experiment) :
             self.DLC_path = None
         
             
-    def find_stim_duration(self, stim_duration_dict):
+    def find_stim_duration(self, fps, stim_duration_dict, duration_off_per_cycle):
         
-        beta = 'beta' in self.stim_type.lower()
-        square = 'square' in self.stim_type.lower()
+        """get the single pulse duration in terms of frames. If pulse is beta, the last off period of the cycle is 
+        accounted for and removed from the time"""
+        
 
-        if self.stim_duration == None:
-            
+        if self.stim_duration != None:
+            self.stim_duration  = int(self.stim_duration / 1000 * fps)
+
+        else:
+            beta = 'beta' in self.stim_type.lower()
+            square = 'square' in self.stim_type.lower()
             if beta and not square:
-                self.stim_duration = stim_duration_dict['beta']
+                self.stim_duration = int((stim_duration_dict['beta'] - duration_off_per_cycle) / 1000 * fps)
             
             elif square:
-                self.stim_duration = stim_duration_dict['square']
+                self.stim_duration = int(stim_duration_dict['square'] / 1000 * fps)
                 
             else:
                 print('stim duration is unknown!')
                 self.stim_duration = None
-        
+            
     def check_if_already_analyzed(self):
         
         directory = Directory( os.path.join( self.exp_dir, 'Laser'))
@@ -1613,10 +1693,10 @@ class SortedExpeiment(Experiment) :
             write.writerows([data])
 
     @staticmethod 
-    def read_summary_csv(csv_filepath):
+    def get_videofile_paths_from_csv(csv_filepath):
         
         df = pd.read_csv(csv_filepath, header = [0])
-        filepath_list = df['path']
+        filepath_list = df[df.columns[0]].values
     
         return filepath_list        
     
