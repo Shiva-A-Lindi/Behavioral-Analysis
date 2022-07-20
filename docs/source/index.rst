@@ -23,12 +23,13 @@ As a user you do not need to be fluent in Python. You can follow this guide and 
 
    Projects/Locomotion/index
    Projects/Lever Reaching/index
+   Projects/Laser Detection/index
    Projects/DeepLabCut/index
-
+   
 This package consists data analysis tools for two different behavioral tasks. A Locomotion task where animals are continously running on a treadmill while being subjected to optogenetic stimulation. 
 Another task is lever reaching task where the animal has to follow the auditory cues presented in the experiment chamber and reach and press a lever to receive reward. There are numerous protocols for this task where the animal would be either lesioned, chemogentically or optogenetically manipulated.
    
-.. [#] Unpublishe data provided by Nicolas Mallet at Physiology and pathophysiology of executive functions Lab (Institut des Maladies Neurodégénératives (IMN_), CNRS, Bordeaux)
+.. [#] Unpublished data provided by Nicolas Mallet at Physiology and pathophysiology of executive functions Lab (Institut des Maladies Neurodégénératives (IMN_), CNRS, Bordeaux)
 
 .. _IMN: https://www.imn-bordeaux.org/en/teams/physiology-and-pathophysiology-of-executive-functions/
 
@@ -40,4 +41,6 @@ Another task is lever reaching task where the animal has to follow the auditory 
 * :ref:`modindex`
 * :ref:`search`
 
+
+  
 
