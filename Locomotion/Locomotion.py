@@ -3092,8 +3092,11 @@ def plot_ON_OFF_measure(result, pre_direct, mouse_type, opto_par, stim_loc, stim
     ls: list of matplotlib linestyles, optional.
         linestyles of each plotted line. The defautl is ['-', '-'].
         
-        
-
+    Returns
+    -------
+    
+    None
+    
     '''
 
     measure = result.groupby(group_by).mean().to_dict()['norm_velocity (mean)']
@@ -3234,8 +3237,6 @@ def plot_ON_OFF_measure_with_x_distionction(result, pre_direct, mouse_type, opto
         The elements should correspond to the number of elements in conditions.The default is [1, 1].
     ls: list of matplotlib linestyles, optional.
         linestyles of each plotted line. The defautl is ['-', '-'].
-        
-        
 
     '''
     for pc, alpha, l_s in zip(position_conditions, alphas, lstyles):
@@ -3257,6 +3258,7 @@ def violin_plot_with_distiction(result, pre_direct, mouse_type, opto_par, stim_l
                                velocity_conditions = ['pos', 'neg'],
                                position_conditions = ['front', 'back'],
                                alphas = [1, 0.6], ls = ['-', '--'], column = 'pre_velocity_sign'):
+    
     """Plot violin plots with columns for pre laser velocity
     distinction and hue for back and front distinction on the treadmill.
 
