@@ -1,68 +1,34 @@
-
-
 <!DOCTYPE html>
 <html class="writer-html5" lang="en" >
 <head>
-  <meta charset="utf-8">
-  
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LED detection &mdash; Behavioral Analysis 0.0.1 documentation</title>
-  
-
-  
-  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
-  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-
-  
-  
-  
-  
-
-  
+      <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
     <script src="../../_static/js/html5shiv.min.js"></script>
   <![endif]-->
   
-    
-      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
         <script src="../../_static/jquery.js"></script>
         <script src="../../_static/underscore.js"></script>
         <script src="../../_static/doctools.js"></script>
-        <script src="../../_static/language_data.js"></script>
-    
-    <script type="text/javascript" src="../../_static/js/theme.js"></script>
-
-    
+    <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
     <link rel="next" title="Lever Reaching Task Analysis" href="Lever_reaching.html" />
     <link rel="prev" title="Lever Reaching Code Doc" href="Code_doc_Lever_Reaching.html" /> 
 </head>
 
-<body class="wy-body-for-nav">
-
-   
+<body class="wy-body-for-nav"> 
   <div class="wy-grid-for-nav">
-    
     <nav data-toggle="wy-nav-shift" class="wy-nav-side">
       <div class="wy-side-scroll">
         <div class="wy-side-nav-search" >
-          
-
-          
-            <a href="../../index.html" class="icon icon-home" alt="Documentation Home"> Behavioral Analysis
-          
-
-          
+            <a href="../../index.html" class="icon icon-home"> Behavioral Analysis
           </a>
-
-          
-            
-            
-          
-
-          
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
     <input type="text" name="q" placeholder="Search docs" />
@@ -70,19 +36,8 @@
     <input type="hidden" name="area" value="default" />
   </form>
 </div>
-
-          
-        </div>
-
-        
-        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
-          
-            
-            
-              
-            
-            
-              <p class="caption"><span class="caption-text">Contents:</span></p>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents:</span></p>
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../Locomotion/index.html">Locomotion</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../Locomotion/Code_doc_Locomotion.html">Locomotion Code Doc</a></li>
@@ -102,78 +57,68 @@
 <li class="toctree-l3"><a class="reference internal" href="#functions">Functions</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="Lever_reaching.html">Lever Reaching Task Analysis</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Lever_reaching.html">Lever Reaching Task Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="Lever_reaching.html#file-hierarchy">File hierarchy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Lever_reaching.html#experiment">Experiment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Lever_reaching.html#config-file">Config file</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Lever_reaching.html#measures">Measures</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Lever_reaching.html#misdetection-correction">Misdetection Correction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Lever_reaching.html#metadata">Metadata</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Lever_reaching.html#jupyter-notebook-and-data-analysis">Jupyter Notebook and Data Analysis</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../DeepLabCut/index.html">DeepLabCut</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../DeepLabCut/DLC_installation.html">Guide to DeepLabCut installation on Windows 10</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../DeepLabCut/DLC_installation.html#nvidia-driver-installation">1. Nvidia Driver installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../DeepLabCut/DLC_installation.html#cuda-toolkit-installation">2. CUDA Toolkit installation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../DeepLabCut/DLC_installation.html#visual-studio-installation">2.1 Visual Studio installation</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../DeepLabCut/DLC_installation.html#cuda-installation">2.2 CUDA installation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../DeepLabCut/DLC_installation.html#cudnn-installation">3. cuDNN installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../DeepLabCut/DLC_installation.html#tensorflow-installation">4. Tensorflow installation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="../DeepLabCut/DLC_installation.html#create-virtual-environment">4.1 Create virtual environment</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../DeepLabCut/DLC_installation.html#activate-the-environment">4.2 activate the environment</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../DeepLabCut/DLC_installation.html#install-tensorflow">4.3 install Tensorflow</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../DeepLabCut/DLC_installation.html#check-tensorflow-installation">4.4 check Tensorflow installation</a></li>
+</ul>
+</li>
+<li class="toctree-l3"><a class="reference internal" href="../DeepLabCut/DLC_installation.html#deeplabcut-and-wxpython-installation">5. Deeplabcut and wxpython installation</a></li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
 
-            
-          
         </div>
-        
       </div>
     </nav>
 
-    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
-
-      
-      <nav class="wy-nav-top" aria-label="top navigation">
-        
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
           <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
           <a href="../../index.html">Behavioral Analysis</a>
-        
       </nav>
 
-
       <div class="wy-nav-content">
-        
         <div class="rst-content">
-        
-          
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-<div role="navigation" aria-label="breadcrumbs navigation">
-
+          <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
-    
       <li><a href="../../index.html" class="icon icon-home"></a> &raquo;</li>
-        
           <li><a href="index.html">Lever Reaching</a> &raquo;</li>
-        
       <li>LED detection</li>
-    
-    
       <li class="wy-breadcrumbs-aside">
-        
-            
             <a href="../../_sources/Projects/Lever Reaching/LED_detection.rst.txt" rel="nofollow"> View page source</a>
-          
-        
       </li>
-    
   </ul>
-
-  
   <hr/>
 </div>
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
-            
-  <div class="section" id="led-detection">
-<h1>LED detection<a class="headerlink" href="#led-detection" title="Permalink to this headline">¶</a></h1>
+             
+  <section id="led-detection">
+<h1>LED detection<a class="headerlink" href="#led-detection" title="Permalink to this headline"></a></h1>
 <p>The LED panel in the experiment chamber captures different events during the experiment such as auditory cue onset, pad contact, reward delivery, etc.</p>
 <p>For User:</p>
 <p>The LED_detection.py executable file searches the path that you specify for video files. It will take some information about your video frames and it will produce a <strong>.csv</strong> file in the same directory as your video specifying the state of the LED as a binary (0,1) in each frame of your video.</p>
@@ -201,9 +146,9 @@ Lever location (x,y):
 Press esc when you&#39;re done to close the windows.
 </pre></div>
 </div>
-<div class="figure align-center">
+<figure class="align-center">
 <a class="reference internal image-reference" href="../../_images/Pad_and_lever_pos.png"><img alt="alternate text" src="../../_images/Pad_and_lever_pos.png" style="width: 307.2px; height: 321.0px;" /></a>
-</div>
+</figure>
 <p>It will mark your selections and show them as in the image above. Press esc to continue.</p>
 </li>
 <li><p>Then it will ask you to specify crop edges by mouse click in a new emerged window. Cropping around the LED panel will help not to overflow your memory during frame analysis:</p>
@@ -215,9 +160,9 @@ Press esc when you&#39;re done to close the windows.
 </pre></div>
 </div>
 <p>You will see your selection highlighted in green, as shown below. Press esc to continue.</p>
-<div class="figure align-center">
+<figure class="align-center">
 <a class="reference internal image-reference" href="../../_images/Cropped.png"><img alt="alternate text" src="../../_images/Cropped.png" style="width: 380.09999999999997px; height: 321.59999999999997px;" /></a>
-</div>
+</figure>
 </li>
 <li><p>Lastly, you will have to specify the circles corresponding to LED lights:</p>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Specify the center and one point on the edge for each LED
@@ -232,9 +177,9 @@ Press esc when you&#39;re done to close the windows.
 </pre></div>
 </div>
 <p>It will both show circles drawn around the LEDs (shown below) and report their coordinates for you to evaluate.</p>
-<div class="figure align-center">
+<figure class="align-center">
 <a class="reference internal image-reference" href="../../_images/Circles.png"><img alt="alternate text" src="../../_images/Circles.png" style="width: 402.40000000000003px; height: 146.4px;" /></a>
-</div>
+</figure>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
 <p>Note that the mouse clicks have to be in this particular order :</p>
@@ -267,8 +212,8 @@ y
 </ol>
 <p>After the analysis is finished, you would be able to see the <strong>.csv</strong> files in the same directory as each video.</p>
 <p>For developer/contributer:</p>
-<div class="section" id="classes">
-<h2>Classes<a class="headerlink" href="#classes" title="Permalink to this headline">¶</a></h2>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Permalink to this headline"></a></h2>
 <ul class="simple">
 <li><p><strong>Video()</strong>:
 grabs each video and captures frames for analysis</p></li>
@@ -277,9 +222,9 @@ each captured frame by video grabber becomes an instance of this class for furth
 <li><p><strong>LED_class()</strong>:
 stores informations regarding the LED lights, such as their location in the image, intensity and the minimum intensity threshold for on and off state.</p></li>
 </ul>
-</div>
-<div class="section" id="functions">
-<h2>Functions<a class="headerlink" href="#functions" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Permalink to this headline"></a></h2>
 <p>First a few functions to get inputs from user and get things ready for analysis:</p>
 <ul class="simple">
 <li><p><strong>build_videoPath_list</strong> (<em>path</em>):</p></li>
@@ -322,63 +267,38 @@ stores informations regarding the LED lights, such as their location in the imag
 <p class="admonition-title">See also</p>
 <p>See</p>
 </div>
-</div>
-</div>
+</section>
+</section>
 
 
            </div>
-           
           </div>
-          <footer>
-  
-    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
-      
-        <a href="Lever_reaching.html" class="btn btn-neutral float-right" title="Lever Reaching Task Analysis" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right"></span></a>
-      
-      
-        <a href="Code_doc_Lever_Reaching.html" class="btn btn-neutral float-left" title="Lever Reaching Code Doc" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left"></span> Previous</a>
-      
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="Code_doc_Lever_Reaching.html" class="btn btn-neutral float-left" title="Lever Reaching Code Doc" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="Lever_reaching.html" class="btn btn-neutral float-right" title="Lever Reaching Task Analysis" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
-  
 
   <hr/>
 
   <div role="contentinfo">
-    <p>
-        
-        &copy; Copyright 2020, Shiva A. Lindi
-
-    </p>
+    <p>&#169; Copyright 2020, Shiva A. Lindi.</p>
   </div>
-    
-    
-    
-    Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a
-    
-    <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a>
-    
-    provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
 
 </footer>
-
         </div>
       </div>
-
     </section>
-
   </div>
-  
-
-  <script type="text/javascript">
+  <script>
       jQuery(function () {
           SphinxRtdTheme.Navigation.enable(true);
       });
-  </script>
-
-  
-  
-    
-   
+  </script> 
 
 </body>
 </html>
