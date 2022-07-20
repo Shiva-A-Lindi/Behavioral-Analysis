@@ -32,10 +32,11 @@ release = '0.0.1'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 
-plantuml = 'java -jar /Users/apple/bin/plantuml/plantuml.jar'
-
+plantuml = 'java -jar %s' % os.path.join(os.path.dirname(os.path.dirname(__file__)), "utils", "plantuml.jar")
 extensions = ['sphinxcontrib.programoutput', 'sphinx.ext.autodoc',
 'sphinx.ext.napoleon','sphinx.ext.coverage', 'sphinxcontrib.plantuml']
+
+
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
