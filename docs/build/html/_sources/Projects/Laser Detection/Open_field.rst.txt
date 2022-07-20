@@ -1,0 +1,5 @@
+Open Field
+~~~~~~~~~~
+
+
+This pipline is developped to detect laser pulses recieved at the optic fibers on the animal's head.
