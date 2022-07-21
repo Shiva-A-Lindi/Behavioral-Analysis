@@ -41,11 +41,11 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../Locomotion/index.html">Locomotion</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../Locomotion/Code_doc_Locomotion.html">Locomotion Code Doc</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../Locomotion/Locomotion_task.html">Locomotion Task Analysis</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../Locomotion/Locomotion_task.html#file-hierarchy">File hierarchy</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../Locomotion/Locomotion_task.html#jupyter-notebook">Jupyter notebook</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../Locomotion/Locomotion_task.html#data-analysis">Data analysis</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../Locomotion/Locomotion_task.html#misdetection-correction">Misdetection correction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../Locomotion/index.html#locomotion-task-analysis">Locomotion Task Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../Locomotion/index.html#file-hierarchy">File hierarchy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../Locomotion/index.html#jupyter-notebook">Jupyter notebook</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../Locomotion/index.html#data-analysis">Data analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../Locomotion/index.html#misdetection-correction">Misdetection correction</a></li>
 </ul>
 </li>
 </ul>
@@ -124,16 +124,19 @@
              
   <section id="treadmill">
 <h1>Treadmill<a class="headerlink" href="#treadmill" title="Permalink to this headline"></a></h1>
-<p>This pipline is developed to detect laser pulses received at the optic fibers on the animal’s head when moving on a treadmill.</p>
+<p>This pipline is developed to detect laser pulses received at the optic fibers on the animal’s head when moving on a treadmill (as shown below).</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../../_images/Laser_detection_loco_frame.png"><img alt="alternate text" src="../../_images/Laser_detection_loco_frame.png" style="width: 556.5px; height: 138.29999999999998px;" /></a>
+</figure>
 <p>It works in two separate ways:</p>
 <ol class="arabic">
-<li><dl class="simple">
-<dt>You provide <strong>Spike2</strong> analog signals (with extensions <code class="docutils literal notranslate"><span class="pre">.smr</span></code> or <code class="docutils literal notranslate"><span class="pre">.smrx</span></code>) of the session (understandbly with an unknow offset with the video recording).</dt><dd><p>This file should include the same trial tag with a letter following a 2 digit number e.g. <code class="docutils literal notranslate"><span class="pre">a01</span></code>, <code class="docutils literal notranslate"><span class="pre">f25</span></code>, etc. Which is used to identify the video file in the <strong>Video</strong> folder to it’s corresponding analog signal file under <strong>Laser</strong> folder.
-Needless to say that providing the analog pulse yields a  much more accurate reading of the pulses.</p>
-</dd>
-</dl>
+<li><p>Either you provide <strong>Spike2</strong> analog signals (with extensions <code class="docutils literal notranslate"><span class="pre">.smr</span></code> or <code class="docutils literal notranslate"><span class="pre">.smrx</span></code>) of the session (understandably with an unknown offset with respect to the video recording).</p>
+<blockquote>
+<div><p>This file should include the same trial tag with a letter following a 2-digit number e.g. <code class="docutils literal notranslate"><span class="pre">a01</span></code>, <code class="docutils literal notranslate"><span class="pre">f25</span></code>, etc. Which is used to identify the video file in the <strong>Video</strong> folder to its corresponding analog signal file under <strong>Laser</strong> folder.
+Needless to say that providing the analog pulse will always result in a much more accurate reading of the pulses.</p>
+</div></blockquote>
 </li>
-<li><p>If you don’t provide the analog signals, the laser pulses are detected soley based on the video recording.</p>
+<li><p>If you don’t provide the analog signals, the laser pulses are detected solely based on the video recording.</p>
 <blockquote>
 <div><div class="admonition note">
 <p class="admonition-title">Note</p>

@@ -16,7 +16,7 @@ As a user you do not need to be fluent in Python. You can follow this guide and 
 
 
 ..  figure:: /media/gifs/Rat_lever_demo_h.gif
-    :figwidth: 60%
+    :figwidth: 55%
     :align: right
 
 .. toctree::
