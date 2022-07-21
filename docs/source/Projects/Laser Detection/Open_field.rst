@@ -4,7 +4,7 @@ Open Field
 
 This pipline is developed to detect laser pulses received at the optic fibers on the animal's head when moving freely in an open field. See example below.
 
-.. figure:: /media/Laser_detection_time_series_frame.png
+.. figure:: /media/Laser_detection_frame.jpeg
   :scale: 30 %
   :alt: alternate text
   :align: center
