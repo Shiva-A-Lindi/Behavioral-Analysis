@@ -38,7 +38,7 @@ The steps you need to take for the analysis are the following:
 #. Lastly, the pipeline will generate a folder named ``Laser`` (either at the same directory as your videos or if videos are contained in a "Video" folder, in that same parent folder). Where it will save the laser pulse stamps together with a snapshot of the detections (see the example below).
 
 
-   .. figure:: /media/Laser_detection_time_series.png
+   .. figure:: /media/Laser_detection_time_series_square.jpg
       :scale: 30 %
       :alt: alternate text
       :align: center
@@ -49,7 +49,7 @@ The steps you need to take for the analysis are the following:
 #. You will also find the detected pulses all aligned to the pulse center under ``PATH_TO_YOUR_PROJECT/LASER_DETECTION/JPEG`` where you can visually verify that the detections are sufficiently precise (or not!). Here's an example of a square pulse:
 
 
-   .. figure:: /media/Laser_detection_square_pulse.png
+   .. figure:: /media/Laser_detection_square_pulse.jpg
       :scale: 30 %
       :alt: alternate text
       :align: center

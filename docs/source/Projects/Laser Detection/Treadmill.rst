@@ -16,3 +16,10 @@ It works in two separate ways:
 	.. note::
 		You need to provide the information about the stimulation (pulse) duration in the config file.
 
+Here's an example of the beta pulse protocol:
+
+.. image:: /media/Laser_detection_times_series_beta.jpg
+	:width: 65%
+
+.. image:: /media/Laser_detection_beta_pulse.jpg
+	:width: 32%

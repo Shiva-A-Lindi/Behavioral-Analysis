@@ -33,10 +33,10 @@ release = '0.0.1'
 # ones.
 
 plantuml = 'java -jar %s' % os.path.join(os.path.dirname(os.path.dirname(__file__)), "utils", "plantuml.jar")
-extensions = ['sphinxcontrib.programoutput', 'sphinx.ext.autodoc',
-'sphinx.ext.napoleon','sphinx.ext.coverage', 'sphinxcontrib.plantuml']
+extensions = ['sphinxcontrib.programoutput', 'sphinx.ext.autodoc', 'sphinxcontrib.bibtex',
+                'sphinx.ext.napoleon','sphinx.ext.coverage', 'sphinxcontrib.plantuml']
 
-
+bibtex_bibfiles = ['refs.bib']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

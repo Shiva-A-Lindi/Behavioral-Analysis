@@ -18,7 +18,7 @@
     <script src="../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="Treadmill" href="Open_field.html" />
+    <link rel="next" title="Open Field" href="Open_field.html" />
     <link rel="prev" title="Laser Detection" href="index.html" /> 
 </head>
 
@@ -71,7 +71,7 @@
 </li>
 <li class="toctree-l1 current"><a class="reference internal" href="index.html">Laser Detection</a><ul class="current">
 <li class="toctree-l2 current"><a class="current reference internal" href="#">Treadmill</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Open_field.html">Treadmill</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Open_field.html">Open Field</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../DeepLabCut/index.html">DeepLabCut</a><ul>
@@ -124,7 +124,27 @@
              
   <section id="treadmill">
 <h1>Treadmill<a class="headerlink" href="#treadmill" title="Permalink to this headline"></a></h1>
-<p>This pipline is developped to detect laser pulses recieved at the optic fibers on the animal head.</p>
+<p>This pipline is developed to detect laser pulses received at the optic fibers on the animal’s head when moving on a treadmill.</p>
+<p>It works in two separate ways:</p>
+<ol class="arabic">
+<li><dl class="simple">
+<dt>You provide <strong>Spike2</strong> analog signals (with extensions <code class="docutils literal notranslate"><span class="pre">.smr</span></code> or <code class="docutils literal notranslate"><span class="pre">.smrx</span></code>) of the session (understandbly with an unknow offset with the video recording).</dt><dd><p>This file should include the same trial tag with a letter following a 2 digit number e.g. <code class="docutils literal notranslate"><span class="pre">a01</span></code>, <code class="docutils literal notranslate"><span class="pre">f25</span></code>, etc. Which is used to identify the video file in the <strong>Video</strong> folder to it’s corresponding analog signal file under <strong>Laser</strong> folder.
+Needless to say that providing the analog pulse yields a  much more accurate reading of the pulses.</p>
+</dd>
+</dl>
+</li>
+<li><p>If you don’t provide the analog signals, the laser pulses are detected soley based on the video recording.</p>
+<blockquote>
+<div><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>You need to provide the information about the stimulation (pulse) duration in the config file.</p>
+</div>
+</div></blockquote>
+</li>
+</ol>
+<p>Here’s an example of the beta pulse protocol:</p>
+<a class="reference internal image-reference" href="../../_images/Laser_detection_times_series_beta.jpg"><img alt="../../_images/Laser_detection_times_series_beta.jpg" src="../../_images/Laser_detection_times_series_beta.jpg" style="width: 65%;" /></a>
+<a class="reference internal image-reference" href="../../_images/Laser_detection_beta_pulse.jpg"><img alt="../../_images/Laser_detection_beta_pulse.jpg" src="../../_images/Laser_detection_beta_pulse.jpg" style="width: 32%;" /></a>
 </section>
 
 
@@ -132,7 +152,7 @@
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="index.html" class="btn btn-neutral float-left" title="Laser Detection" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="Open_field.html" class="btn btn-neutral float-right" title="Treadmill" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="Open_field.html" class="btn btn-neutral float-right" title="Open Field" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

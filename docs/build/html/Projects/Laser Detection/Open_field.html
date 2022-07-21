@@ -41,11 +41,11 @@
 <ul class="current">
 <li class="toctree-l1"><a class="reference internal" href="../Locomotion/index.html">Locomotion</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../Locomotion/Code_doc_Locomotion.html">Locomotion Code Doc</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../Locomotion/Locomotion_task.html">Locomotion Task Analysis</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../Locomotion/Locomotion_task.html#file-hierarchy">File hierarchy</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../Locomotion/Locomotion_task.html#jupyter-notebook">Jupyter notebook</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../Locomotion/Locomotion_task.html#data-analysis">Data analysis</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../Locomotion/Locomotion_task.html#misdetection-correction">Misdetection correction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../Locomotion/index.html#locomotion-task-analysis">Locomotion Task Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../Locomotion/index.html#file-hierarchy">File hierarchy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../Locomotion/index.html#jupyter-notebook">Jupyter notebook</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../Locomotion/index.html#data-analysis">Data analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../Locomotion/index.html#misdetection-correction">Misdetection correction</a></li>
 </ul>
 </li>
 </ul>
@@ -124,7 +124,25 @@
              
   <section id="open-field">
 <h1>Open Field<a class="headerlink" href="#open-field" title="Permalink to this headline"></a></h1>
-<p>This pipline is developped to detect laser pulses recieved at the optic fibers on the animal’s head.</p>
+<p>This pipline is developed to detect laser pulses received at the optic fibers on the animal’s head when moving freely in an open field. See example below.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="media/Laser_detection_time_series_frame.png"><img alt="alternate text" src="media/Laser_detection_time_series_frame.png" /></a>
+</figure>
+<p>It is necessary for to provide the <code class="docutils literal notranslate"><span class="pre">stim_duration</span></code>, <code class="docutils literal notranslate"><span class="pre">inter_stim_interval</span></code> in the config file.
+Here’s an example for a 30-second ON followed by 30-second OFF protocol.</p>
+<figure class="align-center">
+<a class="reference internal image-reference" href="../../_images/Laser_detection_time_series_OF.jpg"><img alt="alternate text" src="../../_images/Laser_detection_time_series_OF.jpg" style="width: 778.1999999999999px; height: 299.09999999999997px;" /></a>
+</figure>
+<figure class="align-right">
+<a class="reference internal image-reference" href="media/Laser_detection_time_series_OF_pulse.jpg"><img alt="alternate text" src="media/Laser_detection_time_series_OF_pulse.jpg" /></a>
+</figure>
+<p>You can see that the 4th pulse is barely captured by the side camera. Therefore, to make consistent detections the detection of these pulses are extrapolated from the solid detection (with durations complying with the <code class="docutils literal notranslate"><span class="pre">stim_duration</span></code> in specified in the config file). That is why it is important to input the specifics of the protocol in the config file.</p>
+<blockquote>
+<div><div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>note that if none of the detected pulses are complient with the protocol but the detected pulse durations have very low variability, they are reported as they are without any correction applied.</p>
+</div>
+</div></blockquote>
 </section>
 
 

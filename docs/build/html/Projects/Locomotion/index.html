@@ -41,11 +41,11 @@
 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Locomotion</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="Code_doc_Locomotion.html">Locomotion Code Doc</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Locomotion_task.html">Locomotion Task Analysis</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="Locomotion_task.html#file-hierarchy">File hierarchy</a></li>
-<li class="toctree-l3"><a class="reference internal" href="Locomotion_task.html#jupyter-notebook">Jupyter notebook</a></li>
-<li class="toctree-l3"><a class="reference internal" href="Locomotion_task.html#data-analysis">Data analysis</a></li>
-<li class="toctree-l3"><a class="reference internal" href="Locomotion_task.html#misdetection-correction">Misdetection correction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#locomotion-task-analysis">Locomotion Task Analysis</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#file-hierarchy">File hierarchy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#jupyter-notebook">Jupyter notebook</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#data-analysis">Data analysis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="#misdetection-correction">Misdetection correction</a></li>
 </ul>
 </li>
 </ul>
@@ -69,7 +69,9 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../Laser%20Detection/index.html">Laser Detection</a><ul class="simple">
+<li class="toctree-l1"><a class="reference internal" href="../Laser%20Detection/index.html">Laser Detection</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../Laser%20Detection/Treadmill.html">Treadmill</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../Laser%20Detection/Open_field.html">Open Field</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../DeepLabCut/index.html">DeepLabCut</a><ul>
@@ -121,18 +123,170 @@
              
   <section id="locomotion">
 <h1>Locomotion<a class="headerlink" href="#locomotion" title="Permalink to this headline"></a></h1>
+<figure class="align-center" style="width: 60%">
+<img alt="../../_images/Locomotion_DLC_and_plot.gif" src="../../_images/Locomotion_DLC_and_plot.gif" />
+</figure>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="Code_doc_Locomotion.html">Locomotion Code Doc</a></li>
-<li class="toctree-l1"><a class="reference internal" href="Locomotion_task.html">Locomotion Task Analysis</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="Locomotion_task.html#file-hierarchy">File hierarchy</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Locomotion_task.html#jupyter-notebook">Jupyter notebook</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Locomotion_task.html#data-analysis">Data analysis</a></li>
-<li class="toctree-l2"><a class="reference internal" href="Locomotion_task.html#misdetection-correction">Misdetection correction</a></li>
-</ul>
-</li>
 </ul>
 </div>
+<section id="locomotion-task-analysis">
+<h2>Locomotion Task Analysis<a class="headerlink" href="#locomotion-task-analysis" title="Permalink to this headline"></a></h2>
+<section id="file-hierarchy">
+<h3>File hierarchy<a class="headerlink" href="#file-hierarchy" title="Permalink to this headline"></a></h3>
+<p>The root directory to your project should have this hierarchy:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>root
+|-- Animal_Type_0          &lt;-- all data for one specific animal type e.g. &#39;FoxP2-Cre&#39;
+|  |-- ChR2                &lt;-- Optogenetic expression
+|  |  |-- Animal_0         &lt;-- data for one animal in that animal type.
+|  |  |  |
+|  |  |  |-- Brain_region_0
+|  |  |  |  |
+|  |  |  |  |-- Protocol_0 &lt;-- folders separate protocols e.g. &#39;squarepulse_1_mW&#39;
+|  |  |  |  |   |-- DLC     &lt;-- contains body part trackings of all sessions derived from DLC
+|  |  |  |  |   |  |-- session_0_DLC.xlsx
+|  |  |  |  |   |  .
+|  |  |  |  |   |  .
+|  |  |  |  |    `-- Laser &lt;-- contains laser detection files
+|  |  |  |  |      |-- session_0_laser.xlsx
+|  |  |  |  .      |-- session_1_laser.xlsx
+|  |  |  |  .      .
+|  |  |  |  |      .
+|  |  |  .  |
+|  |  |  .  |
+|  |  |  |  |-- Protocol_n
+|  |  |  |  |
+|  |  |  |   `-- Spontaneous &lt;-- Same everything just for Spontaneous sessions
+|  |  |  |      `DLC         &lt;-- only DLC folder since there&#39;s no laser
+|  |  |  |
+|  |  |   `--Brain_region_K
+|  |  |
+|  |  |-- Animal_1          &lt;-- same for all other animals
+|  |  .
+|  |  .
+|  |  |
+|  |   `-- Animal_n
+|  |
+|  `-- Control
+|     |-- Animal_0
+|     .
+|      `-- Animal_m
+|
+|-- Animal_Type_1
+|
+|
+|-- Animal_Type_n            &lt;-- same for all other animal types
+|
+|-- data_npz
+|  |
+|  `Brain_region_0
+|     |-- Protocol_0
+|     |
+|     |  |-- ChR2
+|     .  `-- Control
+|     .
+|     |
+|     `-- Protocol_n
+|
+`-- Subplots
+</pre></div>
+</div>
+</section>
+<section id="jupyter-notebook">
+<h3>Jupyter notebook<a class="headerlink" href="#jupyter-notebook" title="Permalink to this headline"></a></h3>
+<p><a class="reference external" href="https://github.com/Shiva-A-Lindi/Behavioral-Analysis/tree/master/Locomotion">Here</a> you will find the jupyter notebook that contains different aspects of Locomotion task data analysis.</p>
+<p>In the same location you would also find the <em>Locomotion.py</em> moodule used for this analysis. Here’s the <a class="reference external" href="https://shiva-a-lindi.github.io/Behavioral-Analysis/build/html/Projects/Locomotion/Code_doc_Locomotion.html">documentation</a> for its functions.</p>
+<p>In order to start work on data analysis, you have to first fix some parameters specified under heading <strong>Constants</strong>:</p>
+<p><code class="docutils literal notranslate"><span class="pre">video_height</span></code> : the height of video in pixels</p>
+<p><code class="docutils literal notranslate"><span class="pre">video_width</span></code> : the width in pixels</p>
+<p><code class="docutils literal notranslate"><span class="pre">fps</span></code> : number of frames per second of video</p>
+<p><code class="docutils literal notranslate"><span class="pre">left_edge_x</span></code> : left end of treadmil in the frame in pixels</p>
+<p><code class="docutils literal notranslate"><span class="pre">right_edge_x</span></code>  : right end of treadmil in the frame in pixels</p>
+<p><code class="docutils literal notranslate"><span class="pre">treadmill_len</span></code> : True length of the treadmill in cm</p>
+<p><code class="docutils literal notranslate"><span class="pre">elec_shock</span></code> : length of the electro shock section of the treadmil in cm</p>
+<p><code class="docutils literal notranslate"><span class="pre">treadmil_velocity</span></code> : velocity of the treadmill during task in cm/s</p>
+<p><code class="docutils literal notranslate"><span class="pre">interval_in_sec</span></code> : duration of stimulation in sec</p>
+<p><code class="docutils literal notranslate"><span class="pre">pre_stim_interval</span></code> : pre stimulus interval in sec for looking at x ,v and acceleration</p>
+<p><code class="docutils literal notranslate"><span class="pre">pre_stim_interval_measure</span></code> : pre stimulus interval in seconds for the laser-OFF epoch before laser</p>
+<p><code class="docutils literal notranslate"><span class="pre">post_stim_interval_measure</span></code> : pre stimulus interval in seconds for the laser-OFF epoch after stimulation</p>
+<p><code class="docutils literal notranslate"><span class="pre">n_timebin</span></code> : number of frames for diffrentriation of position to yield velocity</p>
+<p><code class="docutils literal notranslate"><span class="pre">window_pos</span></code> : moving average window for position curve smoothing</p>
+<p><code class="docutils literal notranslate"><span class="pre">window_veloc</span></code> : moving average window for velocity curve smoothing</p>
+<p><code class="docutils literal notranslate"><span class="pre">max_speed</span></code> : the presumed max speed of the animal to use for misdetections</p>
+<p><code class="docutils literal notranslate"><span class="pre">mouse_no_dict</span></code> : Animal number dictionary. Every item is a tuple of two lists, first element represents <em>ChR2</em> animals and second element the <em>Control</em>
+e.g.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">{</span><span class="s1">&#39;D2&#39;</span> <span class="p">:</span>   <span class="p">{</span><span class="s1">&#39;ChR2&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">156</span><span class="p">,</span> <span class="mi">165</span><span class="p">,</span> <span class="mi">166</span><span class="p">,</span> <span class="mi">195</span><span class="p">,</span> <span class="mi">196</span><span class="p">,</span> <span class="mi">198</span><span class="p">,</span> <span class="mi">199</span><span class="p">],</span>
+           <span class="s1">&#39;Control&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">172</span><span class="p">,</span> <span class="mi">178</span><span class="p">]},</span>
+<span class="s1">&#39;Vglut2&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;ChR2&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">116</span><span class="p">,</span> <span class="mi">117</span><span class="p">,</span> <span class="mi">118</span><span class="p">,</span> <span class="mi">119</span><span class="p">,</span> <span class="mi">164</span><span class="p">,</span> <span class="mi">165</span><span class="p">,</span> <span class="mi">166</span><span class="p">],</span>
+           <span class="s1">&#39;Control&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">359</span><span class="p">,</span> <span class="mi">360</span><span class="p">]},</span>
+<span class="s1">&#39;FoxP2&#39;</span><span class="p">:</span> <span class="p">{</span><span class="s1">&#39;ChR2&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">8</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="mi">27</span><span class="p">],</span>
+         <span class="s1">&#39;Control&#39;</span><span class="p">:</span> <span class="p">[</span><span class="mi">23</span><span class="p">,</span> <span class="mi">26</span><span class="p">]}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">pre_direct</span></code> : path to the root directory shown above</p>
+</section>
+<section id="data-analysis">
+<h3>Data analysis<a class="headerlink" href="#data-analysis" title="Permalink to this headline"></a></h3>
+<p>We first extract sessions from the readings obtained from the DeepLabCut package :</p>
+<a class="reference internal image-reference" href="../../_images/Locomotion_position.png"><img alt="../../_images/Locomotion_position.png" class="align-center" src="../../_images/Locomotion_position.png" style="width: 480.0px; height: 320.0px;" /></a>
+<p>Where the blue shades show the intervals with laser stimulation.</p>
+<p>We then extract all the windows that contain a certain period (<code class="docutils literal notranslate"><span class="pre">pre_stim_interval_measure</span></code>) before laser onset, the duration of laser and (<code class="docutils literal notranslate"><span class="pre">interval_in_sec</span></code>) and a period after (<code class="docutils literal notranslate"><span class="pre">post_stim_interval_measure</span></code>).</p>
+<a class="reference internal image-reference" href="../../_images/Average_trials.png"><img alt="../../_images/Average_trials.png" class="align-center" src="../../_images/Average_trials.png" style="width: 499.79999999999995px; height: 336.0px;" /></a>
+<p>If the experimenter has provided sessions with no laser stimulation (black line, here addressed as <em>Spontaneous</em>), we extraced the same number of trials from those sessions and plots them together to have an internal control.</p>
+<dl class="simple">
+<dt>You will find the chance to assess your data through a variety of options:</dt><dd><ul class="simple">
+<li><p>look at single trials of specific animals,</p></li>
+<li><p>averages of all or specific sessions for individual animals and all the animals at once.</p></li>
+<li><p>You would also be able to categorize trials based on their charecteristics in the miliseconds prior to lase stimulation to see how the intial conditions would change the behavior during laser stimulation.</p></li>
+<li><p>compare average of a chosen measure <em>position</em>, <em>velocity</em> or acceleration within an animal type group or between groups or for different animal groups with different optogenetic expression</p></li>
+<li><p>distribution of pre laser position for individual animals</p></li>
+<li><p>Compare the effect of simultaneous or separate laser stimulation in different brain areas within the same animal group e.g. stimulation of Subthalamic nucleus and External Globus Pallidus in Vglut2-Cre transgenic animals.</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="misdetection-correction">
+<h3>Misdetection correction<a class="headerlink" href="#misdetection-correction" title="Permalink to this headline"></a></h3>
+<p>Even with an optimized trained network it so happens that there are mistakes in the trackings of body parts. This causes crazy changes in velocity of the animal and yield a noisy reading of what we are looking for.
+Here we try to reduce this type of noise in the data by thresholding and comparison between the two sets of data from identical cameras on each side.</p>
+<p>Here are the steps taken:</p>
+<p class="plantuml">
+<img src="../../_images/plantuml-ef359bdc870de2eb0f85b7fd2db54de18fc4e59b.png" alt="&#64;startuml
+
+if (&lt;size:16&gt;**Average both right and left side?**&lt;/size&gt;) then (yes)
+   fork
+      if (Is there a shift between the right and left sides?) then (yes)
+         :Correct shift;
+      else (no)
+
+      endif
+
+      :Compare right and left traces, detect where \n there's an unacceptable deviance;
+
+      :Decide which side is faulty;
+
+      :Replace the above detections with the average of \n surrounding detections of the non-faulty side in time;
+
+      :Average the left and right side detections;
+     endfork
+else (no)
+
+endif
+
+while (Detect unreasonalble detections with velocity threshold)
+
+   :Replace the above detections with the \n average of surrounding detections in time;
+endwhile (no more misdetections)
+
+
+stop
+
+&#64;enduml"/>
+</p>
+</section>
+</section>
 </section>
 
 
