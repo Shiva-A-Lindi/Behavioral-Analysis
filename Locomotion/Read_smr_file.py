@@ -319,7 +319,7 @@ if __name__ == '__main__':
             
             print('sth went wrong')
             
-    # path = '/media/shiva/LaCie/Data_INCIA_Shiva_sorted/Vglut2D2Cre/Mouse_59/STR/betapulse_2-5mW/Laser'
+    # path = '/media/shiva/LaCie/Data_INCIA_Shiva/2021_02_19_newTrain2_Video_empty'
     # extension_ind = input("Enter the number corresponding to the right file extension: \n 1. .smr           2. .smrx : \n")  
     laser_threshold = get_laser_thresh()
     extensions = [".smr", ".smrx"]

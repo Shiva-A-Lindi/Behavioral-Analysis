@@ -44,10 +44,11 @@ class Directory :
         for (dirpath, dirnames, filenames) in os.walk(self.path):
         
             for f in filenames:
-
-                self.all_filepath_list.append(os.path.join(dirpath, f))
-                extensions.append( os.path.splitext(f) [1])
                 
+                if not f.startswith('.'):
+                    self.all_filepath_list.append(os.path.join(dirpath, f))
+                    extensions.append( os.path.splitext(f) [1])
+                    
         self.extensions = np.unique(extensions)
         
     def get_filenames(self):
@@ -86,6 +87,16 @@ class Directory :
             
         self. __init__( self.path)
        
+    def remove_spaces_dots(self):
+        
+        for path in self.all_filepath_list:
+            
+            file = File(path)
+            file.remove_spaces_in_name()
+            file.replace_txt('.', '-')
+            print(file.name)
+            file.rename(file.name)
+            
     def add_stim_type_to_name(self, stim_type_list = ['Square', 'square', 'beta', 'Beta'], 
                               extensions = ['.avi', '.h5', '.pickle', '.csv']):
         
@@ -287,7 +298,7 @@ class Experiment():
         self.DLC_files = []
         self.smr_files = []
         self.laser = None
-        self.treadmil_velocity = None
+        self.treadmill_velocity = None
         self.file_found = {'smr' : False, 'DLC': False}
 
             
@@ -301,7 +312,7 @@ class Experiment():
     
     def get_day_tag(self):
         
-        if self.video.name_elements[-1].lower() == 'stacked' :
+        if self.video.name_elements[-1].lower() == 'stacked' : # if "Stacked" is added to the end of the filename
             
             if len(self.video.name_elements[-2]) != 3 :
                 
@@ -318,8 +329,19 @@ class Experiment():
         else:
             
             self.day_tag = self.video.name_elements[-1]
+
+    def get_treadmill_velocity(self, default_velocity = 15):
+        
+        velocity = [string for string in self.video.name_elements if 'cm-s' in string]
+        
+        if any(velocity):
             
+            self.treadmill_velocity = int(velocity[0].replace('cm-s', ''))
             
+        else: # if velocity not mentioned in name it must be the default of 15 cm/s
+            
+            self.treadmill_velocity = default_velocity
+
     def extract_info_from_video_filename(self) :
         
         self.get_mouse_no_and_line( no_specifier = '#')
@@ -327,9 +349,8 @@ class Experiment():
         self.stim_type = self.video.name_elements[1]
         self.stim_location = self.video.name_elements[2].replace('+', '-')
         self.stim_power = self.video.name_elements[3]
-        self.treadmil_velocity = self.video.name_elements[4]
         self.get_day_tag()
-        
+        self.get_treadmill_velocity()
         
     def show_specs(self):
         
@@ -340,7 +361,7 @@ class Experiment():
               'stim type : ', self.stim_type, '\n',
               'stim_power : ', self.stim_power, '\n',
               'location : ', self.stim_location, '\n',
-              'treadmil velocity :', self.treadmil_velocity, '\n',
+              'treadmil velocity :', self.treadmill_velocity, '\n',
               'day tag :', self.day_tag
               )
         
