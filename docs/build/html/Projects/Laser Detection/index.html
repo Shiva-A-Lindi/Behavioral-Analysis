@@ -129,15 +129,16 @@
 <li class="toctree-l1"><a class="reference internal" href="Open_field.html">Open Field</a></li>
 </ul>
 </div>
+<a class="reference internal image-reference" href="../../_images/Laser_detection_loco_frame.png"><img alt="alternate text" src="../../_images/Laser_detection_loco_frame.png" style="width: 55%;" /></a>
+<a class="reference internal image-reference" href="../../_images/Laser_detection_OF_frame.jpeg"><img alt="alternate text" src="../../_images/Laser_detection_OF_frame.jpeg" style="width: 40%;" /></a>
 <p>This a pipeline developed to detect laser pulses recieved at the implanted optic fibers on the rodent’s head. The detection is rather simple, you need to provide the a boundary for the laser light (RGB for color, or equivallently HSV), and either the number of pixels (or contours around regions of interest depending on the specified method) are detected. Then some preprocessing is performed yielding the frame numbers corresponding to start and ends for each pulse. This information is reported in a <code class="docutils literal notranslate"><span class="pre">csv</span></code> file saved in your project directory. All you need to do is to specify some parameters in the <code class="docutils literal notranslate"><span class="pre">config</span> <span class="pre">file</span></code>.</p>
 <p>The steps you need to take for the analysis are the following:</p>
 <ol class="arabic">
-<li><p>Open terminal and run the <code class="docutils literal notranslate"><span class="pre">Laser_detection_run.py</span></code>. You will see:
-.. code-block:: text</p>
-<blockquote>
-<div><p>$ Laser_detection_run.py
-Input project path:</p>
-</div></blockquote>
+<li><p>Open terminal and run the <code class="docutils literal notranslate"><span class="pre">Laser_detection_run.py</span></code>. You will see:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>$ Laser_detection_run.py
+Input project path:
+</pre></div>
+</div>
 <p>Provide the path where you store your videos. It could be the root to all your videos, the program will find all the video files under this directory and will ask you if you wish to analyze all at once. However note that they will all be analyzed with the same configuration! If you wish to vary the config file you can break the video files down and analyze them separately.</p>
 </li>
 <li><p>After you input the path a meesage will pop up asking which type of experiment you want to analyze:</p>
