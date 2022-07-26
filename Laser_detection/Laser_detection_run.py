@@ -14,18 +14,21 @@ from Laser_detection import *
 if __name__ == '__main__':
 
 
-    path = input('Input project path: \n')
-    project_name = input('Input the number corresponding to your project: \n \
-                         1. Treadmill \n \
-                         2. Open field \n')
+    # path = input('Input project path: \n')
+    # project_name = input('Input the number corresponding to your project: \n \
+    #                      1. Treadmill \n \
+    #                      2. Open field \n')
                          
+    path = '/media/shiva/Seagate Expansion Drive/Lise_manipArky_2022/L-DOPA/STR_5ms'
+    project_name = '2'
+    stdin = ''
     laser_detection_path = os.path.join(path,  'LASER_DETECTION')
     Directory.create_dir_if_not_exist(laser_detection_path)
     configpath = set_config_file(path, project_name, rewrite_existing = True)
     
     print('config file created at \n {}. You may adjust the parameters and resave.\n'.format(configpath))
     
-    stdin = input('Press ENTER if you wish to analyze all the video files in the project path directory, otherwise please input the path to a csv file containing the paths to your desired files.\n')
+    # stdin = input('Press ENTER if you wish to analyze all the video files in the project path directory, otherwise please input the path to a csv file containing the paths to your desired files.\n')
     
     if stdin == '':
         
@@ -40,8 +43,6 @@ if __name__ == '__main__':
         
         raise ValueError ('Invalid input. Please try again.')
     
-    # video_filepath_list = ['/media/shiva/Seagate Expansion Drive/Lise_manipArky_2022/L-DOPA/GP_10ms/FoxP2_30_140322_L-DOPA_GP_10ms_comp.MP4']
-    
     print( '{} experiment files found.'.format(len(video_filepath_list)) )
     
     SortedExpeiment.create_problematic_csv(os.path.join(laser_detection_path, 'Problematic_files.csv'))
@@ -52,7 +53,7 @@ if __name__ == '__main__':
     for i, filepath in enumerate(video_filepath_list):
     
         plt.close( 'all' )
-        print('{} from {} files.'.format(i + 1, len (video_filepath_list)))
+        print('Analyzing {} from {} files.'.format(i + 1, len (video_filepath_list)))
         
     
         try: 
@@ -62,7 +63,8 @@ if __name__ == '__main__':
                                          stim_duration_dict = cfg['stim_duration_dict'],
                                          stim_duration = cfg['stim_duration'],
                                          fps = cfg['fps'],
-                                         inter_stim_interval = cfg['inter_stim_interval'])
+                                         inter_stim_interval = cfg['inter_stim_interval'],
+                                         experiment = { '1': 'treadmill', '2': 'OF'}[project_name])
         
                 
             if not sorted_exp.already_analyzed or cfg['reanalyze_existing']:
@@ -72,17 +74,17 @@ if __name__ == '__main__':
                                                 thresh_method = cfg['thresholding_method'],
                                                 area_cal_method = cfg['area_cal_method'],
                                                 image_parts = ['upper', 'lower'],
-                                                treadmil_length_in_cm = cfg['treadmil_length_in_cm'])
+                                                treadmill_length_in_cm = cfg['treadmill_length_in_cm'])
         
-                areas = laser_detector.detect ( low_img_thresh = tuple( cfg['pix_thresh_lower_bound'][
+                areas, nb_frames = laser_detector.detect( low_img_thresh = tuple( cfg['pix_thresh_lower_bound'][
                                                                                 cfg['thresholding_method']]), 
-                                                high_img_thresh = tuple(cfg['pix_thresh_upper_bound'][
+                                                        high_img_thresh = tuple(cfg['pix_thresh_upper_bound'][
                                                                                 cfg['thresholding_method']]), 
-                                                DLC_p_cutoff_ranges = cfg['DLC_p_cutoff_ranges'],
-                                                nb_frames = None,
-                                                constrain_frame= cfg['constrain_frame'],
-                                                max_dev_in_cm = cfg['max_dev_in_cm'],
-                                                DLC_body_label= cfg['DLC_label'])
+                                                        DLC_p_cutoff_ranges = cfg['DLC_p_cutoff_ranges'],
+                                                        nb_frames = None,
+                                                        constrain_frame= cfg['constrain_frame'],
+                                                        max_dev_in_cm = cfg['max_dev_in_cm'],
+                                                        DLC_body_label= cfg['DLC_label'])
                 print('video file read. Finding pulses...')
                 
                 
@@ -91,18 +93,19 @@ if __name__ == '__main__':
                 
                 if cfg['experiment'] == 'locomotion treadmill':
                     
-                    pulse = Pulse(areas, fs = cfg['fps'], 
+                    pulse = Pulse(areas, fs = cfg['fps'], nb_frames = nb_frames,
                                   enforce_use_laser_detection_only = cfg['enforce_use_laser_detection_only'],
                                   use_laser_detection_if_no_analogpulse = cfg['use_laser_detection_if_no_analogpulse'],
                                   true_duration = sorted_exp.stim_duration)
                     
                 elif cfg['experiment'] == 'Open field':
                     
-                    pulse = LongPulse(areas, fs = cfg['fps'], 
+                    pulse = LongPulse(areas, fs = cfg['fps'], nb_frames = nb_frames,
                                       inter_stim_interval = sorted_exp.inter_stim_interval,
                                       enforce_use_laser_detection_only = cfg['enforce_use_laser_detection_only'],
                                       use_laser_detection_if_no_analogpulse = cfg['use_laser_detection_if_no_analogpulse'],
-                                      true_duration = sorted_exp.stim_duration)
+                                      true_duration = sorted_exp.stim_duration,
+                                      min_acc_dev = cfg['min_acc_dev'], max_acc_dev = cfg['max_acc_dev'])
                 else:
                     
                     raise ValueError ('Experiment must be either treadmill or open field!')
@@ -110,8 +113,6 @@ if __name__ == '__main__':
                 # analogpulse.remove_pulses(ind_pulses) ## if analogpulse has more pulses input the indicies of the pulses to delete
                 # pulse.cut_sig(frame_to_cut)           ## if there are problems in the signal cut it here
                 
-                fig, ax = plt.subplots()
-                ax.plot(pulse.signal)
                 pulse.pre_process(gauss_window = cfg['gauss_window'], 
                                   low_f = cfg['bandpass_frequency'][0],
                                   high_f = cfg['bandpass_frequency'][1],
@@ -127,7 +128,7 @@ if __name__ == '__main__':
                 
 
                 pulse.determine_start_ends(thresh = cfg['start_end_h_thresh'])
-                pulse.remove_problematic_detections()
+                pulse.handle_problematic_detections()
                 pulse.cal_centers()
                 
                 true_duration = pulse.find_duration(analogpulse)
@@ -135,28 +136,31 @@ if __name__ == '__main__':
                 ax = pulse.plot_centers()
                 
                 
-                starts, ends, centers = sorted_exp.get_laser_start_end( pulse, analogpulse, true_duration)
+                starts, ends, centers = sorted_exp.get_laser_start_end( pulse.starts, pulse.ends, pulse, 
+                                                                       analogpulse, true_duration)
         
                 # centers = remove_element(centers, 14) # to remove certain elements
 
-                ax_superimp = pulse.plot_superimposed(starts, ends, centers, true_duration)
+                ax_superimp, title = pulse.plot_superimposed(starts, ends, centers, true_duration)
                 
                 sorted_exp.save_laser_detections (starts, ends, 
                                                   pulse.method, 
                                                   pulse.shift_rel_to_analogpulse, 
                                                   pulse.shift_rel_to_analogpulse_sd,
-                                                  note = pulse.note)
+                                                  note = pulse.note,
+                                                  nb_frames = nb_frames,
+                                                  no_solid_detection = pulse.no_solid_detection)
                 sorted_exp.plot_laser_detections( ax, 
                                                   centers, 
                                                   pulse.normalize(pulse.smoothed_sig)[centers],
-                                                  title = pulse.method)
+                                                  title = title)
         
         
-                filename = sorted_exp.video.name_base + '_constrained_'  + str(cfg['constrain_frame'])
+                filename = sorted_exp.create_figname(cfg['constrain_frame'])
                 pulse.save_figs( ax, ax_superimp, 
                                 [laser_detection_path, os.path.join(sorted_exp.exp_dir, 'Laser')], 
                                 filename) 
-                
+                pulse.raise_err_if_no_solid_detection()
                 sorted_exp.add_file_to_csv(os.path.join(laser_detection_path, 
                                                               'Analysis_summary.csv'),
                                             pulse.method, 

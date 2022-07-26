@@ -36,62 +36,118 @@ import yaml
 from ruamel.yaml import YAML
 
 ##################### Config file  ##########################################################################################
-def create_config_template():
+def create_config_template(experiment):
     """
     Creates a template for config.yaml file. This specific order is preserved while saving as yaml file.
     """
-
-    yaml_str = """\
-    # Project definitions (do not edit)
-        \n
-        experiment: # experiment paradigm 
-        \n
-    # Project path (change when moving around)
-        \n
-        project_path: 
-        \n
-    # Experiment parameters
-        \n
-        fps : # frame per second of recorded video
-        treadmil_length_in_cm : # float, Full treadmill length in cm
-        stim_duration_dict : # stim durations (in ms) for different pulses
-        stim_duration : # stim duration time (in ms), not necessary if stim type is specified in name and the above stim_duration_dict is specified.
-        duration_off_per_cycle : # duration of laser off (in ms) per pulse (normal beta would be 25 ms)
-        inter_stim_interval : # {'random', int} time duration (in ms) between two consecutive pulses
-        extract_info_from_file : # True only for locomotion and only if filenames comply with the common naming rules
-    # Frame analysis parameters
-        \n
-        thresholding_method : # RGB or HSV
-        pix_thresh_upper_bound : #  (R, G, B) and  (H, S, V)
-        pix_thresh_lower_bound : # (R, G, B) and (H, S, V) 
-        area_cal_method: # pix_count for counting nb of laser pixels, or contour for analyzing contours around laser (suitable for HSV)
-
-        \n
-    # Laser detection parameters
-        \n
-        use_laser_detection_if_no_analogpulse : # true or false
-        enforce_use_laser_detection_only : # true if you don't want to use the analogpulse
-        reanalyze_existing: # true if you wish to reanalyze already analyzed videos 
-        \n
-    # Individual Pulse detection parameters
-        \n
-        crude_smooth_wind : # gassian kernel window for crudly smoothing 
-        center_vicinity_h_thresh: # peak threshold value for crudly smoothed signal 
-        gauss_window : # gaussina kernel window for smoothing signal before bandpass filtering
-        bandpass_frequency : # (low_f, high_f) tuple specifying the freq band to filter for detecting start end of pulse
-        filter_order : # bandpass filter order
-        start_end_h_thresh: # peak threshold value for start end event detection using above specified bandpass filtered sig
-        max_iteration : # maximum number of iterations for recursive adjustment of peak threshold
-        \n
-    # DLC Aid parameters
-        \n
-        constrain_frame : # bool, whether or not constrain searched pixels with DLC analysis
-        DLC_label : # str, DLC label to use to constrain pixels
-        DLC_p_cutoff_ranges: # float, cutoff label detection liklihood to use to constrain the vertical wherabout of laser
-        max_dev_in_cm : # float, maximum deviation in cm around the provided label to constrain pixels.
+    if experiment == 'OF':
+        yaml_str = """\
+        # Project definitions (do not edit)
+            \n
+            experiment: # experiment paradigm 
+            \n
+        # Project path (change when moving around)
+            \n
+            project_path: 
+            \n
+        # Experiment parameters
+            \n
+            fps : # frame per second of recorded video
+            stim_duration : # stim duration time (in ms), not necessary if stim type is specified in name and the above stim_duration_dict is specified.
+            duration_off_per_cycle : # duration of laser off (in ms) per pulse (normal beta would be 25 ms)
+            inter_stim_interval : # {'random', int} time duration (in ms) between two consecutive pulses
+            extract_info_from_file : # True only for locomotion and only if filenames comply with the common naming rules
+            \n
+        # Pulse detection parameters    
+            max_acc_dev :  # upper bound of deviation from true stim durarion allowed in percentage 
+            min_acc_dev :  # lower bound of deviation from true stim durarion allowed in percentage 
+            max_allowed_duration_var : # max variability in frames between pulse durations below which stim_duration is overruled
+            \n
+        # Frame analysis parameters
+            \n
+            thresholding_method : # RGB or HSV
+            pix_thresh_upper_bound : #  (R, G, B) and  (H, S, V)
+            pix_thresh_lower_bound : # (R, G, B) and (H, S, V) 
+            area_cal_method: # pix_count for counting nb of laser pixels, or contour for analyzing contours around laser (suitable for HSV)
+    
+            \n
+        # Laser detection parameters
+            \n
+            use_laser_detection_if_no_analogpulse : # true or false
+            enforce_use_laser_detection_only : # true if you don't want to use the analogpulse
+            reanalyze_existing: # true if you wish to reanalyze already analyzed videos 
+            \n
+        # Individual Pulse detection parameters
+            \n
+            crude_smooth_wind : # gassian kernel window for crudly smoothing 
+            center_vicinity_h_thresh: # peak threshold value for crudly smoothed signal 
+            gauss_window : # gaussina kernel window for smoothing signal before bandpass filtering
+            bandpass_frequency : # (low_f, high_f) tuple specifying the freq band to filter for detecting start end of pulse
+            filter_order : # bandpass filter order
+            start_end_h_thresh: # peak threshold value for start end event detection using above specified bandpass filtered sig
+            \n
+        # DLC Aid parameters
+            \n
+            constrain_frame : # bool, whether or not constrain searched pixels with DLC analysis
+            DLC_label : # str, DLC label to use to constrain pixels
+            DLC_p_cutoff_ranges: # float, cutoff label detection liklihood to use to constrain the vertical wherabout of laser
+            max_dev_in_cm : # float, maximum deviation in cm around the provided label to constrain pixels.
+            treadmill_length_in_cm : # Not relevant
+     
+        """
+    elif experiment == 'treadmill':
+    
+        yaml_str = """\
+        # Project definitions (do not edit)
+            \n
+            experiment: # experiment paradigm 
+            \n
+        # Project path (change when moving around)
+            \n
+            project_path: 
+            \n
+        # Experiment parameters
+            \n
+            fps : # frame per second of recorded video
+            treadmill_length_in_cm : # float, Full treadmill length in cm
+            stim_duration_dict : # stim durations (in ms) for different pulses
+            stim_duration : # stim duration time (in ms), not necessary if stim type is specified in name and the above stim_duration_dict is specified.
+            duration_off_per_cycle : # duration of laser off (in ms) per pulse (normal beta would be 25 ms)
+            inter_stim_interval : # {'random', int} time duration (in ms) between two consecutive pulses
+            extract_info_from_file : # True only for locomotion and only if filenames comply with the common naming rules
         
-    """
-
+        # Frame analysis parameters
+            \n
+            thresholding_method : # RGB or HSV
+            pix_thresh_upper_bound : #  (R, G, B) and  (H, S, V)
+            pix_thresh_lower_bound : # (R, G, B) and (H, S, V) 
+            area_cal_method: # pix_count for counting nb of laser pixels, or contour for analyzing contours around laser (suitable for HSV)
+    
+            \n
+        # Laser detection parameters
+            \n
+            use_laser_detection_if_no_analogpulse : # true or false
+            enforce_use_laser_detection_only : # true if you don't want to use the analogpulse
+            reanalyze_existing: # true if you wish to reanalyze already analyzed videos 
+            \n
+        # Individual Pulse detection parameters
+            \n
+            crude_smooth_wind : # gassian kernel window for crudly smoothing 
+            center_vicinity_h_thresh: # peak threshold value for crudly smoothed signal 
+            gauss_window : # gaussina kernel window for smoothing signal before bandpass filtering
+            bandpass_frequency : # (low_f, high_f) tuple specifying the freq band to filter for detecting start end of pulse
+            filter_order : # bandpass filter order
+            start_end_h_thresh: # peak threshold value for start end event detection using above specified bandpass filtered sig
+            max_iteration : # maximum number of iterations for recursive adjustment of peak threshold
+            \n
+        # DLC Aid parameters
+            \n
+            constrain_frame : # bool, whether or not constrain searched pixels with DLC analysis
+            DLC_label : # str, DLC label to use to constrain pixels
+            DLC_p_cutoff_ranges: # float, cutoff label detection liklihood to use to constrain the vertical wherabout of laser
+            max_dev_in_cm : # float, maximum deviation in cm around the provided label to constrain pixels.
+            
+        """
     ruamelFile = YAML()
     cfg_file = ruamelFile.load(yaml_str)
     
@@ -134,13 +190,13 @@ def read_config(configpath):
     
 
 
-def write_config(configname, cfg):
+def write_config(configname, cfg, experiment):
     """
     Write structured config file.
     """
 #     write_plainconfig(configname, cfg)
     with open(configname, "w") as cf:
-        cfg_file, ruamelFile = create_config_template()
+        cfg_file, ruamelFile = create_config_template(experiment)
         for key in cfg.keys():
             cfg_file[key] = cfg[key]
 
@@ -178,9 +234,11 @@ def write_plainconfig(configname, cfg):
 def set_config_file(path, n_exp, rewrite_existing = False): 
 
     if n_exp == '1': 
+        experiment = 'treadmill'
         cfg = set_config_file_locomotion(path)
         
     elif n_exp == '2':
+        experiment = 'OF'
         cfg = set_config_file_openfield(path)
         
     else:
@@ -189,7 +247,7 @@ def set_config_file(path, n_exp, rewrite_existing = False):
     configpath = os.path.join(path, os.path.basename(os.path.normpath(path)) + '_config.yaml')
     
     if not os.path.exists(configpath) or rewrite_existing:
-        write_config(configpath, cfg)
+        write_config(configpath, cfg, experiment)
         
     return configpath
 
@@ -200,7 +258,7 @@ def set_config_file_locomotion(path):
         'experiment': 'Locomotion treadmil',# experiment paradigm 
         'project_path': path,
         'fps' : 250,# frame per second of recorded video
-        'treadmil_length_in_cm' : 37.6,# float, Full treadmill length in cm
+        'treadmill_length_in_cm' : 37.6,# float, Full treadmill length in cm
         'stim_duration_dict' : { 'beta': 500, 'square': 500, 'beta-square': 500} , # dictionary, corresponding stim durations (in ms) for different pulses
         'stim_duration' : None, # stim duration time, not necessary if stim type is specified in name and the above dict is specified.
         'duration_off_per_cycle' : 25,
@@ -244,6 +302,9 @@ def set_config_file_openfield(path):
         'stim_duration' : 30000, # stim duration time, not necessary if stim type is specified in name and the above dict is specified.
         'duration_off_per_cycle' : 40,
         'inter_stim_interval' : 30000,
+        'max_acc_dev' : 0.985, # deviation from true stim durarion allowed in percentage 
+        'min_acc_dev' : 1.015, 
+        'max_allowed_duration_var' : 10,
         'extract_info_from_file' : False,
         'thresholding_method' : 'RGB',# str, {'RGB', 'HSV'}
         'pix_thresh_upper_bound' : {'RGB': (255, 120, 140),
@@ -266,8 +327,8 @@ def set_config_file_openfield(path):
         'constrain_frame' : False,# bool, whether or not constrain searched pixels with DLC analysis
         'DLC_label' : 'Nose',# str, DLC label to use to constrain pixels
         'DLC_p_cutoff_ranges': 0.995,# float, cutoff label detection liklihood to use to constrain the vertical wherabout of laser
-        'max_dev_in_cm' : 1.7# float, maximum deviation in cm around the provided label to constrain pixels.
-        
+        'max_dev_in_cm' : 1.7, # float, maximum deviation in cm around the provided label to constrain pixels.
+        'treadmill_length_in_cm' : 33.6
         }
     return cfg
 
@@ -275,7 +336,7 @@ class MouseLocation:
     
 
     def __init__( self, DLC_filepath, pos_in_vid = 'upper', p_cutoff = 0.995, 
-                 treadmil_length_in_cm = 33, treadmil_length_in_pix = 1000,
+                 treadmill_length_in_cm = 33, treadmil_length_in_pix = 1000,
                  max_dev_in_cm = 2, body_part = 'Nose'):
         
         
@@ -289,18 +350,18 @@ class MouseLocation:
         self.pos_in_vid = pos_in_vid
         self._set_side_from_pos(pos_in_vid)
         self.get_location(body_part = body_part)
-        self.max_dist_nose_to_laser = self.cal_max_deviat_nose_to_laser(treadmil_length_in_cm, 
+        self.max_dist_nose_to_laser = self.cal_max_deviat_nose_to_laser(treadmill_length_in_cm, 
                                                                         treadmil_length_in_pix, 
                                                                         max_dev_in_cm = max_dev_in_cm)
         self.get_cor_range( p_cutoff = p_cutoff )
         self.shift_rel_to_analogpulse_sd = None
         
     def cal_max_deviat_nose_to_laser(self, 
-                                     treadmil_length_in_cm, 
+                                     treadmill_length_in_cm, 
                                      treadmil_length_in_pix, 
                                      max_dev_in_cm = 2):
         
-        return max_dev_in_cm * treadmil_length_in_pix / treadmil_length_in_cm
+        return max_dev_in_cm * treadmil_length_in_pix / treadmill_length_in_cm
 
         
         
@@ -484,14 +545,14 @@ class LaserDetector :
                   thresh_method = 'RGB',
                   area_cal_method = 'pix_count',
                   image_parts = ['upper', 'lower'],
-                  treadmil_length_in_cm = 33):
+                  treadmill_length_in_cm = 33):
         
         self.video_filepath = video_filepath
         self.DLC_filepath = DLC_filepath
         self.thresh_method = thresh_method
         self.area_cal_method = area_cal_method
         self.image_parts = image_parts
-        self.treadmil_length_in_cm = treadmil_length_in_cm 
+        self.treadmill_length_in_cm = treadmill_length_in_cm 
         
     def set_laser_boundaries(self, 
                              p_cutoff = 0.995, 
@@ -501,13 +562,13 @@ class LaserDetector :
                              body_part = 'Nose'):
         
         mloc_lower = MouseLocation( self.DLC_filepath , 'lower', p_cutoff = p_cutoff,
-                                    treadmil_length_in_cm = self.treadmil_length_in_cm, 
+                                    treadmill_length_in_cm = self.treadmill_length_in_cm, 
                                     treadmil_length_in_pix = treadmil_length_in_pix,
                                     max_dev_in_cm = max_dev_in_cm,
                                     body_part = body_part)
         
         mloc_upper = MouseLocation( self.DLC_filepath , 'upper', p_cutoff = p_cutoff, 
-                                    treadmil_length_in_cm = self.treadmil_length_in_cm, 
+                                    treadmill_length_in_cm = self.treadmill_length_in_cm, 
                                     treadmil_length_in_pix = treadmil_length_in_pix,
                                     max_dev_in_cm = max_dev_in_cm,
                                     body_part = body_part)
@@ -564,7 +625,7 @@ class LaserDetector :
             print('runtime =', time.strftime("%H:%M:%S", time.gmtime(round(stop - start, 2)))) 
         except:
             pass
-        return laser.area_list
+        return laser.area_list, vidstr.nb_frames
     
     def all_video(self):
         
@@ -754,7 +815,7 @@ class Pulse :
     def __init__( self, sig, fs = 250, low_f = 1, high_f = 50, 
                  enforce_use_laser_detection_only = False, 
                  use_laser_detection_if_no_analogpulse = False,
-                 true_duration = None):
+                 true_duration = None, nb_frames = None):
         
         self.signal = sig
         self.raw_signal = sig.copy()
@@ -777,6 +838,9 @@ class Pulse :
         self.true_duration = true_duration
         self.low_pass_filter = True ## for short clear signals like treadmill task
         self.note = ''
+        self.stim_duration_overruled = False
+        self.nb_frames = nb_frames 
+        
     @staticmethod
     def butter_bandpass(lowcut, highcut, fs, order=5):
         
@@ -942,7 +1006,7 @@ class Pulse :
         
         return pulse_boundaries.astype(int)
     
-    def remove_problematic_detections(self):
+    def handle_problematic_detections(self):
         
         ''' remove detected laser start and ends where there is not 
         only and only one detected for each per peak
@@ -1230,6 +1294,10 @@ class Pulse :
             self.fill_missing_pulses(analogpulse, plot = False, report = False)
             true_duration = analogpulse.true_duration
             
+        elif self.no_solid_detection:
+            
+            true_duration = self.pulse_duration
+            
         else:
             
             true_duration = self.true_duration
@@ -1340,27 +1408,51 @@ class Pulse :
 
     def plot_superimposed(self, starts, ends, centers, true_duration):
         
-        fig, ax = plt.subplots()
-        pad = 50
-        half_duration = int(true_duration / 2)
-        x_s = np.linspace(-half_duration - pad, half_duration + pad, 
-                          num = 2 * (half_duration + pad))
-        
-        for start, end, center in zip(starts, ends, centers):
+        try:
+            fig, ax = plt.subplots()
+            if self.stim_duration_overruled:
+                title = self.method + '. ' + 'Stim duration overruled'
             
-            line, = ax.plot(x_s, self.raw_signal[center - half_duration - pad:
-                                                 center + half_duration + pad], 
-                    '-o', ms = 3, lw = 0.5)
-            ax.axvline(x = (start-center), ls = '--', c = line.get_color())
-            ax.axvline(x = (end - center), ls = '--', c = line.get_color())
+            elif self.no_solid_detection:
+                title = self.method + '. ' + 'No solid detections'
             
-        ax.axvline(x = 0, ls = '--', c = 'k')
-        ax.set_ylabel('laser intensity', fontsize = 12)
-        ax.set_xlabel('# frame', fontsize = 12)
-        ax.set_title(self.method, fontsize = 12)
+            else:
+                title = self.method + '. '
+            pad = 50
+            half_duration = int(true_duration / 2)
+            x_s = np.linspace(-half_duration - pad, half_duration + pad, 
+                              num = 2 * (half_duration + pad))
+            ax.axvline(x = 0, ls = '--', c = 'k', zorder = 25)
+            ax.set_ylabel('laser intensity', fontsize = 12)
+            ax.set_xlabel('# frame', fontsize = 12)
+            
 
-        return ax
+            ax.set_title( title, fontsize = 12)
+            
+            for start, end, center in zip(starts, ends, centers):
+                
+                line, = ax.plot(x_s, self.raw_signal[center - half_duration - pad:
+                                                     center + half_duration + pad], 
+                        '-o', ms = 3, lw = 0.5)
+                ax.axvline(x = (start-center), ls = '--', c = line.get_color())
+                ax.axvline(x = (end - center), ls = '--', c = line.get_color())
+                
+                
+        
+        except  Exception as error:
+            self.plot_error = error
+            
+        return ax, title
     
+    def raise_err_if_no_solid_detection(self):
+        
+        if self.no_solid_detection:
+            
+            raise ValueError (" No solid detections found. " \
+                              + "Pulse duration =" \
+                              + str(round(np.average(self.durations))) \
+                              + '+/-' + str(round(np.std(self.durations))) )
+
     @staticmethod
     def find_runs(x):
         """Find runs of consecutive items in an array."""
@@ -1428,16 +1520,25 @@ class LongPulse(Pulse):
     def __init__( self, sig, fs = 250, low_f = 1, high_f = 50, 
                   enforce_use_laser_detection_only = False, 
                   use_laser_detection_if_no_analogpulse = False,
-                  true_duration = None, inter_stim_interval = None):
+                  true_duration = None, inter_stim_interval = None, 
+                  min_acc_dev = 0.985, max_acc_dev = 1.015,
+                  max_allowed_duration_var = 10, nb_frames = None):
         
         Pulse.__init__(self, sig, fs = fs, low_f = low_f, high_f = high_f, 
                       enforce_use_laser_detection_only = enforce_use_laser_detection_only, 
                       use_laser_detection_if_no_analogpulse = use_laser_detection_if_no_analogpulse,
-                      true_duration = true_duration)
+                      true_duration = true_duration, nb_frames = nb_frames)
         
         self.low_pass_filter = False
         self.durations = None
+        self.pulse_duration = None
+        self.pulse_duration_sd = None
         self.inter_stim_interval = inter_stim_interval
+        self.min_acc_dev = min_acc_dev
+        self.max_acc_dev = max_acc_dev
+        self.max_allowed_duration_var = max_allowed_duration_var
+        self.no_solid_detection = False
+        self.video_ends_mid_pulse = False
         
     def determine_start_ends(self, thresh = 0.025):
         
@@ -1474,17 +1575,28 @@ class LongPulse(Pulse):
         self.starts = self.starts.astype(int)
         self.ends = self.ends.astype(int)
     
-    def extrapolate_short_pulses(self, min_acc_dev = .985, max_acc_dev = 1.015):
+    def handle_problematic_detections(self):
+        
+        self.extrapolate_short_pulses()
+    
+    def extrapolate_short_pulses(self):
         
         self.durations = self.ends - self.starts
-
         n_pulses = len(self.starts)
-        ind_ground_truth_pulses = np.logical_and(self.durations < self.true_duration * max_acc_dev,
-                                                 self.durations > self.true_duration * min_acc_dev)
-        
+
+        ind_ground_truth_pulses, n_solid_pulses = self.check_for_ground_truth_pulses()
+        self.check_if_video_ends_mid_pulse(ind_ground_truth_pulses)
+
         self.cal_centers()
         
-        if not self.keep_detections_if_consistent(ind_ground_truth_pulses):
+        if self.keep_detections_if_consistent(ind_ground_truth_pulses, n_solid_pulses):
+            
+            print('pulse durations differ from input value, however they have low variability and will be reported as is.')
+            self.return_pulses_as_is()
+            
+        elif  np.sum(ind_ground_truth_pulses) > 0:
+            
+            print('aligning to solid detections...')
             
             analog_equivalent = np.arange(n_pulses) * (self.true_duration + self.inter_stim_interval) + \
                                 self.centers[0]
@@ -1497,42 +1609,95 @@ class LongPulse(Pulse):
             print('pulse durations:', self.durations, '\n',
                   'inter pulse intervals = ',self.starts[1:] - self.ends[:-1], '\n'
                   'nb solid detections = ', np.sum(ind_ground_truth_pulses), '\n',
-                  'rel shift = ',  rel_shift_mean, u"\u00B1",
-                  rel_shift_sd)
+                  'rel shift = ',  rel_shift_mean, 
+                  u"\u00B1", rel_shift_sd)
             
             self.reconstruct_pulses_with_ground_truth(analog_equivalent, rel_shift_mean)
-    
-    def keep_detections_if_consistent(self, ind_ground_truth_pulses):
+            
+            
         
-        if np.sum(ind_ground_truth_pulses) == 0:
+    def check_for_ground_truth_pulses(self):
+        
+        ind_ground_truth_pulses = np.logical_and(self.durations < self.true_duration * self.max_acc_dev,
+                                                 self.durations > self.true_duration * self.min_acc_dev)
+        
+        return ind_ground_truth_pulses, sum(ind_ground_truth_pulses)
+    
+    def check_if_detections_consistent(self):
+        
+        if self.video_ends_mid_pulse and len(self.durations) > 2: # to exclude the last pulse in consistency check if pulse was cut in the middle
+        
+            self.pulse_duration = np.average(self.durations[:-1])
+            self.pulse_duration_sd = np.std(self.durations[:-1])
+            consistent = np.std(self.durations[:-1]) < self.max_allowed_duration_var
+            self.note = 'Video ends mid pulse. '
             
-            if np.std(self.durations) < 10:
+        else:
+            
+            self.pulse_duration = np.average(self.durations) 
+            self.pulse_duration_sd = np.std(self.durations)
+            consistent =  np.std(self.durations) < self.max_allowed_duration_var
+        
+        return consistent
+    
+    def check_if_video_ends_mid_pulse(self, ind_ground_truth_pulses):
+        
+        if self.nb_frames - self.ends[-1] < 5 and not ind_ground_truth_pulses[-1]:
+            
+            self.video_ends_mid_pulse = True
+            
+    def keep_detections_if_consistent(self, ind_ground_truth_pulses, n_solid_pulses):
+        
+        if n_solid_pulses == 0:
+            if self.check_if_detections_consistent():
                 
-                pulse_duration = round(np.average(self.durations) / self.fs * 1000) # in ms
-                pulse_duration_sd = round(np.std(self.durations) / self.fs * 1000) # in ms
-                self.note = '. No correction applied. Average pulse duration is:' + str(pulse_duration) + \
-                    "+/-"+ str(pulse_duration_sd) + ' ms'
+                self.note += 'Stim duration overruled. Pulse duration =' \
+                            + str(round(self.pulse_duration / self.fs * 1000)) \
+                            + "+/-" \
+                            + str(round(self.pulse_duration_sd / self.fs * 1000)) + ' ms'
                 
+                self.stim_duration_overruled = True
                 return True
-            
-            else:
                 
-                raise ValueError (" No solid detections found")
+            else:
+                self.no_solid_detection = True
+                self.note += 'No solid detection found.'
+                return False
                 
         else:
+            self.no_solid_detection = True
+            self.note += 'No solid detection found.'
+
             return False
+        
+    def return_pulses_as_is(self):
+        
+        """If the variability between pulse durations is low, stim_duration is overruled and pulses
+        are returned as detected"""
+        
+        if self.video_ends_mid_pulse:
+            self.starts[:-1] = (self.centers[:-1] - self.pulse_duration / 2).astype(int)
+            self.ends[:-1] = (self.centers[:-1] + self.pulse_duration / 2).astype(int)
+        else:
+            
+            self.starts = (self.centers - self.pulse_duration / 2).astype(int)
+            self.ends = (self.centers + self.pulse_duration / 2).astype(int)
         
     def reconstruct_pulses_with_ground_truth(self, analog_equivalent, rel_shift_mean):
         
         self.centers = analog_equivalent + rel_shift_mean
         
-        self.starts = (self.centers - self.true_duration / 2).astype(int)
-        self.ends = (self.centers + self.true_duration / 2).astype(int)
+        if self.video_ends_mid_pulse:
+            
+            self.starts[:-1] = (self.centers[:-1] - self.true_duration / 2).astype(int)
+            self.ends[:-1] = (self.centers[:-1] + self.true_duration / 2).astype(int)
+            
+        else:
+            
+            self.starts = (self.centers - self.true_duration / 2).astype(int)
+            self.ends = (self.centers + self.true_duration / 2).astype(int)
         
-    def remove_problematic_detections(self):
-        
-        
-        self.extrapolate_short_pulses(min_acc_dev = .99, max_acc_dev = 1.01)
+
         
 
         
@@ -1599,10 +1764,11 @@ class SortedExpeiment(Experiment) :
                  extract_info_from_file = True,
                  fps = 250,
                  duration_off_per_cycle = 25,
-                 inter_stim_interval = 'random'):
+                 inter_stim_interval = 'random',
+                 experiment = None):
         
         Experiment.__init__(self, video_filepath)
-        
+        self.experiment = experiment
         self.files = {'DLC': None, 'analogpulse': None}
         self.stim_duration = stim_duration
         self.check_func = {'DLC': self.right_DLC, 
@@ -1632,7 +1798,7 @@ class SortedExpeiment(Experiment) :
         self.prob_csv_path= None
         self.result_filename = self.get_result_filename()
         self.check_if_already_analyzed()
-
+        # self.video_ends_mid_pulse = video_ends_mid_pulse
     def get_DLC_path(self):
         
                 
@@ -1736,7 +1902,14 @@ class SortedExpeiment(Experiment) :
         self.find_csv_file( folder = 'Laser', d_type = 'analogpulse')
         self.find_csv_file( folder = 'DLC', d_type = 'DLC')
         
-    def save_laser_detections (self, starts, ends, method, mean_shift, sd_shift, note = ''):
+    def modify_result_filename(self, no_solid_detection):
+        
+        if no_solid_detection:
+            self.result_filename =  self.get_result_filename() + '_NO_SOLID_DETECTION'
+
+            
+    def save_laser_detections (self, starts, ends, method, mean_shift, 
+                               sd_shift, note = '', nb_frames = None, no_solid_detection = False):
 
         if isinstance(self.files['analogpulse'], File):
             
@@ -1746,22 +1919,34 @@ class SortedExpeiment(Experiment) :
             
             analog_path = 'No analog pulse provided.'
             
-        metadatas=[
-            [self.video.path],
-            [analog_path],
-            [method + note],
-            [str(mean_shift) + '+/-' + str(sd_shift)]
-            ]
-    
+
+        if self.experiment == 'treadmill':
+            
+            metadatas=[
+                [self.video.path],
+                [analog_path],
+                [method + note],
+                [str(mean_shift) + '+/-' + str(sd_shift)]
+                ]
+            
+        elif self.experiment == 'OF':
+            
+            metadatas=[
+                [self.video.path],
+                [note],
+                ['nb frames =' + str(nb_frames)],
+                ['pulse duration =' + str(round(np.average(ends - starts))) \
+                 + '+/-' + str(round(np.std(ends - starts)))]]
+                
         df = pd.DataFrame( np.column_stack(( starts, ends)),
                            columns = ['ON', 'OFF'])
-    
+        self.modify_result_filename(no_solid_detection) # to specify in name if no solid detections found
         resultFilePath = os.path.join(self.exp_dir, 'Laser', 
-                                      self.result_filename)
+                                      self.result_filename + '.csv')
         Directory.create_dir_if_not_exist(os.path.join(self.exp_dir, 'Laser'))
         with open(resultFilePath, 'w') as resultfile:
     
-            csvResult=csv.writer(resultfile,delimiter=',', lineterminator='\n')
+            csvResult=csv.writer(resultfile, delimiter=',', lineterminator='\n')
             csvResult.writerows(metadatas)
             
         df.to_csv(resultFilePath,  mode = 'a', index = False)
@@ -1769,18 +1954,23 @@ class SortedExpeiment(Experiment) :
     def get_result_filename(self):
         
         if isinstance(self.files['DLC'], File):
-            return self.files['DLC'].name_base + '_Laser.csv'
+            return self.files['DLC'].name_base + '_Laser'
         
         else:
             
-            return self.video.name_base +  '_Laser.csv'
+            return self.video.name_base +  '_Laser'
+    
+    def create_figname(self, constrain_frame):
         
-    def get_laser_start_end(self, pulse, analogpulse, true_duration):
+        return self.result_filename +  '_constrained_'  + str(constrain_frame)
+        
+    def get_laser_start_end(self, pulse_starts, pulse_ends, pulse, analogpulse, true_duration):
         
         if pulse.use_laser_detection_only(analogpulse) or pulse.enforce_use_laser_detection_only :
             
-            starts, ends = pulse.starts, pulse.ends
-            
+            starts =  pulse_starts
+            ends = pulse_ends
+
         else:
             
             analogpulse.align_to_video(pulse.shift_rel_to_analogpulse)
