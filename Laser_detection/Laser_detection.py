@@ -302,8 +302,8 @@ def set_config_file_openfield(path):
         'stim_duration' : 30000, # stim duration time, not necessary if stim type is specified in name and the above dict is specified.
         'duration_off_per_cycle' : 40,
         'inter_stim_interval' : 30000,
-        'max_acc_dev' : 0.985, # deviation from true stim durarion allowed in percentage 
-        'min_acc_dev' : 1.015, 
+        'min_acc_dev' : 2, # deviation from true stim durarion allowed in percentage 
+        'max_acc_dev' : 2, 
         'max_allowed_duration_var' : 10,
         'extract_info_from_file' : False,
         'thresholding_method' : 'RGB',# str, {'RGB', 'HSV'}
@@ -1440,6 +1440,7 @@ class Pulse :
                 
         
         except  Exception as error:
+            print(error)
             self.plot_error = error
             
         return ax, title
@@ -1521,7 +1522,7 @@ class LongPulse(Pulse):
                   enforce_use_laser_detection_only = False, 
                   use_laser_detection_if_no_analogpulse = False,
                   true_duration = None, inter_stim_interval = None, 
-                  min_acc_dev = 0.985, max_acc_dev = 1.015,
+                  min_acc_dev = 15, max_acc_dev = 15,
                   max_allowed_duration_var = 10, nb_frames = None):
         
         Pulse.__init__(self, sig, fs = fs, low_f = low_f, high_f = high_f, 
@@ -1600,7 +1601,6 @@ class LongPulse(Pulse):
             
             analog_equivalent = np.arange(n_pulses) * (self.true_duration + self.inter_stim_interval) + \
                                 self.centers[0]
-            plt.plot(analog_equivalent, [0.8] * n_pulses, 's')
             rel_shift_mean = np.average(self.centers[ind_ground_truth_pulses] - 
                                         analog_equivalent[ind_ground_truth_pulses])
             rel_shift_sd = np.std(self.centers[ind_ground_truth_pulses] - 
@@ -1617,9 +1617,8 @@ class LongPulse(Pulse):
             
         
     def check_for_ground_truth_pulses(self):
-        
-        ind_ground_truth_pulses = np.logical_and(self.durations < self.true_duration * self.max_acc_dev,
-                                                 self.durations > self.true_duration * self.min_acc_dev)
+        ind_ground_truth_pulses = np.logical_and(self.durations < self.true_duration * (1 + self.max_acc_dev/100),
+                                                 self.durations > self.true_duration * (1 - self.min_acc_dev/100))
         
         return ind_ground_truth_pulses, sum(ind_ground_truth_pulses)
     
@@ -1629,16 +1628,14 @@ class LongPulse(Pulse):
         
             self.pulse_duration = np.average(self.durations[:-1])
             self.pulse_duration_sd = np.std(self.durations[:-1])
-            consistent = np.std(self.durations[:-1]) < self.max_allowed_duration_var
             self.note = 'Video ends mid pulse. '
             
         else:
             
             self.pulse_duration = np.average(self.durations) 
             self.pulse_duration_sd = np.std(self.durations)
-            consistent =  np.std(self.durations) < self.max_allowed_duration_var
         
-        return consistent
+        return self.pulse_duration_sd < self.max_allowed_duration_var
     
     def check_if_video_ends_mid_pulse(self, ind_ground_truth_pulses):
         
@@ -1665,9 +1662,7 @@ class LongPulse(Pulse):
                 return False
                 
         else:
-            self.no_solid_detection = True
-            self.note += 'No solid detection found.'
-
+            self.note = str(n_solid_pulses) + ' solid pulses found.'
             return False
         
     def return_pulses_as_is(self):
@@ -1692,14 +1687,19 @@ class LongPulse(Pulse):
             self.starts[:-1] = (self.centers[:-1] - self.true_duration / 2).astype(int)
             self.ends[:-1] = (self.centers[:-1] + self.true_duration / 2).astype(int)
             
+            
         else:
             
             self.starts = (self.centers - self.true_duration / 2).astype(int)
             self.ends = (self.centers + self.true_duration / 2).astype(int)
-        
+            self.set_last_pulse_end_to_end_frame()
 
+    def set_last_pulse_end_to_end_frame(self):
         
-
+        if self.ends[-1] > self.nb_frames :
+            
+            print('correction for last pulse exceeds number of frames. Last pulse end is set to : nb_frames')
+            self.ends[-1] = self.nb_frames
         
         
 
@@ -1935,8 +1935,8 @@ class SortedExpeiment(Experiment) :
                 [self.video.path],
                 [note],
                 ['nb frames =' + str(nb_frames)],
-                ['pulse duration =' + str(round(np.average(ends - starts))) \
-                 + '+/-' + str(round(np.std(ends - starts)))]]
+                ['pulse duration =' + str(round(np.average(ends - starts) / self.fps * 1000)) \
+                 + '+/-' + str(round(np.std(ends - starts) / self.fps * 1000)) + ' ms']]
                 
         df = pd.DataFrame( np.column_stack(( starts, ends)),
                            columns = ['ON', 'OFF'])

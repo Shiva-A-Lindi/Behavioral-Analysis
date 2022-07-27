@@ -14,21 +14,19 @@ from Laser_detection import *
 if __name__ == '__main__':
 
 
-    # path = input('Input project path: \n')
-    # project_name = input('Input the number corresponding to your project: \n \
-    #                      1. Treadmill \n \
-    #                      2. Open field \n')
+    path = input('Input project path: \n')
+    project_name = input('Input the number corresponding to your project: \n \
+                          1. Treadmill \n \
+                          2. Open field \n')
                          
-    path = '/media/shiva/Seagate Expansion Drive/Lise_manipArky_2022/L-DOPA/STR_5ms'
-    project_name = '2'
-    stdin = ''
+ 
     laser_detection_path = os.path.join(path,  'LASER_DETECTION')
     Directory.create_dir_if_not_exist(laser_detection_path)
     configpath = set_config_file(path, project_name, rewrite_existing = True)
     
     print('config file created at \n {}. You may adjust the parameters and resave.\n'.format(configpath))
     
-    # stdin = input('Press ENTER if you wish to analyze all the video files in the project path directory, otherwise please input the path to a csv file containing the paths to your desired files.\n')
+    stdin = input('Press ENTER if you wish to analyze all the video files in the project path directory, otherwise please input the path to a csv file containing the paths to your desired files.\n')
     
     if stdin == '':
         
@@ -42,7 +40,6 @@ if __name__ == '__main__':
     else:
         
         raise ValueError ('Invalid input. Please try again.')
-    
     print( '{} experiment files found.'.format(len(video_filepath_list)) )
     
     SortedExpeiment.create_problematic_csv(os.path.join(laser_detection_path, 'Problematic_files.csv'))
