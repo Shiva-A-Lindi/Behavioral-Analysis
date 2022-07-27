@@ -19,7 +19,7 @@ if __name__ == '__main__':
                           1. Treadmill \n \
                           2. Open field \n')
                          
- 
+
     laser_detection_path = os.path.join(path,  'LASER_DETECTION')
     Directory.create_dir_if_not_exist(laser_detection_path)
     configpath = set_config_file(path, project_name, rewrite_existing = True)
@@ -117,6 +117,7 @@ if __name__ == '__main__':
                 
                 pulse.find_center_vicinities(
                                             sorted_exp.video.name_base,
+                                            sorted_exp.exp_dir,
                                             laser_detection_path,
                                             analogpulse, 
                                             center_vicinity_h_thresh = cfg['center_vicinity_h_thresh'],

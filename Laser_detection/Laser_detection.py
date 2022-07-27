@@ -1104,7 +1104,7 @@ class Pulse :
               ' frames')
 
     def find_center_vicinities(self, 
-                              video_filename, path, 
+                              video_filename, exp_path, path, 
                               analogpulse,
                               center_vicinity_h_thresh = 0.3,
                               change_coef = 0.2,
@@ -1129,8 +1129,19 @@ class Pulse :
                                         crude_smooth_wind = crude_smooth_wind)
             
         if len(self.center_vicinities) == 0 :
+            self.plot_raw_sig(video_filename, path)
             raise ValueError ("No pulses were detected!")
             
+    def plot_raw_sig(self, video_filename, path):
+        
+        fig, ax = plt.subplots()
+        ax.plot(self.raw_signal, c = 'teal')
+        ax.set_title('NO PULSES DETECTED')
+        Directory.create_dir_if_not_exist(os.path.join(path, 'Unsuccessful'))
+        fig.savefig(os.path.join(path, 'Unsuccessful', video_filename + '_NO_PULSES_DETECTED.png'),
+                    dpi = 250, facecolor='w', edgecolor='w',
+                    orientation='portrait', transparent=True ,bbox_inches = "tight", pad_inches=0.1)
+        
     def find_center_through_recursion(self, 
                                       center_vicinity_h_thresh, 
                                       video_filename, path,
