@@ -14,34 +14,35 @@ from Laser_detection import *
 if __name__ == '__main__':
 
 
-    path = input('Input project path: \n')
-    project_name = input('Input the number corresponding to your project: \n \
-                          1. Treadmill \n \
-                          2. Open field \n')
-                         
-
+    # path = input('Input project path: \n')
+    # project_name = input('Input the number corresponding to your project: \n \
+    #                       1. Treadmill \n \
+    #                       2. Open field \n')
+    project_name = '2'                  
+    path = '/media/shiva/LaCie/Lise_unsupervised_Behavior_class/'
     laser_detection_path = os.path.join(path,  'LASER_DETECTION')
     Directory.create_dir_if_not_exist(laser_detection_path)
     configpath = set_config_file(path, project_name, rewrite_existing = True)
     
     print('config file created at \n {}. You may adjust the parameters and resave.\n'.format(configpath))
     
-    stdin = input('Press ENTER if you wish to analyze all the video files in the project path directory, otherwise please input the path to a csv file containing the paths to your desired files.\n')
+    # stdin = input('Press ENTER if you wish to analyze all the video files in the project path directory, otherwise please input the path to a csv file containing the paths to your desired files.\n')
     
-    if stdin == '':
+    # if stdin == '':
         
-        directory = Directory(path)
-        video_filepath_list = directory.get_spec_files( extensions= ['.avi', '.mp4', '.mov', '.MP4'])
+    #     directory = Directory(path)
+    #     video_filepath_list = directory.get_spec_files( extensions= ['.avi', '.mp4', '.mov', '.MP4'])
             
-    elif os.path.exists(stdin):
+    # elif os.path.exists(stdin):
         
-        video_filepath_list = SortedExpeiment.get_videofile_paths_from_csv(stdin)
+    #     video_filepath_list = SortedExpeiment.get_videofile_paths_from_csv(stdin)
         
-    else:
+    # else:
         
-        raise ValueError ('Invalid input. Please try again.')
-    print( '{} experiment files found.'.format(len(video_filepath_list)) )
+    #     raise ValueError ('Invalid input. Please try again.')
+    # print( '{} experiment files found.'.format(len(video_filepath_list)) )
     
+    video_filepath_list = ['/media/shiva/LaCie/Lise_unsupervised_Behavior_class/FoxP2_31_140322_L-DOPA_GP_10ms_bottom.MP4']
     SortedExpeiment.create_problematic_csv(os.path.join(laser_detection_path, 'Problematic_files.csv'))
     SortedExpeiment.create_summary_csv(os.path.join(laser_detection_path, 'Analysis_summary.csv'))
     cfg = read_config(configpath)

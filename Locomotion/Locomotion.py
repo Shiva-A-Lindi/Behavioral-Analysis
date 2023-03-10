@@ -4163,7 +4163,7 @@ def run_one_intensity_save_data(pre_direct, scale_pix_to_cm, mouse_type, mouse_d
                                 intervals_dict, t_window_dict, accep_interval_range, study_param_dict,
                                 max_distance, min_distance, n_trials_spont, c_laser = 'deepskyblue', 
                                 c_spont = 'k', fig = None, outer = None, n_inner = 0, inner = None, 
-                                axes = [], remove_empty_ax = True, label = None, annotate_n = False,
+                                axes = [], remove_empty_ax = True, label = '', annotate_n = False,
                                 title_manually = True, plot_spont = True, save_fig = True, 
                                 suptitle_y = 0.95, multi_region = False, axvspan = True,
                                 x_label_list = [], y_label_list = []):
@@ -4611,7 +4611,8 @@ def superimpose_intensities(opto_par_list, pulse_cmap_dict, protocol_dict,
                             intervals_dict, t_window_dict, 
                             accep_interval_range, study_param_dict,
                             max_distance, min_distance, n_trials_spont, plot_spont = True, 
-                            ylabel_x = 0, xlabel_y = 0.07, suptitle_y = 0.98, c_spont = 'k',
+                            ylabel_x = 0, xlabel_y = 0.07, suptitle_y  = {'Control': 1.1, 'ChR2': 0.94}, 
+                            c_spont = 'k',
                             x_label_list = [], y_label_list = []):
 
     """ Create a set of subplots with mice as rows and stimulation location as
@@ -4619,7 +4620,7 @@ def superimpose_intensities(opto_par_list, pulse_cmap_dict, protocol_dict,
     types of stimuli"""
     
     
-    
+
     
     for opto_par in opto_par_list:
         
